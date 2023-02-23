@@ -1,3 +1,13 @@
+"""
+File: WMORE_BinToCSV.py
+Author: Sami Kaab
+Date: February 22, 2023
+Description:    This program converts every .bin file in a given directory to .csv format. 
+                This program was adapted from a Matlab script written by Nimish Panday.
+To Do:
+        add function to remove invalid lines in output csv
+"""
+
 import time
 import struct
 import os
@@ -7,44 +17,39 @@ import glob
 import multiprocessing
 import pandas as pd
 
+num_imu_vars = 10  # 10 x int16 variables from IMU
+num_uint8_vars = 16  # 16 x various uint8 variables
+num_uint8_line = 40  # 40 x uint8 per line encoding 27 human-readable variables
+
+# set the fprintf format of the 27 human-readable variables per line
+line_format = "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n"
+
+# Create headings for the output file
+line_heading = "ax,ay,az,gx,gy,gz,mx,my,mz,temp,valid,g_year,g_month,g_day,g_hour,g_minute,g_second,g_hund,l_year,l_month,l_day,l_hour,l_minute,l_second,l_hund,battery,period"
 
 def binToCSV(file_path):
-    num_imu_vars = 10  # 10 x int16 variables from IMU
-    num_uint8_vars = 16  # 16 x various uint8 variables
-    num_uint8_line = 40  # 40 x uint8 per line encoding 27 human-readable variables
+    """ Converts a single .bin file to a .csv
 
-    # Create a row vector for extracted variables
-    formatted_data = [0] * 27  # 27 human-readable variables per line
-
-    # set the fprintf format of the 27 human-readable variables per line
-    line_format = "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n"
-
-    # Create headings for the output file
-    line_heading_1 = "ax,ay,az,gx,gy,gz,mx,my,mz,temp,"
-    line_heading_2 = "valid,"
-    line_heading_3 = "g_year,g_month,g_day,g_hour,g_minute,g_second,g_hund,"
-    line_heading_4 = "l_year,l_month,l_day,l_hour,l_minute,l_second,l_hund,"
-    line_heading_5 = "battery,period"
+    Args:
+        file_path (str): The path to a single .bin file
+    """
     
-    # in_file = file_prefix + ".bin";
-    in_file = file_path
+    # set the name of the output csv file
     out_file = os.path.join(os.path.split(file_path)[0], os.path.split(file_path)[1][:16] + ".csv")
-    with open(in_file, 'rb') as file_id:
-        # # # # # # # # # # # # # # # # # # # # print("Processing file {}".format(in_file))
-        # read binary file into vector of uint8
+    with open(file_path, 'rb') as file_id:
+        # read binary file
         raw_data = file_id.read()
         
     # determine number of lines of data
     max_index = int(len(raw_data) / num_uint8_line)
 
-
+    # Create a row vector for extracted variables
+    formatted_data = [0] * 27  # 27 human-readable variables per line
+    
+    # Create and open output csv file
     with open(out_file, 'w') as file_id:
-        # Print headings to file 
-        file_id.write(line_heading_1)
-        file_id.write(line_heading_2)
-        file_id.write(line_heading_3)
-        file_id.write(line_heading_4)
-        file_id.write(line_heading_5)
+        # Write heading to file 
+        file_id.write(line_heading)
         file_id.write("\n")
         
         # process all lines of data
@@ -77,20 +82,17 @@ if __name__ == '__main__':
 
     start_time = time.time()
 
-    # file_name = "230216_094356_05.bin"
+    # Set input directory containing all the bin files
     data_dir = "C://Users//uqskaab//OneDrive - The University of Queensland//Documents//_Programing//230221_WMORE_dataconversion//data"
 
-    
-
-    # file_path = os.path.join(data_dir,file_name)
-
+    # Get list of file with the .bin extension in the set directory
     extension = ".bin"
     files = glob.glob(os.path.join(data_dir, f"*{extension}"))
-    # [print(file) for file in files]
-    # print(len(files))
-    # binToCSV(files[0])
+    
+    # Create a multiprocessing pool
     with multiprocessing.Pool() as pool:
         with tqdm(total=len(files)) as pbar:
+            # Convert all files in the given directory
             for result in pool.imap_unordered(binToCSV, files):
                 pbar.update()
                 
@@ -103,7 +105,6 @@ if __name__ == '__main__':
     print("Writing merged data to file...")
     # Write the combined dataframe to a new CSV file
     df.to_csv(os.path.join(data_dir,"combined.csv"), index=False)
-
 
     end_time = time.time()
     elapsed_time = time.localtime(end_time - start_time)
