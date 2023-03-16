@@ -28,10 +28,11 @@ line_format = "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d
 line_heading = "ax,ay,az,gx,gy,gz,mx,my,mz,temp,valid,g_year,g_month,g_day,g_hour,g_minute,g_second,g_hund,l_year,l_month,l_day,l_hour,l_minute,l_second,l_hund,battery,period"
 
 def binToCSV(file_path):
-    """ Converts a single .bin file to a .csv
-
+    """
+    Function to convert a binary file to CSV format.
+    
     Args:
-        file_path (str): The path to a single .bin file
+        file_path (str): Path to the binary file to be converted.
     """
     
     # set the name of the output csv file
@@ -78,13 +79,13 @@ def binToCSV(file_path):
             # print the data to the output text file
             file_id.write(line_format % tuple(formatted_data))
             
-if __name__ == '__main__':      
-
-    start_time = time.time()
-
-    # Set input directory containing all the bin files
-    data_dir = "C://Users//uqskaab//OneDrive - The University of Queensland//Documents//_Programing//230221_WMORE_dataconversion//data"
-
+def BatchConvert(data_dir):
+    """
+    Function to convert all binary files in a directory to CSV format using multiprocessing.
+    
+    Args:
+        data_dir (str): Path to the directory containing binary files to be converted.
+    """
     # Get list of file with the .bin extension in the set directory
     extension = ".bin"
     files = glob.glob(os.path.join(data_dir, f"*{extension}"))
@@ -95,6 +96,32 @@ if __name__ == '__main__':
             # Convert all files in the given directory
             for result in pool.imap_unordered(binToCSV, files):
                 pbar.update()
+                
+def MergeData(data_dir):
+    """
+    Merges CSV files in a given directory into a single file and saves it as 'combined.csv'.
+
+    Args:
+        data_dir (str): Path to the directory containing the CSV files.
+
+    Returns:
+        None
+    """
+    # Get a list of all CSV files in the directory
+    csv_files = glob.glob(os.path.join(data_dir, f"*.csv"))
+    # Combine all CSV files into a single dataframe
+    df = pd.concat([pd.read_csv(os.path.join(data_dir, f)) for f in tqdm(csv_files)])
+    df.to_csv(os.path.join(data_dir,"%s_combined.csv"%os.path.split(data_dir)[-1]), index=False)
+    
+if __name__ == '__main__':      
+
+    start_time = time.time()
+
+    # Set input directory containing all the bin files
+    data_dir = "C://Users//uqskaab//OneDrive - The University of Queensland//Documents//_Programing//230221_WMORE_dataconversion//data"
+    BatchConvert(data_dir)
+
+    
                 
     print("Merging data")
     # Get a list of all CSV files in the directory
