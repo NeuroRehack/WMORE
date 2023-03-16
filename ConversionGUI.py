@@ -1,3 +1,14 @@
+"""
+File: ConversionGUI.py
+Author: Sami Kaab
+Date: March 16, 2023
+Description: This program converts every .bin file in a given directory to .csv format and merges the resulting .csv files.
+The script uses a PyQt5 graphical user interface to provide a user-friendly experience. The conversion function is
+run in a multiprocessing pool to speed up the process, and a progress bar is displayed to show the conversion progress.
+The merged .csv file is written to the selected directory, and the script provides an option to open the directory or
+exit the program.
+"""
+
 import os
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QWidget, QMessageBox,QProgressDialog
@@ -164,87 +175,7 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self,'Information', 'CSV files merged successfully.')
 
         print("Thread finished")
-        
-        # progress_dialog = ProgressDialog(output_path,merged_df)
-        # progress_dialog.setRange(0, 0)  # set the range to 0-0 to make it indeterminate
-        # progress_dialog.show()
-        # progress_dialog.start_work()
-        
-        # thread = QThread()
-        # worker = Worker()
-        # worker.moveToThread(thread)
-        # # worker.finished.connect(thread.quit)
-        # # worker.finished.connect(worker.deleteLater)
-        # # worker.finished.connect(thread.deleteLater)
-
-        # thread.started.connect(worker.writeMergedToCSV)
-        # worker.finished.connect(progress.close)
-        # thread.start()
-
-        # thread = threading.Thread(target=self.writeMergedToCSV,args=(output_path,merged_df,progress))
-        # thread.start()
-
-    # def writeMergedToCSV(self,output_path,merged_df,progress):
-    #     if output_path:
-    #         merged_df.to_csv(output_path, index=False)
-    #     progress.close()
-    #         # Show a message box to inform the user that the merge is complete
-    #     QMessageBox.information(self,'Information', 'CSV files merged successfully.')
-    
-
-    # def showLoadingBar(self,q):
-    #     # Create a progress dialog for merging files
-    #     progress = QProgressDialog("Writing to file...", "Cancel", 0, 0, None)
-    #     progress.setWindowModality(Qt.WindowModal)
-    #     progress.setAutoClose(True)
-    #     progress.setAutoReset(True)
-    #     progress.setWindowTitle("Writing to file...")
-    #     progress.show()
-    #     while True:
-    #         message = q.get()
-    #         if message == "stop":
-    #             break
-    #         # time.sleep(0.5)
-        
-    #     progress.close()
-        
-    # def writeMergedToCSV(self,output_path,merged_df,q):
-    #     # if output_path:
-    #     #     merged_df.to_csv(output_path, index=False)
-    #     for i in list(range(1000)):
-    #         print(i)
-    #     q.put("stop")
-# class Worker(QObject):
-#     finished = pyqtSignal()
-
-#     def writeMergedToCSV(self,output_path,merged_df):
-#         # if output_path:
-#         #     merged_df.to_csv(output_path, index=False)
-#         time.sleep(2)
-#             # Show a message box to inform the user that the merge is complete
-#         self.finished.emit()  
-
-# class ProgressDialog(QProgressDialog):
-#     def __init__(self,output_path,merged_df):
-#         super().__init__()
-#         self.worker_thread = None
-#         self.output_path = output_path
-#         self.merged_df = merged_df
-
-#     def start_work(self):
-#         self.worker_thread = threading.Thread(target=self.do_work)
-#         self.worker_thread.start()
-
-#     def do_work(self):
-#         worker = Worker()
-#         worker.finished.connect(self.finish_work)
-#         worker.writeMergedToCSV(self.output_path,self.merged_df)
-
-#     def finish_work(self):
-#         print("hi")
-#         QMessageBox.information(None,'Information', 'CSV files merged successfully.')
-#         # self.worker_thread.join()
-#         # self.close()
+       
         
         
 class writeMergedToCSV(QThread):
