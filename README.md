@@ -23,8 +23,4 @@ Use the wiring diagram below. **NOTE** Pay attention to the wiring difference be
 The wiring diagram above is included [here](Documentation/Wiring_Diagram.pdf)
 
 
-<object data="Documentation\230320_bottom.obj" width="500" height="500" type="application/octet-stream"></object>
-
-
-
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
