@@ -25,23 +25,3 @@ The wiring diagram above is included [here](Documentation/Wiring_Diagram.pdf)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-<script>
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 5;
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.getElementById('model-container').appendChild(renderer.domElement);
-
-    const loader = new THREE.GLTFLoader();
-    loader.load('case.glb', function (gltf) {
-      scene.add(gltf.scene);
-    });
-
-    function animate() {
-      requestAnimationFrame(animate);
-      renderer.render(scene, camera);
-    }
-
-    animate();
-  </script>
