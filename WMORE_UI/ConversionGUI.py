@@ -2,11 +2,11 @@
 File: ConversionGUI.py
 Author: Sami Kaab
 Date: March 16, 2023
-Description: This program converts every .bin file in a given directory to .csv format and merges the resulting .csv files.
-The script uses a PyQt5 graphical user interface to provide a user-friendly experience. The conversion function is
-run in a multiprocessing pool to speed up the process, and a progress bar is displayed to show the conversion progress.
-The merged .csv file is written to the selected directory, and the script provides an option to open the directory or
-exit the program.
+Description:    This program converts every .bin file in a given directory to .csv format and merges the resulting .csv files.
+                The script uses a PyQt5 graphical user interface to provide a user-friendly experience. The conversion function is
+                run in a multiprocessing pool to speed up the process, and a progress bar is displayed to show the conversion progress.
+                The merged .csv file is written to the selected directory, and the script provides an option to open the directory or
+                exit the program.
 """
 
 import os
