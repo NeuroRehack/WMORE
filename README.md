@@ -44,7 +44,7 @@ Before wiring the components together, the Openlog Artemis must be modified in 2
 
 2. The Openlog Artemis has a charge current of approximately 450 mA. The 500 mAh Ecocell 503035P that is used in the WMOREs has a recommended charge current of 100 mA. If this battery is used then the Openlog Artemis charge current must be reduced to 100 mA for safe operation.  This can be achieved by replacing the R4 resistor (which location is shown in [Figure 4.](/Documentation/Openlog_Battery_Voltage_Regulator_Resistor.jpg)) on the Openlog Artemis with a 4.7kΩ 0402 surface mount resistor.
 
-| <img src="Documentation/OpenLog_JST_Desolder_Location.jpg" alt="OpenLog_JST_Desolder_Location" width="200"/> | <img src="Documentation/OpenLog_JST_Desoldered.jpg" alt="OpenLog_JST_Desolder_Location" width="200"/> | <img src="Documentation/Openlog_Battery_Voltage_Regulator_Resistor.jpg" alt="Openlog_Battery_Voltage_Regulator_Resistor" width="211"/> |
+| <img src="Documentation/OpenLog_JST_Desolder_Location.jpg" alt="OpenLog_JST_Desolder_Location" width="200"/> | <img src="Documentation/OpenLog_JST_Desoldered.jpg" alt="OpenLog_JST_Desolder_Location" width="200"/> | <img src="Documentation/Openlog_Battery_Voltage_Regulator_Resistor.jpg" alt="Openlog_Battery_Voltage_Regulator_Resistor" width="200"/> |
 |-|-|-|
 | [Figure 2.](Documentation/OpenLog_JST_Desolder_Location.jpg) JST pins to desolder | [Figure 3.](Documentation/OpenLog_JST_Desoldered.jpg) Desoldered JST conenctor | [Figure 4.](Documentation/Openlog_Battery_Voltage_Regulator_Resistor.jpg) Location of resistor to change |
 
@@ -155,6 +155,6 @@ The WMORE Nano firmware uses the **arduino_nano_33_ble** Build Configuration. On
   .\bossac -d --port=<COMxx> -U -i -e -w <path_to_project>/Firmware/Nano_Logger/arduino_nano_33_ble/zephyr/zephyr.bin -R
   ```
   
-<span style="color:red">**NOTE**</span> : The appropriate .bin file **<path_to_project>** and **\<COMxx\>** should be substituted. The com port number can be found using the Device Manager. 
+**NOTE** : The appropriate .bin file **<path_to_project>** and **\<COMxx\>** should be substituted. The com port number can be found using the Device Manager. 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
