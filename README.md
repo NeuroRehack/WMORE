@@ -4,23 +4,22 @@
 This project aims at providing an opensource platform for synchronised inertial measurements.
 This platform consist of a list of required components, firmware to run the components and a software user interface. 
 
-This project consist of two sensor types: a logger and a coordinator. The coordinator's role is to initiate and stop recording on the loggers as well as keep them synchronised. Only one Coordinator is necessary to operate a group of logger.
+The project comprises two types of sensors: a logger and a coordinator. The coordinator is responsible for initiating and stopping the recording on the loggers while ensuring that they remain synchronized. Only one coordinator is required to operate a group of loggers.
 ## Table of Content
 - [WMORE](#wmore)
   - [Table of Content](#table-of-content)
-- [Requirements](#requirements)
-  - [Hardware](#hardware)
-      - [Required components](#required-components)
+- [Hardware](#hardware)
+  - [Required components](#required-components)
   - [Building the device](#building-the-device)
-  - [Firmware](#firmware)
-    - [Openlog Artemis (OLA)](#openlog-artemis-ola)
+- [Firmware](#firmware)
+  - [Openlog Artemis (OLA)](#openlog-artemis-ola)
     - [Setting up the Arduino environment](#setting-up-the-arduino-environment)
     - [Uploading firmware onto the OLA](#uploading-firmware-onto-the-ola)
-    - [Nano (OLA)](#nano-ola)
+  - [Nano (OLA)](#nano-ola)
     - [Uploading firmware to Nano](#uploading-firmware-to-nano)
-# Requirements
-## Hardware
-#### Required components
+- [Software](#software)
+# Hardware
+## Required components
 ---
 This project was designed using the following components. Only the Arduino Nano and Artemis Openlog are required to run the firmware, the battery and switches can be swapped for different models. However the CAD models for the case will need to be modified or redesigned accordingly if you choose to do so. The following list of materials is required for each WMORE. At least 2 WMOREs must be assembled:
 
@@ -46,7 +45,7 @@ Before wiring the components together, the Openlog Artemis must be modified in 2
 
 | <img src="Documentation/OpenLog_JST_Desolder_Location.jpg" alt="OpenLog_JST_Desolder_Location" width="200"/> | <img src="Documentation/OpenLog_JST_Desoldered.jpg" alt="OpenLog_JST_Desolder_Location" width="200"/> | <img src="Documentation/Openlog_Battery_Voltage_Regulator_Resistor.jpg" alt="Openlog_Battery_Voltage_Regulator_Resistor" width="200"/> |
 |-|-|-|
-| [Figure 2.](Documentation/OpenLog_JST_Desolder_Location.jpg) JST pins to desolder | [Figure 3.](Documentation/OpenLog_JST_Desoldered.jpg) Desoldered JST conenctor | [Figure 4.](Documentation/Openlog_Battery_Voltage_Regulator_Resistor.jpg) Location of resistor to change |
+| [Figure 2.](Documentation/OpenLog_JST_Desolder_Location.jpg) JST pins to desolder | [Figure 3.](Documentation/OpenLog_JST_Desoldered.jpg) Desoldered JST conenctor | [Figure 4.](Documentation/Openlog_Battery_Voltage_Regulator_Resistor.jpg) Location of the resistor to change |
 
 The male JST connector on the battery also needs to be cut off.
 
@@ -60,8 +59,8 @@ Use the wiring diagram below solder the components together.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Firmware
-### Openlog Artemis (OLA)
+# Firmware
+## Openlog Artemis (OLA)
 ---
 The Coordinator and Logger OLA firmware applications are based on v2.3 of the Openlog Artemis application supplied by Sparkfun (https://github.com/sparkfun/OpenLog_Artemis). Both the OLA firmware applications were developed using the Openlog Artemis board support package installed on version 1.8.12 of the Arduino IDE. 
 
@@ -112,7 +111,7 @@ Before flashing the Openlogs the Arduino IDE must be set as follows:
 Once the Arduino IDE has been set up, open the [WMORE_Coordinator.ino](Firmware/OpenLog_Coordinator/WMORE_Coordinator.ino) file or the [WMORE_Coordinator.ino](Firmware/OpenLog_Coordinator/WMORE_Coordinator.ino). Connect the OLA to your computer, select the correct com port and press the upload button. The project may take a while to compile
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-### Nano (OLA)
+## Nano (OLA)
 ---
 The Coordinator and Logger Nano applications are written using **v2.1.0** of the **Nordic Semiconductor nRF Connect SDK** in the **Visual Studio Code** IDE and based on the **nRF Connect SDK Enhanced Shockburst (ESB)** sample applications. The nRF Connect SDK is based on the Zephyr RTOS, and Zephyr API calls are used in the WMORE applications. 
 
@@ -158,3 +157,6 @@ The WMORE Nano firmware uses the **arduino_nano_33_ble** Build Configuration. On
 **NOTE** : The appropriate .bin file **<path_to_project>** and **\<COMxx\>** should be substituted. The com port number can be found using the Device Manager. 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+# Software
+
