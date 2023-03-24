@@ -1,0 +1,32 @@
+// arduino_nano_33_ble.overlay
+// Application-specific overrides and definitions
+
+// Change UART baud rate
+&uart0 {
+    current-speed = <460800>;
+};
+
+// Define GPIO inputs and outputs
+/ {
+	gpio_in {
+		compatible = "gpio-keys"; // Inherit gpio-keys properties
+		start_in: gpio_start_in {
+			gpios = < &gpio1 11 (GPIO_ACTIVE_LOW | GPIO_PULL_UP) >;
+			label = "start_input";
+		};
+		stop_in: gpio_stop_in {
+			gpios = < &gpio1 12 (GPIO_ACTIVE_LOW | GPIO_PULL_UP) >;
+			label = "stop_input";
+		};
+	};
+	
+	gpio_out {
+	    compatible = "gpio-leds"; // Inherit gpio-led properties
+	    sync_out: gpio_sync_out {
+		    gpios = <&gpio1 15 GPIO_ACTIVE_LOW>;
+	    };
+	    stop_out: gpio_stop_out {
+		    gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
+		};
+	};
+};
