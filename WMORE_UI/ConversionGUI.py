@@ -13,6 +13,8 @@ import os
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QWidget, QMessageBox,QProgressDialog
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QObject
+
+from PyQt5.QtGui import QIcon
 import WMORE_BinToCSV
 import multiprocessing
 import glob
@@ -21,10 +23,14 @@ import threading
 import time
 import queue
 
-class MainWindow(QMainWindow):
-    def __init__(self):
+class ConvertWindow(QMainWindow):
+    def __init__(self,app):
         super().__init__()
-        
+        self.setWindowTitle("WMORE Data Conversion")
+        icon = QIcon("WMORE_UI\\images\\WMORE.png")
+        self.setWindowIcon(icon)
+
+        self.app = app
         self.directory = ""
         self.csv_files = []
 
@@ -112,7 +118,7 @@ class MainWindow(QMainWindow):
         progress.setRange(num_files-result._number_left, num_files)
         while not result.ready():
             progress.setValue(num_files - result._number_left)
-            app.processEvents()
+            self.app.processEvents()
 
         # Close the progress dialog when the conversion is finished
         progress.close()
@@ -151,7 +157,7 @@ class MainWindow(QMainWindow):
             df = pd.read_csv(csv_file)
             dfs.append(df)
             self.progress.setValue(self.progress.value() + 1)
-            app.processEvents()
+            self.app.processEvents()
             
         
         # Concatenate all data frames in the list into a single data frame
@@ -198,7 +204,7 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
 
     # Create the main window
-    window = MainWindow()
+    window = ConvertWindow(app)
     window.show()
 
     # Run the event loop
