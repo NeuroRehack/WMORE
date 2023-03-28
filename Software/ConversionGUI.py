@@ -27,7 +27,7 @@ class ConvertWindow(QMainWindow):
     def __init__(self,app):
         super().__init__()
         self.setWindowTitle("WMORE Data Conversion")
-        icon = QIcon("WMORE_UI\\images\\WMORE.png")
+        icon = QIcon("Software\\images\\WMORE.png")
         self.setWindowIcon(icon)
 
         self.app = app

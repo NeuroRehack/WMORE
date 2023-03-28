@@ -1,3 +1,20 @@
+"""
+File: WMORE_HUB.py
+Author: Sami Kaab
+Date: March 28, 2023
+Description:   This program allows the user to interact with the WMOREs.
+Feature List:
+                List available devices
+                Serial communication
+                Set RTC
+                Format SD card
+                Download data
+                Convert Data
+To Do:  
+                implement all feature for one button multiple devices simultaneously
+                allow user to enable 
+"""
+
 import serial.tools.list_ports
 from PyQt5 import QtCore, QtGui, QtWidgets, QtSerialPort
 from PyQt5.QtCore import QCoreApplication, Qt, QSize
@@ -59,7 +76,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("WMORE")
-        icon = QIcon("WMORE_UI\\images\\WMORE.png")
+        icon = QIcon("Software\\images\\WMORE.png")
         self.setWindowIcon(icon)
         self.resize(900, 600)
 
