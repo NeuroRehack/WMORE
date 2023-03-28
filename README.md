@@ -2,7 +2,7 @@
 
 # WMORE
 <p align="center">
-<img src="Documentation/WMORE_render.png" alt="OpenLog_JST_Desolder_Location" width="400"/>
+<img src="Documentation/rotation.gif" alt="OpenLog_JST_Desolder_Location" width="400"/>
 <img src="Documentation/assembly.gif" alt="OpenLog_JST_Desolder_Location" width="400"/>
 </p>
 
