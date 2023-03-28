@@ -21,7 +21,6 @@ from PyQt5.QtCore import QCoreApplication, Qt, QSize
 from PyQt5.QtGui import QTextCursor, QColor, QBrush, QFont,QIcon
 from PyQt5.QtWidgets import QListWidgetItem
 
-
 import time
 from datetime import datetime, date
 import subprocess
@@ -29,49 +28,89 @@ import os
 
 from ConversionGUI import ConvertWindow
 
+# Import necessary libraries
+import serial.tools.list_ports  # Library to access information about available serial ports
+from PyQt5 import QtCore, QtGui, QtWidgets, QtSerialPort  # Library for building GUI applications
+from PyQt5.QtCore import QCoreApplication, Qt, QSize, QTimer
+from PyQt5.QtGui import QTextCursor, QColor, QBrush, QFont, QIcon
+from PyQt5.QtWidgets import QListWidgetItem
 
+from PyQt5.QtGui import QCursor
+from PyQt5.QtWidgets import QApplication, QPushButton, QToolTip
+
+import time  # Library for working with time
+from datetime import datetime, date  # Library for working with dates and times
+import subprocess  # Library for spawning new processes
+import os  # Library for interacting with the operating system
+
+# Define lists of commands that will be used later
 rtc_commands = [
-    'm',
-    '2',
-    '4',
-    "year",
-    "month",
-    "day",
-    '6',
-    "hour",
-    "minute",
-    "second",
-    'x'
-    ]
-
-format_commands = [
-    'm',
-    's',
-    'fmt',
+    'm',  
+    '2',  
+    '4',  
+    "year",  
+    "month",  
+    "day",  
+    '6',  
+    "hour",  
+    "minute",  
+    "second",  
+    'x'  
 ]
 
-def getDate(mode):
-    if mode == "year":
-        dt = datetime.now().year-2000
-        return '%d'%dt
-    elif mode == "month":
-        dt = datetime.now().month
-        return '%d'%dt
-    elif mode == "day":
-        dt = datetime.now().day
-        return '%d'%dt
-    elif mode == "hour":
-        dt = datetime.now().hour
-        return '%d'%dt
-    elif mode == "minute":
-        dt = datetime.now().minute
-        return '%d'%dt
-    elif mode == "second":
-        dt = datetime.now().second
-        return '%d'%dt
+format_commands = [
+    'm', 
+    's', 
+    'fmt'  
+]
+
+# Define a function to get the current date and time
+def getDate(cmd):
+    if cmd == "year":
+        dt = datetime.now().year-2000  # Get the current year and subtract 2000 to get the last 2 digits
+        return '%d' % dt  # Return the year as a string
+    elif cmd == "month":
+        dt = datetime.now().month  # Get the current month
+        return '%d' % dt  # Return the month as a string
+    elif cmd == "day":
+        dt = datetime.now().day  # Get the current day
+        return '%d' % dt  # Return the day as a string
+    elif cmd == "hour":
+        dt = datetime.now().hour  # Get the current hour
+        return '%d' % dt  # Return the hour as a string
+    elif cmd == "minute":
+        dt = datetime.now().minute  # Get the current minute
+        return '%d' % dt  # Return the minute as a string
+    elif cmd == "second":
+        dt = datetime.now().second  # Get the current second
+        return '%d' % dt  # Return the second as a string
     else:
-        return mode
-        
+        return cmd  # Return the cmd if it is not a recognized date or time component
+
+
+
+class HoverButton(QPushButton):
+    def __init__(self, parent=None,hover_tip=''):
+        super().__init__(parent)
+        self.hover_tip = hover_tip
+        self.setToolTipDuration(2000) # set tooltip duration to 2 seconds
+        self.hover_timer = QTimer(self)
+        self.hover_timer.timeout.connect(self.on_hover)
+
+    def enterEvent(self, event):
+        self.hover_timer.start(500) # start the timer when mouse enters
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.hover_timer.stop() # stop the timer when mouse leaves
+        QToolTip.hideText()
+        super().leaveEvent(event)
+
+    def on_hover(self):
+        self.hover_timer.stop()
+        QToolTip.showText(QCursor.pos(), self.hover_tip) # show the hint text at the current cursor position
+
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
@@ -81,8 +120,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.resize(900, 600)
 
         # Create widgets
-        self.disconnect_button = QtWidgets.QPushButton("Disconnect")
-        self.format_button = QtWidgets.QPushButton("Format")
+        self.disconnect_button = HoverButton("Disconnect",hover_tip = "Closes serial conenction")
+        self.format_button = HoverButton("Format",hover_tip="Wipes the SD Card of the selected device")
         self.rtc_button = QtWidgets.QPushButton("Set RTC")
         self.refresh_button = QtWidgets.QPushButton("Refresh")
         self.send_button = QtWidgets.QPushButton("Send")
