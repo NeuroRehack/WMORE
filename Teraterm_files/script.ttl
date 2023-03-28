@@ -1,0 +1,17 @@
+pause 1
+sendln "M"
+pause 1
+sendln "s"
+pause 1
+sendln "sz *"
+pause 1
+sendln "\r"
+pause 1
+changedir 'C:\Users\uqskaab\OneDrive - The University of Queensland\Documents\_Programing\230320_WMORE\Teraterm_files\data'
+zmodemrecv
+pause 1
+sendln "x"
+pause 1
+sendln "x"
+pause 1
+closett
