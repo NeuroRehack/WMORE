@@ -12,49 +12,44 @@ import os
 
 
 rtc_commands = [
-    b'm\n\r',
-    b'2\n\r',
-    b'4\n\r',
+    'm\n\r',
+    '2\n\r',
+    '4\n\r',
     "year",
     "month",
     "day",
-    b'6\n\r',
+    '6\n\r',
     "hour",
     "minute",
     "second",
-    b'x\n\r'
+    'x\n\r'
     ]
-# ,
-#     b'q\n\r',
-#     b'y\n\r'
-#     ]
+
 format_commands = [
-    b'm\n\r',
-    b's\n\r',
-    b'fmt\n\r',
-    b'x\n\r',
-    b'x\n\r'
+    'm\n\r',
+    's\n\r',
+    'fmt\n\r',
 ]
 
 def getDate(mode):
     if mode == "year":
         dt = datetime.now().year-2000
-        return b'%d\n\r'%dt
+        return '%d\n\r'%dt
     elif mode == "month":
         dt = datetime.now().month
-        return b'%d\n\r'%dt
+        return '%d\n\r'%dt
     elif mode == "day":
         dt = datetime.now().day
-        return b'%d\n\r'%dt
+        return '%d\n\r'%dt
     elif mode == "hour":
         dt = datetime.now().hour
-        return b'%d\n\r'%dt
+        return '%d\n\r'%dt
     elif mode == "minute":
         dt = datetime.now().minute
-        return b'%d\n\r'%dt
+        return '%d\n\r'%dt
     elif mode == "second":
         dt = datetime.now().second
-        return b'%d\n\r'%dt
+        return '%d\n\r'%dt
     else:
         return mode
         
@@ -138,13 +133,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def sendCmds(self,commands):
         for cmd in commands:
-            cmd = getDate(cmd)
-            self.serial.write(cmd)
             QCoreApplication.processEvents()  # allow the event loop to run
             time.sleep(0.5)
+            cmd = getDate(cmd)
+            self.send_command(cmd)
             print(cmd)
- 
-
     
     def refreshDevices(self):
         
@@ -155,7 +148,6 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.connect_serial(port.device):
                 self.disconnect_serial()
                 self.list_widget.addItem(port.device)
-                # self.com_port_combo_box.addItem(port.device)
 
     def update_selected_text(self):
         # Get the selected text from the list box and display it in the window's title bar
@@ -168,6 +160,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.connect_serial(selected_text)
         except:
             print("Cant connect to device")
+            
     def connect_serial(self,port_name):
         info = QtSerialPort.QSerialPortInfo(port_name)
         product_id = info.productIdentifier()
@@ -190,19 +183,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.serial.close()
         self.serial_output.append("Disconnected\n")
         
-
     def send_command(self,command):
-        print("--")
-        print(command.encode())
-        print("--")
+        # self.serial_output.insertPlainText(f"\nsent: {command}\n")
         self.serial.write(command.encode())
-        # if self.serial.waitForReadyRead(10000): 
-            # wait up to 1 second for data to be available for reading
-        data = self.serial.readAll().data().decode()
-        self.serial_output.insertPlainText(data)
-        # else:
-        #     QtWidgets.QMessageBox.warning(self, "Error", "Timeout waiting for response from device.")
-            # break
         self.command_line_edit.clear()
 
     def read_serial(self):
