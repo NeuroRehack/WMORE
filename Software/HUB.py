@@ -13,18 +13,9 @@ Feature List:
 To Do:  
                 implement all feature for one button multiple devices simultaneously
                 allow user to enable 
+                disable set rtc button for loggers
+                store sensor info in sensor object class
 """
-
-import serial.tools.list_ports
-from PyQt5 import QtCore, QtGui, QtWidgets, QtSerialPort
-from PyQt5.QtCore import QCoreApplication, Qt, QSize
-from PyQt5.QtGui import QTextCursor, QColor, QBrush, QFont,QIcon
-from PyQt5.QtWidgets import QListWidgetItem
-
-import time
-from datetime import datetime, date
-import subprocess
-import os
 
 from ConversionGUI import ConvertWindow
 
@@ -32,11 +23,9 @@ from ConversionGUI import ConvertWindow
 import serial.tools.list_ports  # Library to access information about available serial ports
 from PyQt5 import QtCore, QtGui, QtWidgets, QtSerialPort  # Library for building GUI applications
 from PyQt5.QtCore import QCoreApplication, Qt, QSize, QTimer
-from PyQt5.QtGui import QTextCursor, QColor, QBrush, QFont, QIcon
-from PyQt5.QtWidgets import QListWidgetItem
+from PyQt5.QtGui import QTextCursor, QColor, QBrush, QFont, QIcon, QCursor
+from PyQt5.QtWidgets import QListWidgetItem, QFileDialog, QApplication, QPushButton, QToolTip
 
-from PyQt5.QtGui import QCursor
-from PyQt5.QtWidgets import QApplication, QPushButton, QToolTip
 
 import time  # Library for working with time
 from datetime import datetime, date  # Library for working with dates and times
@@ -87,6 +76,31 @@ def getDate(cmd):
     else:
         return cmd  # Return the cmd if it is not a recognized date or time component
 
+def update_changedir_path(filepath, newpath):
+    # Open the file for reading and writing
+    with open(filepath, 'r+') as file:
+        # Read the contents of the file into memory
+        contents = file.read()
+        # Split the contents of the file into lines
+        lines = contents.split('\n')
+        # Look for the line that starts with "changedir"
+        for i, line in enumerate(lines):
+            if line.startswith('changedir'):
+                # Replace the path in the "changedir" line with the new path
+                newpath = newpath.replace("/", "\\\\")
+                lines[i] = f'changedir "{newpath}"'
+                break
+        else:
+            # If no "changedir" line was found, raise an error
+            raise ValueError('No "changedir" line found in script file')
+        # Join the lines back together into a single string
+        updated_contents = '\n'.join(lines)
+        # Move the file pointer back to the start of the file
+        file.seek(0)
+        # Write the updated contents back to the file
+        file.write(updated_contents)
+        # Truncate the file to the new length (in case the new contents are shorter than the old)
+        file.truncate()
 
 
 class HoverButton(QPushButton):
@@ -217,12 +231,24 @@ class MainWindow(QtWidgets.QMainWindow):
             self.disconnect_serial()
             self.list_widget.clearSelection()
             QCoreApplication.processEvents()
-            macro_full_path = os.path.abspath("Teraterm_files\\script.ttl")
+            macro_full_path = os.path.abspath("Software\\teratermMacro.ttl")
+            # Open a file dialog to choose a folder
+            newFolderPath = QFileDialog.getExistingDirectory(self, 'Choose a folder')
+            item = self.list_widget.currentItem()
+            # create a folder with the date time of download and firmware and id of sensor data
+            txt = item.text().split("\t")
+            now = datetime.now()
+            newFolderPath = f"{newFolderPath}\\\\{now.strftime('%y_%m_%d-%H_%M_%S')}_{txt[1]}_{txt[0]}"
+            if not os.path.exists(newFolderPath):
+                # If the folder doesn't exist, create it (including any necessary parent directories)
+                os.makedirs(newFolderPath)
+            update_changedir_path(macro_full_path, newFolderPath)
             subprocess.run(f'"C:\\Program Files (x86)\\teraterm\\ttermpro.exe" /C={portn} /BAUD=115200 /M="{macro_full_path}"')
         else:
             QtWidgets.QMessageBox.critical(self,"No Device", "No selected device found.\nPlease select a device first.")
 
     def sendCmds(self,commands):
+        disconnectAfter = False
         if self.serial.isOpen():
             for cmd in commands:
                 QCoreApplication.processEvents()  # allow the event loop to run
@@ -232,6 +258,8 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             QtWidgets.QMessageBox.critical(self,"No Device", "No selected device found.\nPlease select a device first.")
             
+
+
     
     def refreshDevices(self):
         self.list_widget.clear()
@@ -304,7 +332,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def process_output(self,data):
 
         if "done" in data:
-            QtWidgets.QMessageBox.information(self,"Formatting Done", "The SD card has been formatted, please power cycle the device.")    
+            QtWidgets.QMessageBox.information(self,"Formatting Done", "The SD card has been formatted, please power cycle the device.")  
+            index = self.list_widget.currentRow()
+            self.list_widget.takeItem(index)  
         if "Coordinator v" in data:
             item = self.list_widget.currentItem()
             txt = item.text().split("\t")
