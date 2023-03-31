@@ -11,10 +11,10 @@ Description:    This program converts every .bin file in a given directory to .c
 
 import os
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QWidget, QMessageBox,QProgressDialog
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, QObject
+from PySide2.QtWidgets import QApplication, QMainWindow, QFileDialog, QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QWidget, QMessageBox, QProgressDialog
+from PySide2.QtCore import Qt, QThread, Signal, QObject
+from PySide2.QtGui import QIcon
 
-from PyQt5.QtGui import QIcon
 import WMORE_BinToCSV
 import multiprocessing
 import glob
@@ -185,7 +185,7 @@ class ConvertWindow(QMainWindow):
         
         
 class writeMergedToCSV(QThread):
-    finished = pyqtSignal()
+    finished = Signal()
 
     def __init__(self,merged_df,output_path):
         super().__init__()
