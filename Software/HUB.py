@@ -25,6 +25,8 @@ from datetime import datetime
 import re
 import os
 import configparser
+from multiprocessing import Pool
+
 
 from PySide2 import QtCore, QtGui, QtWidgets, QtSerialPort
 
@@ -51,6 +53,10 @@ FORMAT_COMMANDS = [
     's', 
     'fmt'  
 ]
+
+TERATERM = "ttermpro.exe"
+
+ROOT = "\\"
 
 def is_date_component_request(cmd):
     """
@@ -128,7 +134,14 @@ def set_config(iniFilePath,section,var,val):
     config.set(section,var,val)
     with open(iniFilePath, 'w') as config_file:
         config.write(config_file)
-
+        
+def search_directory(root):
+    for dirpath, dirnames, filenames in os.walk(root):
+        if TERATERM in filenames:
+            return os.path.join(dirpath, TERATERM)
+        
+        
+    
 class HoverButton(QtWidgets.QPushButton):
     """
     Define a new QPushButton subclass with hover behavior
@@ -161,6 +174,12 @@ class MainWindow(QtWidgets.QMainWindow):
         icon = QtGui.QIcon("Software\\images\\WMORE.png")
         self.setWindowIcon(icon)
         self.resize(900, 600)
+        
+        # Create and show splash screen
+        splash_pix = QtGui.QPixmap('Software\images\WMORE.png')
+        splash_pix = splash_pix.scaled(800, 600, QtCore.Qt.KeepAspectRatio)
+        splash = QtWidgets.QSplashScreen(splash_pix, QtCore.Qt.WindowStaysOnTopHint)
+        splash.show()
 
         # Create widgets
         self.disconnect_button = HoverButton("Disconnect",hover_tip = "Closes serial conenction")
@@ -228,9 +247,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.convert_button.clicked.connect(self.call_convert)
         self.command_line_edit.returnPressed.connect(lambda: self.send_command(self.command_line_edit.text()))
         
+        splash.showMessage("checking Tera Term...", QtCore.Qt.AlignBottom | QtCore.Qt.AlignCenter, QtGui.QColor("black"))
         self.teratermPath = self.check_tera_term()
         self.port = ""
         self.add_header()
+        splash.showMessage("Getting devices information", QtCore.Qt.AlignBottom | QtCore.Qt.AlignCenter, QtGui.QColor("black"))
+        self.refresh_devices()
+        # Close splash screen
+        splash.finish(self)
 
     def disconnect_btn_pressed(self):
         self.list_widget.clearSelection()
@@ -238,6 +262,15 @@ class MainWindow(QtWidgets.QMainWindow):
         
     def check_tera_term(self):
         teratermPath = get_config('Software\\config.ini','paths', 'teraterm_location')
+        search_path = ROOT
+        if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
+            with Pool() as pool:
+                results = pool.map(search_directory, [os.path.join(search_path, d) for d in os.listdir(search_path)])
+            for r in results:
+                if r:
+                    teratermPath = r
+                    set_config('Software\\config.ini','paths', 'teraterm_location', teratermPath)
+                    return teratermPath
         if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
             answer = QtWidgets.QMessageBox.question(self, 
                                                     "Tera Term",
@@ -256,8 +289,9 @@ class MainWindow(QtWidgets.QMainWindow):
     
     def find_tera_term(self):
         teratermPath=""
+        # Prompt user to select tera term exe file location
         teratermPath, _ = QtWidgets.QFileDialog.getOpenFileName(caption='Select teraterm location',
-                                                                        filter='All Files (*);;Executable Files (*.exe)',
+                                                                        filter='Executable Files (*.exe)',
                                                                         options=QtWidgets.QFileDialog.Options())
         if os.path.split(teratermPath)[-1]=="ttermpro.exe":
             answer = QtWidgets.QMessageBox.question(self, 
@@ -279,8 +313,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 QtWidgets.QMessageBox.warning(self,"Download Feature","You will not be able to download data from the WMORE until you set the path.")        
                 return teratermPath
                 
-        print(teratermPath)
-
         return teratermPath
         
     
