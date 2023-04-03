@@ -12,9 +12,6 @@ Feature List:
                 Convert Data
 To Do:  
                 implement all feature for one button multiple devices simultaneously
-                allow user to enable 
-                disable set rtc button for loggers
-                store sensor info in sensor object class
 """
 
 
@@ -32,6 +29,7 @@ from PySide2 import QtCore, QtGui, QtWidgets, QtSerialPort
 
 from ConversionGUI import ConvertWindow
 
+OPENLOG_PRODUCT_ID = 29987
 
 # Define lists of commands that will be used later
 RTC_COMMANDS = [
@@ -52,6 +50,13 @@ FORMAT_COMMANDS = [
     'm', 
     's', 
     'fmt'  
+]
+
+GET_ID_COMMANDS = [
+    "m",
+    "1",
+    "x",
+    "x"
 ]
 
 TERATERM = "ttermpro.exe"
@@ -122,6 +127,16 @@ def change_output_path_in_ttl(filepath, newpath):
         file.write('\n'.join(lines))
 
 def get_config(iniFilePath,section,var):
+    """Retrieves the value of the specified variable in the specified config file
+
+    Args:
+        iniFilePath (str): path to the .ini file
+        section (str): name of the section the variable is under
+        var (str): name of the variable
+
+    Returns:
+        str: the value of the variable
+    """
     config = configparser.ConfigParser()
     config.read(iniFilePath)
     value = config.get(section,var)
@@ -129,6 +144,14 @@ def get_config(iniFilePath,section,var):
     
 
 def set_config(iniFilePath,section,var,val):
+    """Opens the specified .ini file and sets the value of the specified variable
+
+    Args:
+        iniFilePath (str): path to the .ini file
+        section (str): name of the section the variable is under
+        var (str): name of the variable
+        val (str): value to set the variable to
+    """
     config = configparser.ConfigParser()
     config.read(iniFilePath)
     config.set(section,var,val)
@@ -136,12 +159,94 @@ def set_config(iniFilePath,section,var,val):
         config.write(config_file)
         
 def search_directory(root):
+    """search computer for location  of Tera term exe file
+
+    Args:
+        root (str): path to the folder in which to look for
+
+    Returns:
+        str: location of the Tera Term exe file
+    """
     for dirpath, dirnames, filenames in os.walk(root):
         if TERATERM in filenames:
             return os.path.join(dirpath, TERATERM)
         
+def set_tera_term_location():
+    """_summary_
+
+    Returns:
+        _type_: _description_
+    """
+    teratermPath=""
+    # Prompt user to select tera term exe file location
+    teratermPath, _ = QtWidgets.QFileDialog.getOpenFileName(caption='Select teraterm location',
+                                                                    filter='Executable Files (*.exe)',
+                                                                    options=QtWidgets.QFileDialog.Options())
+    if os.path.split(teratermPath)[-1]=="ttermpro.exe":
+        answer = QtWidgets.QMessageBox.question(None, 
+                                                "Confirmation",
+                                                f"Set teraterm exe file path to:\n{teratermPath}",
+                                                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel,
+                                                QtWidgets.QMessageBox.Yes)
+        if answer == QtWidgets.QMessageBox.Yes:
+            set_config('Software\\config.ini','paths', 'teraterm_location', teratermPath)
+        elif answer == QtWidgets.QMessageBox.No:
+            set_tera_term_location()
+        else:
+            QtWidgets.QMessageBox.warning(None,"Download Feature","You will not be able to download data from the WMORE until you set the path.")        
+    else:
+        answer = QtWidgets.QMessageBox.critical(None,"Wrong Path","The file you have chosen seems wrong.\nThe executable for Tera Term should be called ttermpro.exe\nTry again?",QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)  
+        if answer == QtWidgets.QMessageBox.Yes:
+            set_tera_term_location()
+        else:
+            QtWidgets.QMessageBox.warning(None,"Download Feature","You will not be able to download data from the WMORE until you set the path.")        
+            return teratermPath
+            
+    return teratermPath
+
+def check_tera_term():
+    """Checks that the path to the Tera Term exe has been set, and searches for it or allows the
+        user to set it if not.
+
+    Returns:
+        _type_: _description_
+    """
+    teratermPath = get_config('Software\\config.ini','paths', 'teraterm_location')
+    search_path = ROOT
+    if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
+        # try to find where tera term is located
+        with Pool() as pool:
+            results = pool.map(search_directory, [os.path.join(search_path, d) for d in os.listdir(search_path)])
+        for r in results:
+            if r:
+                teratermPath = r
+                set_config('Software\\config.ini','paths', 'teraterm_location', teratermPath)
+                return teratermPath
+            
+    if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
+        # let user find where Tera Term is located
+        answer = QtWidgets.QMessageBox.question(None, 
+                                                "Tera Term",
+                                                f"Tera Term seems to be missing.\nYou will not be able to download data from the WMORE until you set the path.\nDo you wan to set the path to Tera Term now?",
+                                                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                                                QtWidgets.QMessageBox.Yes)
+        if answer == QtWidgets.QMessageBox.Yes:
+            teratermPath = set_tera_term_location()
+            
+        else:
+            QtWidgets.QMessageBox.warning(None,"Download Feature","You will not be able to download data from the WMORE until you set the path.")   
+                 
+    if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
+        teratermPath = None
         
-    
+    return teratermPath
+        
+class WMORE:
+    def __init__(self, id = None, com_port = None, firmware = None):
+        self.id = id
+        self.com_port = com_port
+        self.firmware = firmware
+        
 class HoverButton(QtWidgets.QPushButton):
     """
     Define a new QPushButton subclass with hover behavior
@@ -165,7 +270,6 @@ class HoverButton(QtWidgets.QPushButton):
     def on_hover(self):
         self.hover_timer.stop()
         QtWidgets.QToolTip.showText(QtGui.QCursor.pos(), self.hover_tip) # show the hint text at the current cursor position
-
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -238,92 +342,38 @@ class MainWindow(QtWidgets.QMainWindow):
         self.serial.readyRead.connect(self.read_serial)
         
         # Connect signals and slots
-        self.disconnect_button.clicked.connect(self.disconnect_btn_pressed)
+        self.disconnect_button.clicked.connect(self.disconnect)
         self.format_button.clicked.connect(lambda: self.send_commands(FORMAT_COMMANDS))
         self.rtc_button.clicked.connect(lambda: self.send_commands(RTC_COMMANDS))
         self.refresh_button.clicked.connect(self.refresh_devices)
         self.send_button.clicked.connect(lambda: self.send_command(self.command_line_edit.text()))
         self.download_button.clicked.connect(self.download)
-        self.convert_button.clicked.connect(self.call_convert)
+        self.convert_button.clicked.connect(lambda: ConvertWindow(app).show())
         self.command_line_edit.returnPressed.connect(lambda: self.send_command(self.command_line_edit.text()))
         
+        
+        self.device_list = []
+        self.selected_device = None
         splash.showMessage("checking Tera Term...", QtCore.Qt.AlignBottom | QtCore.Qt.AlignCenter, QtGui.QColor("black"))
-        self.teratermPath = self.check_tera_term()
-        self.port = ""
-        self.add_header()
-        splash.showMessage("Getting devices information", QtCore.Qt.AlignBottom | QtCore.Qt.AlignCenter, QtGui.QColor("black"))
-        self.refresh_devices()
-        # Close splash screen
-        splash.finish(self)
-
-    def disconnect_btn_pressed(self):
-        self.list_widget.clearSelection()
-        self.disconnect_serial()
-        
-    def check_tera_term(self):
-        teratermPath = get_config('Software\\config.ini','paths', 'teraterm_location')
-        search_path = ROOT
-        if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
-            with Pool() as pool:
-                results = pool.map(search_directory, [os.path.join(search_path, d) for d in os.listdir(search_path)])
-            for r in results:
-                if r:
-                    teratermPath = r
-                    set_config('Software\\config.ini','paths', 'teraterm_location', teratermPath)
-                    return teratermPath
-        if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
-            answer = QtWidgets.QMessageBox.question(self, 
-                                                    "Tera Term",
-                                                    f"Tera Term seem to be missing.\nYou will not be able to download data from the WMORE until you set the path.\nDo you wan to set the path to Tera Term now?",
-                                                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-                                                    QtWidgets.QMessageBox.Yes)
-            if answer == QtWidgets.QMessageBox.Yes:
-                
-                teratermPath = self.find_tera_term()
-                
-            else:
-                QtWidgets.QMessageBox.warning(self,"Download Feature","You will not be able to download data from the WMORE until you set the path.")        
-        if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
+        self.teratermPath = check_tera_term()
+        if self.teratermPath == None:
             self.download_button.setEnabled(False)
-        return teratermPath
-    
-    def find_tera_term(self):
-        teratermPath=""
-        # Prompt user to select tera term exe file location
-        teratermPath, _ = QtWidgets.QFileDialog.getOpenFileName(caption='Select teraterm location',
-                                                                        filter='Executable Files (*.exe)',
-                                                                        options=QtWidgets.QFileDialog.Options())
-        if os.path.split(teratermPath)[-1]=="ttermpro.exe":
-            answer = QtWidgets.QMessageBox.question(self, 
-                                                    "Confirmation",
-                                                    f"Set teraterm exe file path to:\n{teratermPath}",
-                                                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel,
-                                                    QtWidgets.QMessageBox.Yes)
-            if answer == QtWidgets.QMessageBox.Yes:
-                set_config('Software\\config.ini','paths', 'teraterm_location', teratermPath)
-            elif answer == QtWidgets.QMessageBox.No:
-                self.find_tera_term()
-            else:
-                QtWidgets.QMessageBox.warning(self,"Download Feature","You will not be able to download data from the WMORE until you set the path.")        
-        else:
-            answer = QtWidgets.QMessageBox.critical(self,"Wrong Path","The file you have chosen seems wrong.\nThe executable for Tera Term should be called ttermpro.exe\nTry again?",QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)  
-            if answer == QtWidgets.QMessageBox.Yes:
-                self.find_tera_term()
-            else:
-                QtWidgets.QMessageBox.warning(self,"Download Feature","You will not be able to download data from the WMORE until you set the path.")        
-                return teratermPath
-                
-        return teratermPath
+        self.add_header()
+        splash.showMessage("Getting devices information...", QtCore.Qt.AlignBottom | QtCore.Qt.AlignCenter, QtGui.QColor("black"))
+        # Close splash screen
+        self.refresh_devices()
+        splash.finish(self)
         
-    
-    def call_convert(self):
-        """
-        Opens the ConvertWindow and displays it to the user.
-        """
-        window = ConvertWindow(app)
-        window.show()
+    def set_button_state(self,state):
+        """Enable or disable all buttons
 
-        
+        Args:
+            state (bool): True for enabling buttons, False for disabling them
+        """
+        # assume "window" is a reference to the main window widget
+        for button in self.findChildren(QtWidgets.QPushButton):
+            button.setEnabled(state)
+
     def add_header(self):
         """
         Adds a header to a Device QListWidget
@@ -344,6 +394,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.list_widget.addItem(separator_item)
         
     def download(self):
+        """_summary_
+        """
         if self.serial.isOpen():
             portn = self.list_widget.selectedItems()[0].text().split("COM")[1]
             print(portn)
@@ -351,7 +403,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.list_widget.clearSelection()
             QtCore.QCoreApplication.processEvents()
             macro_full_path = os.path.abspath("Software\\teratermMacro.ttl")
-            # Open a file dialog to choose a folder
+            # Open a file dialog to choose output folder
             newFolderPath = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose output folder')
             item = self.list_widget.currentItem()
             # create a folder with the date time of download and firmware and id of sensor data
@@ -365,7 +417,10 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.teratermPath != "":
                 print(self.teratermPath)
                 try:
-                    subprocess.run(f'{self.teratermPath} /C={portn} /BAUD=115200 /M="{macro_full_path}"')
+                    
+                    # subprocess.run(f'{self.teratermPath} /C={portn} /BAUD=115200 /M="{macro_full_path}"')
+                    command = f'"{self.teratermPath}" /C={portn} /BAUD=115200 /M="{macro_full_path}"'
+                    subprocess.Popen(command, shell=True)
                 except Exception as e:
                     QtWidgets.QMessageBox.critical(self,"Tera Term Error", f"An error occured when trying to run Tera Term:\n{str(e)}")
                                 
@@ -373,6 +428,11 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self,"No Device", "No selected device found.\nPlease select a device first.")
 
     def send_commands(self,commands):
+        """Send a list of commands to the serial device
+
+        Args:
+            commands (str): a list of character and/or strings
+        """
         if self.serial.isOpen():
             for cmd in commands:
                 QtCore.QCoreApplication.processEvents()  # allow the event loop to run
@@ -383,96 +443,157 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self,"No Device", "No selected device found.\nPlease select a device first.")
 
     def refresh_devices(self):
+        """iterate over com port and list all the WMOREs conencted
+        """
         self.list_widget.clear()
         self.add_header()
-        num_devices = 2
+        self.device_list.clear()
+        self.selected_device = None
+        num_devices = 0
         for port_info in QtSerialPort.QSerialPortInfo.availablePorts():
             port = port_info.portName()
             status = self.connect_serial(port)
-            if status == 0:
-                self.list_widget.addItem(f"\t\t{port}")
-                self.port = port
-                item = self.list_widget.item(num_devices) # Get a reference to the third item in the list (index starts at 0)
-                self.list_widget.setCurrentItem(item) # Select the third item in the list
-                self.send_commands(["m","1","x","x"])
+            if status == 0: # the device is an wmore and the connection was successful
+                wmore = WMORE(com_port=port) #create WMORE object
+                self.device_list.append(wmore)
+                self.selected_device = wmore
+                self.list_widget.addItem(f"\t\t{self.selected_device.com_port}")
+                item = self.list_widget.item(num_devices + 2)# +2 to remove the header and sepeartion line
+                self.list_widget.setCurrentItem(item)
+                self.set_button_state(False)
+                # get device id
+                self.send_commands(GET_ID_COMMANDS)
+                self.update_item_text()
                 self.disconnect_serial()
                 num_devices+=1
         self.list_widget.clearSelection()
-
+        self.set_button_state(False)
+        self.refresh_button.setEnabled(True)
+        self.disconnect_button.setEnabled(True)
+        self.convert_button.setEnabled(True)
 
     def switch_device(self):
+        """Function triggered when the user selects a new device.
+            Connects to selected device
+        """
         selected_items = self.list_widget.selectedItems()
         if selected_items:
             port_name = selected_items[0].text().split("\t")[-1]
             self.disconnect_serial()
             status = self.connect_serial(port_name)
             if status == 2:
+                # In case the user tries to connect to a device that has been unplugged
                 QtWidgets.QMessageBox.critical(self, "Error", f"Failed to connect to {port_name}\nCheck device connection, and refresh." )
                 index = self.list_widget.currentRow()
                 self.list_widget.takeItem(index)
-                
-            
+            elif status == 1:
+                QtWidgets.QMessageBox.critical(self, "Error", f"Failed to connect to {port_name}" )
+            else:
+                if self.serial.isOpen():
+                    
+                    self.serial_output.append(f"Connected to {port_name}\n\n")
+                    # disable rtc button for logger and download button for coordinator 
+                    devices = [device for device in self.device_list if device.com_port == port_name]
+                    self.selected_device = devices[0]
+                    [print(f"{device.firmware}:{device.com_port}") for device in devices]
+                    self.rtc_button.setEnabled(not any(device.firmware == "Logger" for device in devices))
+                    self.download_button.setEnabled(any(device.firmware == "Logger" for device in devices))
+                    self.format_button.setEnabled(any(device.firmware == "Logger" for device in devices))
+                    self.refresh_button.setEnabled(True)
+                    self.disconnect_button.setEnabled(True)
+                    self.convert_button.setEnabled(True)
+                else:
+                    QtWidgets.QMessageBox.warning(self, "Communication failure", f"Failed to connect to device\nIt may be opened in another program" )
+                    self.list_widget.clearSelection()
+                    
+        else:
+            self.set_button_state(False)
+            self.refresh_button.setEnabled(True)
+            self.disconnect_button.setEnabled(True)
+            self.convert_button.setEnabled(True)
             
     def connect_serial(self,port_name):
+        """Connect to device with specified comport
+
+        Args:
+            port_name (str): the com port to connect to (eg: COM25)
+        """
         info = QtSerialPort.QSerialPortInfo(port_name)
         product_id = info.productIdentifier()
-        print(f"{port_name}:{product_id}")
-        if product_id == 29987:  # replace with expected product ID
+        # check that the device we are connecting to is an Openlog
+        if product_id == OPENLOG_PRODUCT_ID:  # Product ID of Openlog
             self.serial.setPortName(port_name)
-            self.port = port_name
             try:
                 self.serial.open(QtCore.QIODevice.ReadWrite)
-                self.serial_output.append("Connected to " + port_name+"\n")
                 return(0)
             except:
-                QtWidgets.QMessageBox.critical(self, "Error", "Failed to connect to " + port_name)
                 return(1)
         else:
-            print("Error: Connected to unexpected device")
+            # In case the user tries to connect to a device that has been unplugged
             return(2)
-
-    def disconnect_serial(self):
-        if self.serial.isOpen():
-            self.serial.close()
-            self.serial_output.append("Disconnected\n")
         
     def send_command(self,command):
-        # self.serial_output.insertPlainText(f"\nsent: {command}\n")
+        """Format input string and send it to serial device
+
+        Args:
+            command (str): the character or string to send to the device
+        """
         command+="\n\r"
         self.serial.write(command.encode())
         self.command_line_edit.clear()
-
+            
     def read_serial(self):
+        """Read data from the device, process the data and display in on the screen
+        """
         try:
             data = self.serial.readAll().data().decode()
         except:
             data = "could not decode!"
         self.process_serial_output(data)
         self.serial_output.insertPlainText(data)
-        self.serial_output.ensureCursorVisible() 
-            
+        self.serial_output.ensureCursorVisible() #automatically scroll down
+
+    def disconnect_serial(self):
+        """close serial port
+        """
+        if self.serial.isOpen():
+            self.serial.close()
+            self.serial_output.append("Disconnected\n")
+    
+    def disconnect(self):
+        """Close serial connection
+        """
+        self.list_widget.clearSelection()
+        self.disconnect_serial()
+                    
     def process_serial_output(self, data):
-        if "done" in data:
+        """Exectute functions based on the device output
+
+        Args:
+            data (str): data read from the serial device
+        """
+        if "Format done" in data:
             self.format_done()
         elif "Coordinator v" in data:
-            self.update_item_text(1, "Coordinator")
+            self.selected_device.firmware = "Coordinator"
         elif "Sensor v" in data:
-            self.update_item_text(1, "Logger")
+            self.selected_device.firmware = "Logger"
         elif "ID" in data:
-            sensorID = int(re.search(r'ID: (\d+)', data).group(1))
-            self.update_item_text(0, str(sensorID))
+            sensorID = int(re.search(r'ID: (\d+)', data).group(1)) # extract the id
+            self.selected_device.id = sensorID
             
     def format_done(self):
+        """Remove device from list a tellt he user to power cycle the device
+        """
         QtWidgets.QMessageBox.information(self, "Formatting Done", "The SD card has been formatted, please power cycle the device.")
         index = self.list_widget.currentRow()
         self.list_widget.takeItem(index)
         
-    def update_item_text(self, idx, new_text):
+    def update_item_text(self):
+        """Update the data shown on the currently selected device
+        """
         item = self.list_widget.currentItem()
-        txt = item.text().split("\t")
-        txt[idx] = new_text
-        txt = "\t".join(txt)
-        item.setText(txt)
+        item.setText(f"{self.selected_device.id}\t{self.selected_device.firmware}\t{self.selected_device.com_port}")
     
     def closeEvent(self, event):
         self.disconnect_serial()
