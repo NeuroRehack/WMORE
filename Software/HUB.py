@@ -14,233 +14,21 @@ To Do:
                 implement all feature for one button multiple devices simultaneously
 """
 
-
 import os
 import subprocess
 import time
 from datetime import datetime
 import re
 import os
-import configparser
 from multiprocessing import Pool
-
 
 from PySide2 import QtCore, QtGui, QtWidgets, QtSerialPort
 
 from ConversionGUI import ConvertWindow
-
-OPENLOG_PRODUCT_ID = 29987
-
-# Define lists of commands that will be used later
-RTC_COMMANDS = [
-    'm',  
-    '2',  
-    '4',  
-    "year",  
-    "month",  
-    "day",  
-    '6',  
-    "hour",  
-    "minute",  
-    "second",  
-    'x'  
-]
-
-FORMAT_COMMANDS = [
-    'm', 
-    's', 
-    'fmt'  
-]
-
-GET_ID_COMMANDS = [
-    "m",
-    "1",
-    "x",
-    "x"
-]
-
-TERATERM = "ttermpro.exe"
-
-ROOT = "\\"
-
-def is_date_component_request(cmd):
-    """
-    Get the current date and time component specified in the command.
-
-    Args:
-        cmd (str): A string indicating which date or time component to return.
-            Valid options are 'year', 'month', 'day', 'hour', 'minute', 'second'.
-
-    Returns:
-        str: A string representation of the current value of the specified date or time component.
-        If the input command is not recognized, the function returns the input command as a string.
-    """
-    date_time_components = {
-        'year': '%y',
-        'month': '%m',
-        'day': '%d',
-        'hour': '%H',
-        'minute': '%M',
-        'second': '%S'
-    }
-
-    if cmd in date_time_components:
-        dt = datetime.now()
-        return dt.strftime(date_time_components[cmd])  # format the datetime object to the specified component
-    else:
-        return cmd  # Return the cmd if it is not a recognized date or time component
+from constants import *
+import helpers 
 
 
-
-def change_output_path_in_ttl(filepath, newpath):
-    """
-    Update the "changedir" line in the ttl script file with a new path.
-
-    Args:
-        filepath (str): The path to the ttl script file.
-        newpath (str): The new path to use in the "changedir" line.
-
-    Raises:
-        ValueError: If no "changedir" line is found in the script file.
-
-    """
-    # Replace forward slashes with backslashes if needed
-    newpath = newpath.replace('/', os.path.sep)
-
-    # Read the contents of the file into memory
-    with open(filepath, 'r') as file:
-        contents = file.read()
-
-    # Look for the line that starts with "changedir"
-    lines = contents.split('\n')
-    for i, line in enumerate(lines):
-        if line.startswith('changedir'):
-            # Replace the path in the "changedir" line with the new path
-            lines[i] = f'changedir "{newpath}"'
-            break
-    else:
-        # If no "changedir" line was found, raise an error
-        raise ValueError('No "changedir" line found in script file')
-
-    # Write the updated contents back to the file
-    with open(filepath, 'w') as file:
-        file.write('\n'.join(lines))
-
-def get_config(iniFilePath,section,var):
-    """Retrieves the value of the specified variable in the specified config file
-
-    Args:
-        iniFilePath (str): path to the .ini file
-        section (str): name of the section the variable is under
-        var (str): name of the variable
-
-    Returns:
-        str: the value of the variable
-    """
-    config = configparser.ConfigParser()
-    config.read(iniFilePath)
-    value = config.get(section,var)
-    return value
-    
-
-def set_config(iniFilePath,section,var,val):
-    """Opens the specified .ini file and sets the value of the specified variable
-
-    Args:
-        iniFilePath (str): path to the .ini file
-        section (str): name of the section the variable is under
-        var (str): name of the variable
-        val (str): value to set the variable to
-    """
-    config = configparser.ConfigParser()
-    config.read(iniFilePath)
-    config.set(section,var,val)
-    with open(iniFilePath, 'w') as config_file:
-        config.write(config_file)
-        
-def search_directory(root):
-    """search computer for location  of Tera term exe file
-
-    Args:
-        root (str): path to the folder in which to look for
-
-    Returns:
-        str: location of the Tera Term exe file
-    """
-    for dirpath, dirnames, filenames in os.walk(root):
-        if TERATERM in filenames:
-            return os.path.join(dirpath, TERATERM)
-        
-def set_tera_term_location():
-    """_summary_
-
-    Returns:
-        _type_: _description_
-    """
-    teratermPath=""
-    # Prompt user to select tera term exe file location
-    teratermPath, _ = QtWidgets.QFileDialog.getOpenFileName(caption='Select teraterm location',
-                                                                    filter='Executable Files (*.exe)',
-                                                                    options=QtWidgets.QFileDialog.Options())
-    if os.path.split(teratermPath)[-1]=="ttermpro.exe":
-        answer = QtWidgets.QMessageBox.question(None, 
-                                                "Confirmation",
-                                                f"Set teraterm exe file path to:\n{teratermPath}",
-                                                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel,
-                                                QtWidgets.QMessageBox.Yes)
-        if answer == QtWidgets.QMessageBox.Yes:
-            set_config('Software\\config.ini','paths', 'teraterm_location', teratermPath)
-        elif answer == QtWidgets.QMessageBox.No:
-            set_tera_term_location()
-        else:
-            QtWidgets.QMessageBox.warning(None,"Download Feature","You will not be able to download data from the WMORE until you set the path.")        
-    else:
-        answer = QtWidgets.QMessageBox.critical(None,"Wrong Path","The file you have chosen seems wrong.\nThe executable for Tera Term should be called ttermpro.exe\nTry again?",QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)  
-        if answer == QtWidgets.QMessageBox.Yes:
-            set_tera_term_location()
-        else:
-            QtWidgets.QMessageBox.warning(None,"Download Feature","You will not be able to download data from the WMORE until you set the path.")        
-            return teratermPath
-            
-    return teratermPath
-
-def check_tera_term():
-    """Checks that the path to the Tera Term exe has been set, and searches for it or allows the
-        user to set it if not.
-
-    Returns:
-        _type_: _description_
-    """
-    teratermPath = get_config('Software\\config.ini','paths', 'teraterm_location')
-    search_path = ROOT
-    if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
-        # try to find where tera term is located
-        with Pool() as pool:
-            results = pool.map(search_directory, [os.path.join(search_path, d) for d in os.listdir(search_path)])
-        for r in results:
-            if r:
-                teratermPath = r
-                set_config('Software\\config.ini','paths', 'teraterm_location', teratermPath)
-                return teratermPath
-            
-    if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
-        # let user find where Tera Term is located
-        answer = QtWidgets.QMessageBox.question(None, 
-                                                "Tera Term",
-                                                f"Tera Term seems to be missing.\nYou will not be able to download data from the WMORE until you set the path.\nDo you wan to set the path to Tera Term now?",
-                                                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
-                                                QtWidgets.QMessageBox.Yes)
-        if answer == QtWidgets.QMessageBox.Yes:
-            teratermPath = set_tera_term_location()
-            
-        else:
-            QtWidgets.QMessageBox.warning(None,"Download Feature","You will not be able to download data from the WMORE until you set the path.")   
-                 
-    if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
-        teratermPath = None
-        
-    return teratermPath
-        
 class WMORE:
     def __init__(self, id = None, com_port = None, firmware = None):
         self.id = id
@@ -275,24 +63,25 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("WMORE")
-        icon = QtGui.QIcon("Software\\images\\WMORE.png")
+        icon = QtGui.QIcon(ICON_PATH)
         self.setWindowIcon(icon)
         self.resize(900, 600)
         
         # Create and show splash screen
-        splash_pix = QtGui.QPixmap('Software\images\WMORE.png')
+        splash_pix = QtGui.QPixmap(SPLASH_PATH)
         splash_pix = splash_pix.scaled(800, 600, QtCore.Qt.KeepAspectRatio)
         splash = QtWidgets.QSplashScreen(splash_pix, QtCore.Qt.WindowStaysOnTopHint)
+
         splash.show()
 
         # Create widgets
-        self.disconnect_button = HoverButton("Disconnect",hover_tip = "Closes serial conenction")
-        self.format_button = HoverButton("Format",hover_tip="Wipes the SD Card of the selected device")
-        self.rtc_button = QtWidgets.QPushButton("Set RTC")
-        self.refresh_button = QtWidgets.QPushButton("Refresh")
-        self.send_button = QtWidgets.QPushButton("Send")
-        self.download_button = QtWidgets.QPushButton("Download Data")
-        self.convert_button = QtWidgets.QPushButton("Convert Data")
+        self.disconnect_button = HoverButton("Disconnect", hover_tip = "Closes connection with device")
+        self.format_button = HoverButton("Format", hover_tip="Wipes the SD Card of the selected device")
+        self.rtc_button = HoverButton("Set RTC", hover_tip="Set the real time clock of the coordinator")
+        self.refresh_button = HoverButton("Refresh", hover_tip="Scans computer for connected WMOREs")
+        self.send_button = HoverButton("Send", hover_tip=None)
+        self.download_button = HoverButton("Download Data", hover_tip="Download data from Logger sd card")
+        self.convert_button = HoverButton("Convert Data", hover_tip="Opens data conversion window")
         # create consol interaction widget
         self.command_line_edit = QtWidgets.QLineEdit()
         self.serial_output = QtWidgets.QTextEdit()
@@ -354,15 +143,19 @@ class MainWindow(QtWidgets.QMainWindow):
         
         self.device_list = []
         self.selected_device = None
-        splash.showMessage("checking Tera Term...", QtCore.Qt.AlignBottom | QtCore.Qt.AlignCenter, QtGui.QColor("black"))
-        self.teratermPath = check_tera_term()
+        splash.showMessage("Checking Tera Term...", QtCore.Qt.AlignBottom | QtCore.Qt.AlignCenter, QtGui.QColor("black"))
+        self.teratermPath = helpers.check_tera_term_automate()
         if self.teratermPath == None:
-            self.download_button.setEnabled(False)
+            splash.finish(self)
+            self.teratermPath = helpers.check_tera_term(self)
+            splash.show()
+
         self.add_header()
         splash.showMessage("Getting devices information...", QtCore.Qt.AlignBottom | QtCore.Qt.AlignCenter, QtGui.QColor("black"))
         # Close splash screen
         self.refresh_devices()
         splash.finish(self)
+        self.raise_()
         
     def set_button_state(self,state):
         """Enable or disable all buttons
@@ -398,7 +191,6 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         if self.serial.isOpen():
             portn = self.list_widget.selectedItems()[0].text().split("COM")[1]
-            print(portn)
             self.disconnect_serial()
             self.list_widget.clearSelection()
             QtCore.QCoreApplication.processEvents()
@@ -413,9 +205,8 @@ class MainWindow(QtWidgets.QMainWindow):
             if not os.path.exists(newFolderPath):
                 # If the folder doesn't exist, create it (including any necessary parent directories)
                 os.makedirs(newFolderPath)
-            change_output_path_in_ttl(macro_full_path, newFolderPath)
-            if self.teratermPath != "":
-                print(self.teratermPath)
+            helpers.change_output_path_in_ttl(macro_full_path, newFolderPath)
+            if self.teratermPath != None:
                 try:
                     
                     # subprocess.run(f'{self.teratermPath} /C={portn} /BAUD=115200 /M="{macro_full_path}"')
@@ -437,7 +228,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for cmd in commands:
                 QtCore.QCoreApplication.processEvents()  # allow the event loop to run
                 time.sleep(0.5)
-                cmd = is_date_component_request(cmd)
+                cmd = helpers.is_date_component_request(cmd)
                 self.send_command(cmd)
         else:
             QtWidgets.QMessageBox.critical(self,"No Device", "No selected device found.\nPlease select a device first.")
@@ -467,10 +258,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.disconnect_serial()
                 num_devices+=1
         self.list_widget.clearSelection()
-        self.set_button_state(False)
-        self.refresh_button.setEnabled(True)
-        self.disconnect_button.setEnabled(True)
-        self.convert_button.setEnabled(True)
+        self.set_button_state(True)
+        self.rtc_button.setEnabled(False)
+        self.download_button.setEnabled(False)
+        self.format_button.setEnabled(False)
 
     def switch_device(self):
         """Function triggered when the user selects a new device.
@@ -495,22 +286,20 @@ class MainWindow(QtWidgets.QMainWindow):
                     # disable rtc button for logger and download button for coordinator 
                     devices = [device for device in self.device_list if device.com_port == port_name]
                     self.selected_device = devices[0]
-                    [print(f"{device.firmware}:{device.com_port}") for device in devices]
                     self.rtc_button.setEnabled(not any(device.firmware == "Logger" for device in devices))
-                    self.download_button.setEnabled(any(device.firmware == "Logger" for device in devices))
+                    if self.teratermPath != None:
+                        self.download_button.setEnabled(any(device.firmware == "Logger" for device in devices))
                     self.format_button.setEnabled(any(device.firmware == "Logger" for device in devices))
-                    self.refresh_button.setEnabled(True)
-                    self.disconnect_button.setEnabled(True)
-                    self.convert_button.setEnabled(True)
+                   
                 else:
                     QtWidgets.QMessageBox.warning(self, "Communication failure", f"Failed to connect to device\nIt may be opened in another program" )
                     self.list_widget.clearSelection()
                     
         else:
-            self.set_button_state(False)
-            self.refresh_button.setEnabled(True)
-            self.disconnect_button.setEnabled(True)
-            self.convert_button.setEnabled(True)
+            self.set_button_state(True)
+            self.rtc_button.setEnabled(False)
+            self.download_button.setEnabled(False)
+            self.format_button.setEnabled(False)
             
     def connect_serial(self,port_name):
         """Connect to device with specified comport

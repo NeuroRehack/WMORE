@@ -23,11 +23,13 @@ import threading
 import time
 import queue
 
+from constants import *
+
 class ConvertWindow(QMainWindow):
     def __init__(self,app):
         super().__init__()
         self.setWindowTitle("WMORE Data Conversion")
-        icon = QIcon("Software\\images\\WMORE.png")
+        icon = QIcon(ICON_PATH)
         self.setWindowIcon(icon)
 
         self.app = app
