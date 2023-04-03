@@ -7,6 +7,7 @@ Description:    This program converts every .bin file in a given directory to .c
                 run in a multiprocessing pool to speed up the process, and a progress bar is displayed to show the conversion progress.
                 The merged .csv file is written to the selected directory, and the script provides an option to open the directory or
                 exit the program.
+to do: rework merge functionnality
 """
 
 import os
@@ -15,7 +16,7 @@ from PySide2.QtWidgets import QApplication, QMainWindow, QFileDialog, QPushButto
 from PySide2.QtCore import Qt, QThread, Signal, QObject
 from PySide2.QtGui import QIcon
 
-import WMORE_BinToCSV
+import BinToCSV
 import multiprocessing
 import glob
 import pandas as pd
@@ -28,7 +29,7 @@ from constants import *
 class ConvertWindow(QMainWindow):
     def __init__(self,app):
         super().__init__()
-        self.setWindowTitle("WMORE Data Conversion")
+        self.setWindowTitle("Data Conversion")
         icon = QIcon(ICON_PATH)
         self.setWindowIcon(icon)
 
@@ -53,10 +54,10 @@ class ConvertWindow(QMainWindow):
         self.open_dir_button.clicked.connect(lambda: os.startfile(self.directory))
         self.open_dir_button.setEnabled(False)
         
-        # Enable the merge button
-        self.merge_button = QPushButton('Merge CSV files', self)
-        self.merge_button.clicked.connect(self.merge_csv_files)
-        self.merge_button.setEnabled(False)
+        # # Enable the merge button
+        # self.merge_button = QPushButton('Merge CSV files', self)
+        # self.merge_button.clicked.connect(self.merge_csv_files)
+        # self.merge_button.setEnabled(False)
         
         # Set the central widget to a vertical layout containing the label and buttons
         central_widget = QWidget()
@@ -66,7 +67,7 @@ class ConvertWindow(QMainWindow):
         button_layout.addWidget(self.select_button)
         button_layout.addWidget(self.convert_button)
         button_layout.addWidget(self.open_dir_button)
-        button_layout.addWidget(self.merge_button)
+        # button_layout.addWidget(self.merge_button)
         layout.addLayout(button_layout)
         central_widget.setLayout(layout)
         self.setCentralWidget(central_widget)
@@ -89,14 +90,12 @@ class ConvertWindow(QMainWindow):
             self.convert_button.setEnabled(False)
         else:
             self.convert_button.setEnabled(True)
-        if not any(file.endswith('.csv') for file in os.listdir(self.directory)):
-            self.merge_button.setEnabled(False)
-        else:
-            self.merge_button.setEnabled(True)
+        # if not any(file.endswith('.csv') for file in os.listdir(self.directory)):
+        #     self.merge_button.setEnabled(False)
+        # else:
+        #     self.merge_button.setEnabled(True)
             
             
-
-
     def convert(self):
         # Check if there are ".bin" files in the selected directory
         if not any(file.endswith('.bin') for file in os.listdir(self.directory)):
@@ -116,7 +115,7 @@ class ConvertWindow(QMainWindow):
 
         # Run the conversion function in a multiprocess pool
         pool = multiprocessing.Pool()
-        result = pool.map_async(WMORE_BinToCSV.binToCSV, files)
+        result = pool.map_async(BinToCSV.binToCSV, files)
         progress.setRange(num_files-result._number_left, num_files)
         while not result.ready():
             progress.setValue(num_files - result._number_left)
@@ -127,7 +126,7 @@ class ConvertWindow(QMainWindow):
 
         # Show a message box to inform the user that the conversion is complete
         QMessageBox.information(self, 'Information', 'Conversion complete.')
-        self.merge_button.setEnabled(True)
+        # self.merge_button.setEnabled(True)
         
         
         
@@ -202,12 +201,9 @@ class writeMergedToCSV(QThread):
 
         
 if __name__ == '__main__':
-    # Create the application
     app = QApplication(sys.argv)
 
-    # Create the main window
     window = ConvertWindow(app)
     window.show()
 
-    # Run the event loop
     sys.exit(app.exec_())

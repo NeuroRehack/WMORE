@@ -1,5 +1,5 @@
 """
-File: WMORE_BinToCSV.py
+File: BinToCSV.py
 Author: Sami Kaab
 Date: February 22, 2023
 Description:    This program converts every .bin file in a given directory to .csv format. 
@@ -17,15 +17,8 @@ import glob
 import multiprocessing
 import pandas as pd
 
-num_imu_vars = 10  # 10 x int16 variables from IMU
-num_uint8_vars = 16  # 16 x various uint8 variables
-num_uint8_line = 40  # 40 x uint8 per line encoding 27 human-readable variables
+from constants import *
 
-# set the fprintf format of the 27 human-readable variables per line
-line_format = "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n"
-
-# Create headings for the output file
-line_heading = "ax,ay,az,gx,gy,gz,mx,my,mz,temp,valid,g_year,g_month,g_day,g_hour,g_minute,g_second,g_hund,l_year,l_month,l_day,l_hour,l_minute,l_second,l_hund,battery,period"
 
 def binToCSV(file_path):
     """
@@ -42,7 +35,7 @@ def binToCSV(file_path):
         raw_data = file_id.read()
         
     # determine number of lines of data
-    max_index = int(len(raw_data) / num_uint8_line)
+    max_index = int(len(raw_data) / NUM_UNIT8_LINE)
 
     # Create a row vector for extracted variables
     formatted_data = [0] * 27  # 27 human-readable variables per line
@@ -50,23 +43,23 @@ def binToCSV(file_path):
     # Create and open output csv file
     with open(out_file, 'w') as file_id:
         # Write heading to file 
-        file_id.write(line_heading)
+        file_id.write(LINE_HEADING)
         file_id.write("\n")
         
         # process all lines of data
         for i in range(max_index):
             # extract a line of uint8 data 
-            start = (i * num_uint8_line)
-            end = i * num_uint8_line + (num_uint8_line)
+            start = (i * NUM_UNIT8_LINE)
+            end = i * NUM_UNIT8_LINE + (NUM_UNIT8_LINE)
             uint8_line = list(raw_data[start:end])
             
             # Extract 10 x int16 IMU sensor data from line in LSB, MSB pairs
-            for j in range(num_imu_vars):
+            for j in range(NUM_IMU_VARS):
                 temp = uint8_line[(2 * j)] + (uint8_line[2 * j + 1] * 256)
                 formatted_data[j] =  np.int16(temp)
                 
             # Extract 16 x uint8 from line
-            for j in range(num_uint8_vars):
+            for j in range(NUM_UNIT8_VARS):
                 formatted_data[j + 10] = int(uint8_line[j + 20])
                 
             # Extract 1 x uint32 from line
@@ -77,7 +70,7 @@ def binToCSV(file_path):
             formatted_data[26] = temp
             
             # print the data to the output text file
-            file_id.write(line_format % tuple(formatted_data))
+            file_id.write(LINE_FORMAT % tuple(formatted_data))
             
 def BatchConvert(data_dir):
     """
@@ -118,7 +111,7 @@ if __name__ == '__main__':
     start_time = time.time()
 
     # Set input directory containing all the bin files
-    data_dir = "C://Users//uqskaab//OneDrive - The University of Queensland//Documents//_Programing//230221_WMORE_dataconversion//data"
+    data_dir = ""
     BatchConvert(data_dir)
 
     

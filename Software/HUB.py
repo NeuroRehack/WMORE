@@ -20,7 +20,7 @@ import time
 from datetime import datetime
 import re
 import os
-from multiprocessing import Pool
+from multiprocessing import Pool, freeze_support
 
 from PySide2 import QtCore, QtGui, QtWidgets, QtSerialPort
 
@@ -130,6 +130,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.serial.setBaudRate(QtSerialPort.QSerialPort.Baud115200)
         self.serial.readyRead.connect(self.read_serial)
         
+        self.convertionApp = ConvertWindow(app)
+        
         # Connect signals and slots
         self.disconnect_button.clicked.connect(self.disconnect)
         self.format_button.clicked.connect(self.format)
@@ -137,7 +139,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.refresh_button.clicked.connect(self.refresh_devices)
         self.send_button.clicked.connect(lambda: self.send_command(self.command_line_edit.text()))
         self.download_button.clicked.connect(self.download)
-        self.convert_button.clicked.connect(lambda: ConvertWindow(app).show())
+        self.convert_button.clicked.connect(lambda: self.convertionApp.show())
         self.command_line_edit.returnPressed.connect(lambda: self.send_command(self.command_line_edit.text()))
         
         
@@ -194,7 +196,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.disconnect_serial()
             self.list_widget.clearSelection()
             QtCore.QCoreApplication.processEvents()
-            macro_full_path = os.path.abspath("Software\\teratermMacro.ttl")
+            macro_full_path = os.path.abspath(TERATERM_MACRO)
             # Open a file dialog to choose output folder
             newFolderPath = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose output folder')
             item = self.list_widget.currentItem()
@@ -393,10 +395,12 @@ class MainWindow(QtWidgets.QMainWindow):
     
     def closeEvent(self, event):
         self.disconnect_serial()
+        self.convertionApp.close() # in case the convertion window is still open
         # Call the superclass method to continue with the default closing behavior
         super().closeEvent(event)
 
 if __name__ == "__main__":
+    freeze_support()
     app = QtWidgets.QApplication([])
     window = MainWindow()
     window.show()
