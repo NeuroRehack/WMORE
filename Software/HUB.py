@@ -343,7 +343,7 @@ class MainWindow(QtWidgets.QMainWindow):
         
         # Connect signals and slots
         self.disconnect_button.clicked.connect(self.disconnect)
-        self.format_button.clicked.connect(lambda: self.send_commands(FORMAT_COMMANDS))
+        self.format_button.clicked.connect(self.format)
         self.rtc_button.clicked.connect(lambda: self.send_commands(RTC_COMMANDS))
         self.refresh_button.clicked.connect(self.refresh_devices)
         self.send_button.clicked.connect(lambda: self.send_command(self.command_line_edit.text()))
@@ -581,7 +581,14 @@ class MainWindow(QtWidgets.QMainWindow):
         elif "ID" in data:
             sensorID = int(re.search(r'ID: (\d+)', data).group(1)) # extract the id
             self.selected_device.id = sensorID
-            
+        
+    def format(self):
+        reply = QtWidgets.QMessageBox.warning(self, 'Warning', 'This will delete all data on the sensor.\nAre you sure you want to continue?', 
+                                              QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No, QtWidgets.QMessageBox.No)
+
+        if reply == QtWidgets.QMessageBox.Yes:
+            self.send_commands(FORMAT_COMMANDS)  
+              
     def format_done(self):
         """Remove device from list a tellt he user to power cycle the device
         """
