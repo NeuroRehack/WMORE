@@ -400,7 +400,7 @@ class MainWindow(QtWidgets.QMainWindow):
         super().closeEvent(event)
 
 if __name__ == "__main__":
-    freeze_support()
+    freeze_support() # necessary for when compiling the exe
     app = QtWidgets.QApplication([])
     window = MainWindow()
     window.show()
