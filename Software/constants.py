@@ -1,5 +1,5 @@
 """
-File: WMORE_HUB.py
+File: constants.py
 Author: Sami Kaab
 Date: March 28, 2023
 Description:   Global constants to be used by HUB.py, helpers.py and 

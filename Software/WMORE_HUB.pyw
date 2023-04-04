@@ -76,13 +76,13 @@ class MainWindow(QtWidgets.QMainWindow):
         splash.show()
 
         # Create widgets
-        self.disconnect_button = HoverButton("Disconnect", hover_tip = "Closes connection with device")
-        self.format_button = HoverButton("Format", hover_tip="Wipes the SD Card of the selected device")
+        self.disconnect_button = HoverButton("Disconnect", hover_tip = "Close connection with device")
+        self.format_button = HoverButton("Format", hover_tip="Wipe the SD Card of the selected device")
         self.rtc_button = HoverButton("Set RTC", hover_tip="Set the real time clock of the coordinator")
-        self.refresh_button = HoverButton("Refresh", hover_tip="Scans computer for connected WMOREs")
-        self.send_button = HoverButton("Send", hover_tip=None)
+        self.refresh_button = HoverButton("Refresh", hover_tip="Scan computer for connected WMOREs")
+        self.send_button = HoverButton("Send", hover_tip="Send serial command to WMORE (return key)")
         self.download_button = HoverButton("Download Data", hover_tip="Download data from Logger sd card")
-        self.convert_button = HoverButton("Convert Data", hover_tip="Opens data conversion window")
+        self.convert_button = HoverButton("Convert Data", hover_tip="Open  data conversion window")
         # create consol interaction widget
         self.command_line_edit = QtWidgets.QLineEdit()
         self.serial_output = QtWidgets.QTextEdit()
@@ -207,7 +207,7 @@ class MainWindow(QtWidgets.QMainWindow):
             id = txt[1].split(" ")[0]
             fw = txt[1].split(" ")[1]
             now = datetime.now()
-            newFolderPath = f"{newFolderPath}\\\\{now.strftime('%y_%m_%d-%H_%M_%S')}_{id}_{txt[fw]}"
+            newFolderPath = f"{newFolderPath}\\\\{now.strftime('%y_%m_%d-%H_%M_%S')}_{id}_{fw}"
             if not os.path.exists(newFolderPath):
                 # If the folder doesn't exist, create it (including any necessary parent directories)
                 os.makedirs(newFolderPath)
@@ -292,10 +292,11 @@ class MainWindow(QtWidgets.QMainWindow):
                     # disable rtc button for logger and download button for coordinator 
                     devices = [device for device in self.device_list if device.com_port == port_name]
                     self.selected_device = devices[0]
-                    self.rtc_button.setEnabled(not any(device.firmware == "Logger" for device in devices))
+                    
+                    self.rtc_button.setEnabled(not any((device.firmware is not None) and ("Logger" in device.firmware)  for device in devices))
                     if self.teratermPath != None:
-                        self.download_button.setEnabled(any(device.firmware == "Logger" for device in devices))
-                    self.format_button.setEnabled(any(device.firmware == "Logger" for device in devices))
+                        self.download_button.setEnabled(any((device.firmware is not None) and ("Logger" in device.firmware) for device in devices))
+                    self.format_button.setEnabled(any((device.firmware is not None) and ("Logger" in device.firmware) for device in devices))
                    
                 else:
                     QtWidgets.QMessageBox.warning(self, "Communication failure", f"Failed to connect to device\nIt may be opened in another program" )
@@ -387,7 +388,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.send_commands(FORMAT_COMMANDS)  
               
     def format_done(self):
-        """Remove device from list a tellt he user to power cycle the device
+        """Remove device from list a tell the user to power cycle the device
         """
         QtWidgets.QMessageBox.information(self, "Formatting Done", "The SD card has been formatted, please power cycle the device.")
         index = self.list_widget.currentRow()

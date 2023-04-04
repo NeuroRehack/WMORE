@@ -12,22 +12,26 @@ This project aims at providing an opensource platform for synchronised inertial 
 This platform consist of a list of required components, firmware to run the components and a software user interface. 
 
 The project comprises two types of sensors: a logger and a coordinator. The coordinator is responsible for initiating and stopping the recording on the loggers while ensuring that they remain synchronized. Only one coordinator is required to operate a group of loggers.
-## Table of Content
+## **Table of Content**
 - [WMORE](#wmore)
-  - [Table of Content](#table-of-content)
-- [Hardware](#hardware)
-  - [Required components](#required-components)
-  - [Building the device](#building-the-device)
-- [Firmware](#firmware)
-  - [Openlog Artemis (OLA)](#openlog-artemis-ola)
-    - [Setting up the Arduino environment](#setting-up-the-arduino-environment)
-    - [Uploading firmware onto the OLA](#uploading-firmware-onto-the-ola)
-  - [Nano (OLA)](#nano-ola)
-    - [Building the project](#building-the-project)
-    - [Uploading firmware to Nano](#uploading-firmware-to-nano)
-- [Software](#software)
-# Hardware
-## Required components
+  - [**Table of Content**](#table-of-content)
+- [**Set Up**](#set-up)
+  - [**Hardware**](#hardware)
+    - [**Required components**](#required-components)
+    - [**Building the device**](#building-the-device)
+  - [**Firmware**](#firmware)
+    - [**Openlog Artemis (OLA)**](#openlog-artemis-ola)
+      - [**Setting up the Arduino environment**](#setting-up-the-arduino-environment)
+      - [**Uploading firmware onto the OLA**](#uploading-firmware-onto-the-ola)
+    - [**Nano**](#nano)
+      - [**Building the project**](#building-the-project)
+      - [**Uploading firmware to Nano**](#uploading-firmware-to-nano)
+  - [**Software**](#software)
+- [**Using the WMOREs**](#using-the-wmores)
+
+# **Set Up**
+## **Hardware**
+### **Required components**
 ---
 Thw WMOREs were designed using the list of components bellow. Only the Arduino Nano and Artemis Openlog are required to run the firmware, the battery and switches can be swapped for different models. However the CAD models for the case will need to be modified or redesigned accordingly if you choose to do so. At least 2 WMOREs must be assembled:
 
@@ -36,15 +40,15 @@ Thw WMOREs were designed using the list of components bellow. Only the Arduino N
  * [Slide switch](https://www.digikey.com.au/en/products/detail/c-k/OS102011MS2QN1/411602)
  * [Tactile Switch](https://www.digikey.com.au/en/products/detail/te-connectivity-alcoswitch-switches/1825910-6/1632536)
  * [LiPo Battery 500mAh 3.7V 503035](https://ecocell.com.au/product/lipo-500-503035/)
- * <span style="color:orange">x mm</span> of 30 AWG hook up wire
+ * 500 mm of 30 AWG hook up wire
  * A [4.7kΩ 0402 surface mount resistor](https://www.digikey.com.au/en/products/detail/panasonic-electronic-components/ERA-2AEB472X/1706021)
  * A MicroSDXC V30 U3 C10 A2
-
-
+ * Sim card tray pin (for pressing the reset button)
+ * USB type A to USB type C cable
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Building the device
+### **Building the device**
 ---
 Before wiring the components together, the Openlog Artemis must be modified in 2 ways:
 1. The JST connector needs to be removed, in order for the Openlog to fit in the case. The battery will directly be wired to the pins underneath it. To do so disconnect the two surface mount pins of the JST connector (see [Figure 2](/Documentation/OpenLog_JST_Desolder_Location.jpg)) by cutting them off of the PCB using flush cutters, then silde the JST connector off its rails by pushing it away from the border of the PCB. The OLA should now look like the picture in [Figure 3](/Documentation/OpenLog_JST_Desoldered.jpg).
@@ -67,8 +71,8 @@ Use the wiring diagram below to solder the components together.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-# Firmware
-## Openlog Artemis (OLA)
+## **Firmware**
+### **Openlog Artemis (OLA)**
 ---
 The Coordinator and Logger OLA firmware applications are based on v2.3 of the Openlog Artemis application supplied by Sparkfun (https://github.com/sparkfun/OpenLog_Artemis). Both the OLA firmware applications were developed using the Openlog Artemis board support package installed on version 1.8.12 of the Arduino IDE. 
 
@@ -78,7 +82,7 @@ The Arduino project for the OLA can be found in the [OpenLog_Logger](Firmware/Op
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-### Setting up the Arduino environment
+#### **Setting up the Arduino environment**
 ---
 Before flashing the arduino program to the OpenLogs, the Arduino IDE must be set as follows:
 - Install Arduino IDE 1.8.12 or above from: https://www.arduino.cc/en/software#future-version-of-the-arduino-ide
@@ -118,12 +122,12 @@ Before flashing the arduino program to the OpenLogs, the Arduino IDE must be set
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-### Uploading firmware onto the OLA
+#### **Uploading firmware onto the OLA**
 ---
 Once the Arduino IDE has been set up, open the [WMORE_Coordinator.ino](Firmware/OpenLog_Coordinator/WMORE_Coordinator.ino) file or the [WMORE_Coordinator.ino](Firmware/OpenLog_Coordinator/WMORE_Coordinator.ino). Connect the OLA to your computer, select the correct com port and press the upload button. The project may take a while to compile
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Nano (OLA)
+### **Nano**
 ---
 The Coordinator and Logger Nano applications are written using **v2.1.0** of the **Nordic Semiconductor nRF Connect SDK** in the **Visual Studio Code** IDE and based on the nRF Connect SDK Enhanced Shockburst sample (**ESB ptx**) applications. The nRF Connect SDK is based on the Zephyr RTOS, and Zephyr API calls are used in the WMORE applications. 
 
@@ -142,7 +146,7 @@ The nRF Connect SDK and the Zephyr RTOS involve a fairly complex structure of fi
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-### Building the project
+#### **Building the project**
 ---
 1. Install nRF Connect SDK v2.1.0 by following [this tutorial](https://www.nordicsemi.com/Products/Development-software/nRF-Connect-SDK/GetStarted#infotabs)
 2. In the NRf connect SDK extension in VS code click on the Create a new Aplication button
@@ -160,7 +164,7 @@ You should now be able to build the project. You can follow the steps in the nex
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-### Uploading firmware to Nano
+#### **Uploading firmware to Nano**
 ---
 
 In order to flash the firmware to the Arduino nano, it is also necessary to install the bossac utility. An easy way to do this is to install the Arduino IDE, which should already have been done to support programming the OLA.
@@ -188,5 +192,71 @@ In order to flash the firmware to the Arduino nano, it is also necessary to inst
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-# Software
+## **Software**
+---
+All interections with the openlog can be done through a serial monitor such as [PuTTY](https://www.chiark.greenend.org.uk/~sgtatham/putty/) or [Tera Term](http://www.teraterm.org/). However for convenience a python program was written to simplify some of the repetitive tasks. The source code is available in the [Software](/Software/) folder. This code can be run either from python or using the executable.
+
+If you wish to modify the code follow these steps:
+* Install [Python](https://www.python.org/downloads/) (tested with versin 3.9.16) and don't forget to check the `Add Python 3.x to PATH` box
+* (Optional) Create and activate your environment
+* Open a terminal in [Software](/Software/) and run:
+    ```sh
+    pip install -r requirements.txt
+    ```
+* Run [WMORE_HUB.pyw](/Software/WMORE_HUB.pyw) from a code editor like VS Code
+
+Ohterwise download and extract `WMORE.zip` and run `WMORE_HUB.exe`.
+
+You also need to install [Tera Term](http://www.teraterm.org/) in order to download the data off of the WMOREs. The program may take a minute or two the first time you run it as it is searching for the location of Tera Term on your computer.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+# **Using the WMOREs**
+Once you have assemble at least one Coordinator and Logger connect them to a computer. Launch WMORE_HUB. 
+
+As explained before all interactions with the WMOREs can be done through a serial monitor. However, the program allows the user to automate some of the more repetitive and complex tasks such as:
+* Finding the WMOREs' com port and connecting to a WMORE
+* Setting the Real Time Clock (RTC) on the Coordinator
+* Formatting the SD card on the Loggers
+* Downloading the data off of the Loggers
+* Converting the data from `.bin` to `.csv` (can only be done using WMORE_HUB or see [BinToCSV.py](/Software/BinToCSV.py))
+
+The step for recording from the WMOREs are as follow:
+
+1. Turn the Logger(s) and the Coordinator on using the slide switch on the side of the sensor
+2. Reset the sensor using a sim card tray pin (or push button for Loggers)
+3. Connect the sensors to your computer
+4. Format SD card on the Logger(s)
+5. Unplug the Loggers, power cycle them and reset the sensors (using sim card tray pin or push button)
+6. Set RTC on the Coordinator
+7. Unplug the Coordinator and reset it using the sim card tray pin **DO NOT SWITCH THEM OFF!**
+8. Press the push button on the Coordinator to start recording. The LEDs should turn from solid red to solid blue
+
+Keep the Loggers within a meter of the Coordinator through out the recording
+
+9.  Press the push button on the Coordinator to stop recording. The LEDs should turn from solid blue to solid red
+10. Connect the Loggers to the computer
+11. Download the data off of the loggers
+12. Turn off WMOREs (it's a good idea to reset them too)
+13. Delete empty files (bin file with 0kB)
+14. Convert the data from `.bin` to `.csv`
+
+There are some note worthy settings that are only accessible via the serial monitor:
+* "Main Menu" -> "1) Configure Terminal Output" for:
+  *  Setting sampling frequency (4)
+  *  Setting max file size (10)
+  *  Setting the ID of the sensor (22):
+* "Main Menu" -> "3) Configure IMU Logging" for:
+  * Enabling/Disabling Sensor logging, Accelerometer, Gyroscope, Magnetomer and Temperature (1,2 ,3 ,4 and 5)
+  * Setting sensor ranges (6 and 9)
+  * Enabling/Disabling Filters (7 and 10)
+  * Setting filter type (8 and 11)
+* "Main Menu" -> "7) Configure Power Options":
+  * "4) Low Battery Voltage Detection" should be disabled
+
+WMORE LED colour code:
+|Red|Blue|Orange|
+|---|---|---|
+|On|Recording|Charging
+
 
