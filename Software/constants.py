@@ -34,6 +34,12 @@ GET_ID_COMMANDS = [
     "x"
 ]
 
+
+MESSAGE_PATTERNS = {
+    "M_FORMAT": "Format done",
+    "M_FIRMWARE": "WMORE",
+    "M_ID": "Sensor ID"
+}
 ICON_PATH = "images\\WMORE_Icon.png"
 SPLASH_PATH = "images\\WMORE.png"
 CONFIG_PATH = "config.ini"

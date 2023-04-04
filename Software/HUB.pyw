@@ -34,7 +34,7 @@ class WMORE:
         self.id = id
         self.com_port = com_port
         self.firmware = firmware
-        
+
 class HoverButton(QtWidgets.QPushButton):
     """
     Define a new QPushButton subclass with hover behavior
@@ -58,6 +58,7 @@ class HoverButton(QtWidgets.QPushButton):
     def on_hover(self):
         self.hover_timer.stop()
         QtWidgets.QToolTip.showText(QtGui.QCursor.pos(), self.hover_tip) # show the hint text at the current cursor position
+
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
@@ -173,10 +174,10 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         Adds a header to a Device QListWidget
         """
-        header_labels = ["ID", "Firmware", "COM Port"]
-        header_text = "\t".join(header_labels)
+        header_text = "Com Port\tID Firmware"
         header_item = QtWidgets.QListWidgetItem(header_text) 
         header_item.setFlags(header_item.flags() & ~QtCore.Qt.ItemIsSelectable & ~QtCore.Qt.ItemIsEditable) # Disable selection and editing of the header item
+        header_item.setBackground(QtGui.QColor(142, 190, 203)) # Set the background color to red
         font = QtGui.QFont()
         font.setBold(True)
         header_item.setFont(font)
@@ -187,6 +188,7 @@ class MainWindow(QtWidgets.QMainWindow):
         separator_item.setSizeHint(QtCore.QSize(2, 2))  # Set the size hint to 1x1 pixel
         separator_item.setFlags(separator_item.flags() & ~QtCore.Qt.ItemIsSelectable & ~QtCore.Qt.ItemIsEditable) # Disable selection and editing of the header item
         self.list_widget.addItem(separator_item)
+
         
     def download(self):
         """_summary_
@@ -202,8 +204,10 @@ class MainWindow(QtWidgets.QMainWindow):
             item = self.list_widget.currentItem()
             # create a folder with the date time of download and firmware and id of sensor data
             txt = item.text().split("\t")
+            id = txt[1].split(" ")[0]
+            fw = txt[1].split(" ")[1]
             now = datetime.now()
-            newFolderPath = f"{newFolderPath}\\\\{now.strftime('%y_%m_%d-%H_%M_%S')}_{txt[1]}_{txt[0]}"
+            newFolderPath = f"{newFolderPath}\\\\{now.strftime('%y_%m_%d-%H_%M_%S')}_{id}_{txt[fw]}"
             if not os.path.exists(newFolderPath):
                 # If the folder doesn't exist, create it (including any necessary parent directories)
                 os.makedirs(newFolderPath)
@@ -250,7 +254,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 wmore = WMORE(com_port=port) #create WMORE object
                 self.device_list.append(wmore)
                 self.selected_device = wmore
-                self.list_widget.addItem(f"\t\t{self.selected_device.com_port}")
+                self.list_widget.addItem(f"{self.selected_device.com_port}")
                 item = self.list_widget.item(num_devices + 2)# +2 to remove the header and sepeartion line
                 self.list_widget.setCurrentItem(item)
                 self.set_button_state(False)
@@ -271,7 +275,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """
         selected_items = self.list_widget.selectedItems()
         if selected_items:
-            port_name = selected_items[0].text().split("\t")[-1]
+            port_name = selected_items[0].text().split("\t")[0]
             self.disconnect_serial()
             status = self.connect_serial(port_name)
             if status == 2:
@@ -298,6 +302,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.list_widget.clearSelection()
                     
         else:
+            self.disconnect_serial()
             self.set_button_state(True)
             self.rtc_button.setEnabled(False)
             self.download_button.setEnabled(False)
@@ -363,15 +368,16 @@ class MainWindow(QtWidgets.QMainWindow):
         Args:
             data (str): data read from the serial device
         """
-        if "Format done" in data:
+        if MESSAGE_PATTERNS["M_FORMAT"] in data:
             self.format_done()
-        elif "Coordinator v" in data:
-            self.selected_device.firmware = "Coordinator"
-        elif "Sensor v" in data:
-            self.selected_device.firmware = "Logger"
-        elif "ID" in data:
-            sensorID = int(re.search(r'ID: (\d+)', data).group(1)) # extract the id
+        elif MESSAGE_PATTERNS["M_FIRMWARE"] in data:
+            fw = re.search(r"\bWMORE\s+(.+)", data).group(1) # extract the id
+            self.selected_device.firmware = fw
+            self.update_item_text()
+        elif MESSAGE_PATTERNS["M_ID"] in data:
+            sensorID = int(re.search(r'Sensor ID: (\d+)', data).group(1)) # extract the id
             self.selected_device.id = sensorID
+            self.update_item_text()
         
     def format(self):
         reply = QtWidgets.QMessageBox.warning(self, 'Warning', 'This will delete all data on the sensor.\nAre you sure you want to continue?', 
@@ -391,7 +397,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """Update the data shown on the currently selected device
         """
         item = self.list_widget.currentItem()
-        item.setText(f"{self.selected_device.id}\t{self.selected_device.firmware}\t{self.selected_device.com_port}")
+        item.setText(f"{self.selected_device.com_port}\t {self.selected_device.id} {self.selected_device.firmware}")
     
     def closeEvent(self, event):
         self.disconnect_serial()
