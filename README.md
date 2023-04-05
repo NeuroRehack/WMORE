@@ -28,6 +28,8 @@ The project comprises two types of sensors: a logger and a coordinator. The coor
       - [**Uploading firmware to Nano**](#uploading-firmware-to-nano)
   - [**Software**](#software)
 - [**Using the WMOREs**](#using-the-wmores)
+  - [WMORE Settings](#wmore-settings)
+  - [WMORE LED colour code](#wmore-led-colour-code)
 
 # **Set Up**
 ## **Hardware**
@@ -227,20 +229,24 @@ The step for recording from the WMOREs are as follow:
 2. Reset the sensor using a sim card tray pin (or push button for Loggers)
 3. Connect the sensors to your computer
 4. Format SD card on the Logger(s)
-5. Unplug the Loggers, power cycle them and reset the sensors (using sim card tray pin or push button)
+5. Unplug the Loggers, power cycle them (reset before turning on) and reset the sensors (using sim card tray pin or push button)
 6. Set RTC on the Coordinator
 7. Unplug the Coordinator and reset it using the sim card tray pin **DO NOT SWITCH THEM OFF!**
 8. Press the push button on the Coordinator to start recording. The LEDs should turn from solid red to solid blue
 
 Keep the Loggers within a meter of the Coordinator through out the recording
 
-9.  Press the push button on the Coordinator to stop recording. The LEDs should turn from solid blue to solid red
-10. Connect the Loggers to the computer
-11. Download the data off of the loggers
-12. Turn off WMOREs (it's a good idea to reset them too)
-13. Delete empty files (bin file with 0kB)
-14. Convert the data from `.bin` to `.csv`
+1.  Press the push button on the Coordinator to stop recording. The LEDs should turn from solid blue to solid red
+2.  Connect the Loggers to the computer
+3.  Download the data off of the loggers
+4.  Turn off WMOREs (it's a good idea to reset them too after they ar off)
+5.  Delete empty files (bin file with 0kB)
+6.  Convert the data from `.bin` to `.csv`
+   
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## WMORE Settings
+---
 There are some note worthy settings that are only accessible via the serial monitor:
 * "Main Menu" -> "1) Configure Terminal Output" for:
   *  Setting sampling frequency (4)
@@ -254,9 +260,30 @@ There are some note worthy settings that are only accessible via the serial moni
 * "Main Menu" -> "7) Configure Power Options":
   * "4) Low Battery Voltage Detection" should be disabled
 
-WMORE LED colour code:
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## WMORE LED colour code
+---
 |Red|Blue|Orange|
 |---|---|---|
 |On|Recording|Charging
 
+Turn on sequence: Green flashes, then blue flashes then solid red. If the blue and red LED don't turn on reset the device
 
+Reset LED sequence: Blue flashes then solid red.
+
+Turn off LED sequence: All LEDs turn off (it's a good idea to reset the sensors after they're off)
+
+Recording LED pattern: Solid blue and faded solid red
+
+Stop recording LED sequence: All LEDs off then blue flashes then solid red
+
+[![Watch the video](https://img.youtube.com/vi/6vO_0NQ73e0/hqdefault.jpg
+)](https://www.youtube.com/watch?v=6vO_0NQ73e0)
+<p align="center">
+  <iframe width="420" height="315"
+    src="https://www.youtube.com/watch?v=jfKfPfyJRdk">
+  </iframe>
+</p>
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
