@@ -7,16 +7,17 @@
 </p>
 
 This project aims at providing an opensource platform for synchronised inertial measurements.
-This platform consist of a list of required components, firmware to run the components and a software user interface. 
 
-The project comprises two types of sensors: a logger and a coordinator. The coordinator is responsible for initiating and stopping the recording on the loggers while ensuring that they remain synchronized. Only one coordinator is required to operate a group of loggers.
+The project comprises two types of sensors: a Logger and a Coordinator. The coordinator is responsible for starting and stopping the recording on the loggers while ensuring that they remain synchronized. Only one coordinator is required to operate a group of loggers.
+
+This document provide a information on the components needed to build a WMORE, how to program them, assemble them and use the WMORE.
 ## **Table of Content**
 
 - [**WMORE**](#wmore)
   - [**Table of Content**](#table-of-content)
 - [**Set Up**](#set-up)
   - [**Hardware**](#hardware)
-    - [**Required Components**](#required-components)
+    - [**Requirements**](#requirements)
     - [**Soldering The Components**](#soldering-the-components)
     - [**Assembling The Case**](#assembling-the-case)
   - [**Firmware**](#firmware)
@@ -24,8 +25,8 @@ The project comprises two types of sensors: a logger and a coordinator. The coor
       - [**Setting up the Arduino environment**](#setting-up-the-arduino-environment)
       - [**Uploading Firmware Onto The OLA**](#uploading-firmware-onto-the-ola)
     - [**Nano**](#nano)
-      - [**Building The Zephyr Project**](#building-the-zephyr-project)
-      - [**Uploading Firmware To Nano**](#uploading-firmware-to-nano)
+      - [**Building the Zephyr Project**](#building-the-zephyr-project)
+      - [**Uploading Firmware to Nano**](#uploading-firmware-to-nano)
   - [**Software**](#software)
 - [**Using the WMOREs**](#using-the-wmores)
   - [**Recording**](#recording)
@@ -33,13 +34,21 @@ The project comprises two types of sensors: a logger and a coordinator. The coor
   - [**WMORE LED Colour Code**](#wmore-led-colour-code)
 
 # **Set Up**
+Required/useful skills to have:
+* 3D printing experience
+* CAD modeling (only if planning on modifying or redesigning the case)
+* Soldering
+* SMD soldering
+* Programming experience in C,C++, Arduino, and/or Python (only if planning of modifying firmware or software components of the project)
+
+
 ## **Hardware**
-### **Required Components**
+### **Requirements**
 ---
 The WMOREs were designed using the list of components bellow. Only the Arduino Nano and Artemis Openlog are required to run the firmware, the battery and switches can be swapped for different models. However the CAD models for the case will need to be modified or redesigned accordingly if you choose to do so. At least 2 WMOREs must be assembled:
 
  * [Arduino Nano ble 33 (Sense)](https://store.arduino.cc/products/arduino-nano-33-ble-sense)
- * [SparkFun OpenLog Artemis (OLA)](https://www.sparkfun.com/products/16832)
+ * [SparkFun OpenLog Artemis](https://www.sparkfun.com/products/16832) (OLA)
  * [Slide switch](https://www.digikey.com.au/en/products/detail/c-k/OS102011MS2QN1/411602)
  * [Tactile Switch](https://www.digikey.com.au/en/products/detail/te-connectivity-alcoswitch-switches/1825910-6/1632536)
  * [LiPo Battery 500mAh 3.7V 503035](https://ecocell.com.au/product/lipo-500-503035/)
@@ -48,8 +57,14 @@ The WMOREs were designed using the list of components bellow. Only the Arduino N
  * A MicroSDXC V30 U3 C10 A2
  * Sim card tray pin (for pressing the reset button)
  * USB type A to USB type C cable
+  
+In addition to this component access to the following is required:
+* 3D printing equipment and filament (we used PLA)
+* Soldering Iron
+* Soldering Microscope (for replacing the SMD resistor, see section below)
+  
 
-It is recommended to flash the Arduino Nano's and OLA's firmware before soldering and assembling the components into the case as this makes testing and debugging easier. It's especially important to do so for the Arduino Nano as once the case closed the Nano's micro USB is no longer accessibe 😉.
+It is recommended to flash the Arduino Nano's and OLA's firmware before soldering and assembling the components into the case as this makes testing and debugging easier. It's especially important to do so for the Arduino Nano as once the case is closed the Nano's micro USB port is no longer accessibe.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -116,7 +131,7 @@ Before flashing the arduino program to the OpenLogs, the Arduino IDE must be set
 - Install libraries using Library Manager
     - Required: 
         
-        Sparkfun 9DoF IMU Breakout – ICM-20948
+      - Sparkfun 9DoF IMU Breakout – ICM-20948
     - Required but redundant (will not be needed once dead code is removed):
       - SparkFun_I2C_Mux_Arduino_Library
       - SparkFunCCS811
@@ -170,7 +185,7 @@ The nRF Connect SDK and the Zephyr RTOS involve a fairly complex structure of fi
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-#### **Building The Zephyr Project**
+#### **Building the Zephyr Project**
 ---
 1. Install nRF Connect SDK v2.1.0 by following [this tutorial](https://www.nordicsemi.com/Products/Development-software/nRF-Connect-SDK/GetStarted#infotabs)
 2. In the NRf connect SDK extension in VS code click on the Create a new Aplication button
@@ -181,14 +196,14 @@ The nRF Connect SDK and the Zephyr RTOS involve a fairly complex structure of fi
 7. replace the `prj.conf` file with [Firmware/Nano_Coordinator/prj.conf](/Firmware/Nano_Coordinator/prj.conf) or [Firmware/Nano_Logger/prj.conf](/Firmware/Nano_Logger/prj.conf)
 8. Add the [overlay](/Firmware/Nano_Coordinator/boards/arduino_nano_33_ble.overlay) file to the project
 9. Click on the `Add Build Configuration` button next the application you just created under the Applications tab in the to the  In the applications tab in the NRf Connect extension
-10. Select `All Boards` under Board and search for `arduino_nano_ble_sense`
+10. Select `All Boards` under `Board` and search for `arduino_nano_ble_sense`
 11. Click build configuration.
-12. 
+    
 You should now be able to build the project. You can follow the steps in the next sessions to flash the Nano with the generated `.bin` file. The `.bin` have been rename `coordinator.bin` and `logger.bin` in the following section for more clarity however they can be found here: `<path_to_project>\<build_folder>\zephyr\zephyr.bin`.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-#### **Uploading Firmware To Nano**
+#### **Uploading Firmware to Nano**
 ---
 
 In order to flash the firmware to the Arduino nano, it is also necessary to install the bossac utility. An easy way to do this is to install the Arduino IDE, which should already have been done to support programming the OLA.
