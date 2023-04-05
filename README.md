@@ -11,6 +11,7 @@ This platform consist of a list of required components, firmware to run the comp
 
 The project comprises two types of sensors: a logger and a coordinator. The coordinator is responsible for initiating and stopping the recording on the loggers while ensuring that they remain synchronized. Only one coordinator is required to operate a group of loggers.
 ## **Table of Content**
+
 - [**WMORE**](#wmore)
   - [**Table of Content**](#table-of-content)
 - [**Set Up**](#set-up)
@@ -216,7 +217,7 @@ In order to flash the firmware to the Arduino nano, it is also necessary to inst
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## **Software**
----
+
 All interections with the WMOREs can be done through a serial monitor such as [PuTTY](https://www.chiark.greenend.org.uk/~sgtatham/putty/) or [Tera Term](http://www.teraterm.org/). However, for convenience, a python program was written to simplify some of the repetitive tasks. The source code is available in the [Software](/Software/) folder. This code can be run either from python or using the executable.
 
 If you wish to modify the code follow these steps:
