@@ -249,7 +249,7 @@ As explained before all interactions with the WMOREs can be done through a seria
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## **Recording**
----
+
 The step for recording from the WMOREs are as follow:
 
 1. Turn the Logger(s) and the Coordinator on using the slide switch on the side of the sensor
@@ -280,7 +280,7 @@ Here is a short tutorial video showing the steps above:
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## **WMORE Settings**
----
+
 There are some note worthy settings that are only accessible via the serial monitor:
 * Configure Terminal Output (1):
   *  Setting sampling frequency (4)
@@ -299,7 +299,7 @@ There are some note worthy settings that are only accessible via the serial moni
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## **WMORE LED Colour Code**
----
+
 Here are the various color sequences and patterns for the different states of the WMOREs.  
 When turning off the sensors all the LEDs should turn off if they don't reset the sensor.
 
