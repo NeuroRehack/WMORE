@@ -203,11 +203,11 @@ class MainWindow(QtWidgets.QMainWindow):
             newFolderPath = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose output folder')
             item = self.list_widget.currentItem()
             # create a folder with the date time of download and firmware and id of sensor data
-            txt = item.text().split("\t")
-            id = txt[1].split(" ")[0]
-            fw = txt[1].split(" ")[1]
+           
+            fw = self.selected_device.firmware.split(" ")[0]
+            id = self.selected_device.id
             now = datetime.now()
-            newFolderPath = f"{newFolderPath}\\\\{now.strftime('%y_%m_%d-%H_%M_%S')}_{id}_{fw}"
+            newFolderPath = f"{newFolderPath}\\\\{now.strftime('%y%m%d_%H%M%S')}_{fw}_{id}"
             if not os.path.exists(newFolderPath):
                 # If the folder doesn't exist, create it (including any necessary parent directories)
                 os.makedirs(newFolderPath)
