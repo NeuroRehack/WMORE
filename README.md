@@ -280,10 +280,9 @@ Stop recording LED sequence: All LEDs off then blue flashes then solid red
 
 [![Watch the video](https://img.youtube.com/vi/6vO_0NQ73e0/hqdefault.jpg
 )](https://www.youtube.com/watch?v=6vO_0NQ73e0)
-<p align="center">
-  <iframe width="420" height="315"
-    src="https://www.youtube.com/watch?v=jfKfPfyJRdk">
-  </iframe>
-</p>
+
+[![Watch the video](https://img.youtube.com/vi/jfKfPfyJRdk/hqdefault.jpg
+)](https://www.youtube.com/watch?v=jfKfPfyJRdk)
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
