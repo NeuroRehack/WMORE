@@ -2,7 +2,7 @@
 File: constants.py
 Author: Sami Kaab
 Date: March 28, 2023
-Description:   Global constants to be used by HUB.py, helpers.py and 
+Description:   Global constants to be used by WMORE_HUB.pyw, helpers.py and 
 """
 TERATERM = "ttermpro.exe"
 TERATERM_MACRO = "teratermMacro.ttl"

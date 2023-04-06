@@ -8,9 +8,9 @@
 
 This project aims at providing an opensource platform for synchronised inertial measurements.
 
-The project comprises two types of sensors: a Logger and a Coordinator. The coordinator is responsible for starting and stopping the recording on the loggers while ensuring that they remain synchronized. Only one coordinator is required to operate a group of loggers.
+The project comprises two types of sensors: a Logger and a Coordinator. The Coordinator is responsible for starting and stopping the recording on the Loggers while ensuring that they remain synchronized. Only one Coordinator is required to operate a group of Loggers.
 
-This document provide a information on the components needed to build a WMORE, how to program them, assemble them and use the WMORE.
+This document provide information on the components needed to build the WMOREs, how to program, assemble and use them.
 ## **Table of Content**
 
 - [**WMORE**](#wmore)
@@ -289,8 +289,11 @@ Keep the Loggers within a meter of the Coordinator through out the recording. A 
 
 Here is a short tutorial video showing the steps above: 
  
-[![Watch the video](https://img.youtube.com/vi/6vO_0NQ73e0/hqdefault.jpg
-)](https://www.youtube.com/watch?v=6vO_0NQ73e0)
+[![Watch the video](https://img.youtube.com/vi/zHUC899wjb8/hqdefault.jpg
+)](https://www.youtube.com/watch?v=zHUC899wjb8)
+
+<!-- [<img src="Documentation/WMORE_Hub_Tutorial_thumbnail.png" alt="rotation.gif" width="400"/>](/Documentation/WMORE_Hub_Tutorial.mp4) -->
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -325,3 +328,5 @@ When turning off the sensors all the LEDs should turn off if they don't reset th
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
