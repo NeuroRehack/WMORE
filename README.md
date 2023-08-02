@@ -1,6 +1,6 @@
 <a name="readme-top"></a>
 
-# **WMORE: an open-source Wearable system for synchronous MOvement REcording**
+# **WMORE: an open-source wearable system for synchronous movement recording**
 <p align="center">
 <img src="Documentation/rotation.gif" alt="rotation.gif" width="400"/>
 <img src="Documentation/assembly.gif" alt="assembly.gif" width="400"/>
@@ -17,7 +17,7 @@ The project comprises two types of sensors: a Logger and a Coordinator. The Coor
 This document provide information on the components needed to build the WMOREs, how to program, assemble and use them.
 ## **Table of Content**
 
-- [**WMORE: an open-source Wearable system for synchronous MOvement REcording**](#wmore-an-open-source-wearable-system-for-synchronous-movement-recording)
+- [**WMORE: an open-source wearable system for synchronous movement recording**](#wmore-an-open-source-wearable-system-for-synchronous-movement-recording)
   - [**Table of Content**](#table-of-content)
 - [**Set Up**](#set-up)
   - [**Required Components**](#required-components)
@@ -43,7 +43,7 @@ Required/useful skills to have:
 * CAD modeling (only if planning on modifying or redesigning the case)
 * Soldering
 * SMD soldering
-* Programming experience in C,C++, Arduino, and/or Python (only if planning of modifying firmware or software components of the project)
+* Programming experience in C,C++, Arduino, and/or Python (only if planning on modifying firmware or software components of the project)
 
 ## **Required Components**
 The WMOREs were designed using the list of components below. Only the Arduino Nano and Artemis Openlog are required to run the firmware, the battery and switches can be swapped for different models. However the CAD models for the case will need to be modified or redesigned accordingly if you choose to do so. At least 2 WMOREs must be assembled:
@@ -90,11 +90,13 @@ Before flashing the arduino program to the OpenLogs, the Arduino IDE must be set
 - Install libraries using Library Manager
     - Required: 
       - Sparkfun 9DoF IMU Breakout – ICM-20948
+      - SdFat_exFAT
     - Required but redundant (will not be needed once dead code is removed):
       - SparkFun_I2C_Mux_Arduino_Library
       - SparkFunCCS811
       - SparkFun_VL53L1X
-      - SparkFunBME280  <!-- SparkFun_BME280 -->
+      - SparkFunBME280 **or**  
+        SparkFun_BME280
       - SparkFun_LPS25HB_Arduino_Library  
       - SparkFun_VEML6075_Arduino_Library 
       - SparkFun_PHT_MS8607_Arduino_Library 
@@ -110,12 +112,13 @@ Before flashing the arduino program to the OpenLogs, the Arduino IDE must be set
       - SparkFun_SHTC3 
       - SparkFun_ADS122C04_ADC_Arduino_Library 
       - SparkFun_MicroPressure 
-      - SparkFun_Particle_Logger_SN-GCJA5_Arduino_Library   <!-- SparkFun_Particle_Sensor_SN-GCJA5 -->
+      - SparkFun_Particle_Logger_SN-GCJA5_Arduino_Library **or**  
+        SparkFun_Particle_Sensor_SN-GCJA5
       - SparkFun_SGP40_Arduino_Library
       - SparkFun_SDP3x_Arduino_Library
       - MS5837
       - SparkFun_Qwiic_Button
-      - SparkFun_Bio_Logger_Hub_Library <!-- SparkFun_Bio_Sensor -->
+      - SparkFun_Bio_Logger_Hub_Library or SparkFun_Bio_Sensor
 
 <!--
 Other libraries that need to be included:
@@ -131,7 +134,6 @@ Once the Arduino IDE has been set up, open the [WMORE_Coordinator.ino](Firmware/
 <!--
 did you mean "WMORE_Openlog_Coordinator.ino" and "WMORE_Openlog_Logger.ino"
 -->
-
 Connect the OLA to your computer, select the correct com port and press the upload button. The project may take a while to compile
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -164,9 +166,8 @@ The nRF Connect SDK and the Zephyr RTOS involve a fairly complex structure of fi
 6. Replace the `source/main.c` file with [Firmware/Nano_Coordinator/src/main.c](/Firmware/Nano_Coordinator/src/main.c) or [Firmware/Nano_Logger/src/main.c](/Firmware/Nano_Logger/src/main.c)
 7. replace the `prj.conf` file with [Firmware/Nano_Coordinator/prj.conf](/Firmware/Nano_Coordinator/prj.conf) or [Firmware/Nano_Logger/prj.conf](/Firmware/Nano_Logger/prj.conf)
 8. Add the [overlay](/Firmware/Nano_Coordinator/boards/arduino_nano_33_ble.overlay) file to the project
-9. Click on the `Add Build Configuration` button next to the application you just created under the Applications tab <!-- in the to the  In the applications tab --> in the NRf Connect extension
+9. Click on the `Add Build Configuration` button next to the application you just created under the Applications tab in the NRf Connect extension
 10. Select `All Boards` under `Board` and search for `arduino_nano_ble_sense`
-<!-- `arduino_nano_33_ble_sense` -->
 11. Click build configuration.
 
 <!-- 
@@ -180,11 +181,7 @@ You should now be able to build the project. You can follow the steps in the nex
 #### **Uploading Firmware to Nano**
 ---
 
-In order to flash the firmware to the Arduino nano, it is also necessary to install the bossac utility. An easy way to do this is to install the Arduino IDE, which should already have been done to support programming the OLA.
-
-<!-- 
-support for the "arduino nano 33 ble sense" board also needs to be installed under "Boards Manager" for bossac to be installed
--->
+In order to flash the firmware to the Arduino nano, it is also necessary to install the [Bossa](https://www.shumatech.com/web/products/bossa) utility. An easy way to do this is to install the Arduino IDE and add the arduino nano 33 ble (sense) to the board manager, which should already have been done to support programming the OLA.
 
 - Connect the Nano to the computer and press the white tactile button twice (the orange LED should start flashing)
 
@@ -212,9 +209,7 @@ support for the "arduino nano 33 ble sense" board also needs to be installed und
 ## **Hardware**
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-<!--
-Add information / relavent documentation regarding the components that are used
--->
+
 
 ### **Soldering The Components**
 ---
@@ -233,44 +228,21 @@ Use the wiring diagram below to solder the components together.
 Pay attention to the wiring difference between the Coordinator and Logger.  
 The wire lengths are recommendations, however, The wires need to be long enough to reach the components but short enough to fit in the case. 
 
-<!--
-Provide recommended minimum wire lengths, especially for the on/off switch and battery wires
--->
 
 <img src="Documentation/WMORE_wiring_diagram.png" alt="WMORE_wiring_diagram" width="500"/></br>
 [Figure 4.](Documentation/WMORE_wiring_diagram.png) WMORE Logger and Coordinator wiring Diagram 
-
-
-
-<!--
-Can use a more variety of colours for connections eg: red for 3V3
-Use more contrasty colours especially for differences between coordinator and logger. The dark purple and the black look quite similar.
-Additionally, for "only for the logger", the wire colour in the diagram and the wire colour in the legend don't quite match and can lead to confusion.
--->
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### **Assembling The Case**
 ---
-Before assembling the case, 3D print the models in [WMORE_Bottom.obj](Documentation/CAD_Models/WMORE_Bottom.obj) and [WMORE_Top.obj](/Documentation/CAD_Models/WMORE_Top.obj). the Case is identical for the Coordinator and Logger.  
+Before assembling the case, 3D print the models in [WMORE_Bottom.obj](Documentation/CAD_Models/WMORE_Bottom.obj) and [WMORE_Top.obj](/Documentation/CAD_Models/WMORE_Top.obj). the Case is identical for the Coordinator and Logger. It is recommended to use a semi-see-through material when 3D printing the case so that the led's are visible from the outside.
 Once printed and all the components soldered place them in to the case as follows:  
-
-<!--
-Include the ".obj" for 3d printing files
-
-add a way for users to distinguish between coordinator and logger
--->
-
-<!--
-recommend the user to use a semi-see-through material when 3D printing the case so that the led's are visible from the outside
-
-additionally, could use transparent materials for positions close to led's
--->
 
 **MAKE SURE THE SLIDE SWITCH IS IN THE OFF POSITION WHILE ASSEMBLING!**
 1. Place the Arduino Nano inside the top half of the case (see [Figure 5](Documentation/Case_Mechanical_Drawing.png)) with the micro usb port facing the back.
 2. Place the Push Button and Slide Switch in their respective frames  
-   Make sure that the two soldered pin of the Slide Switch are towards the front. This is an arbitrary direction so that turning on the sensor is consistenly done by sliding the switch forward .
+   Make sure that the two soldered pin of the Slide Switch are towards the front. This is an arbitrary direction so that turning on the sensor is consistenly done by sliding the switch forward.
 3. Place the OLA on the supporting pegs of the top half of the case with the USB C port flush against the opening.
 4. Place the SD card into the SD card slot of the OLA (for the Loggers only).
 5. Place the Battery inside the bottom half of the case.
@@ -286,10 +258,6 @@ clearly illustrate how components are to be fitted together, include some screen
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-<!--
-Could move firmware instructions to before the hardware section so that steps are in order
--->
-
 ## **Software**
 
 All interections with the WMOREs can be done through a serial monitor such as [PuTTY](https://www.chiark.greenend.org.uk/~sgtatham/putty/) or [Tera Term](http://www.teraterm.org/). However, for convenience, a python program was written to simplify some of the repetitive tasks. The source code is available in the [Software](/Software/) folder. This code can be run either from python or using the executable.
@@ -302,35 +270,13 @@ If you wish to modify the code follow these steps:
     pip install -r requirement.txt
     ```
 
-<!--
-pip freeze of the python venv:
-
-colorama==0.4.6
-numpy==1.24.2
-pandas==2.0.3
-pyserial==3.5
-PySide2==5.15.2.1
-python-dateutil==2.8.2
-pytz==2023.3
-shiboken2==5.15.2.1
-six==1.16.0
-tqdm==4.65.0
-tzdata==2023.3
-wincertstore==0.2
--->
-
 * Run [WMORE_HUB.pyw](/Software/WMORE_HUB.pyw) from a code editor like VS Code
 
 Otherwise download and extract [WMORE.zip](/Software/WMORE.zip) and run `WMORE_HUB.exe`.
 
-<!--
-make this part about "Tera Term" stand out more
--->
+
 You also **need** to install [Tera Term](http://www.teraterm.org/) in order to download the data off of the WMOREs. The program may take a minute or two the first time you run it as it is searching for the location of Tera Term on your computer.
-<!--
-alternative link for "Tera Term"
-https://ttssh2.osdn.jp/index.html.en
--->
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
