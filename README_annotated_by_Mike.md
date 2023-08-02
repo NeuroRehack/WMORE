@@ -229,7 +229,9 @@ Before wiring the components together, the OLA must be modified in 2 ways:
 
 The male JST connector on the battery also needs to be cut off.
 
-Use the wiring diagram below to solder the components together. 
+Use the wiring diagram below to solder the components together.  
+Pay attention to the wiring difference between the Coordinator and Logger.  
+The wire lengths are recommendations, however, The wires need to be long enough to reach the components but short enough to fit in the case. 
 
 <!--
 Provide recommended minimum wire lengths, especially for the on/off switch and battery wires
@@ -239,7 +241,6 @@ Provide recommended minimum wire lengths, especially for the on/off switch and b
 [Figure 4.](Documentation/WMORE_wiring_diagram.png) WMORE Logger and Coordinator wiring Diagram 
 
 
-**NOTE**: Pay attention to the wiring difference between the Coordinator and Logger as well as the table of wire lengths.The wire lengths are recommendations. The wires need to be long enough to reach the components but not too long as to not fit in the case. 
 
 <!--
 Can use a more variety of colours for connections eg: red for 3V3
@@ -251,7 +252,7 @@ Additionally, for "only for the logger", the wire colour in the diagram and the 
 
 ### **Assembling The Case**
 ---
-Before assembling the case, 3D print the models in [WMORE_Bottom.fbx](CAD_Models/WMORE_Bottom.fbx) and [WMORE_Top.fbx](CAD_Models/WMORE_Top.fbx).
+Before assembling the case, 3D print the models in [WMORE_Bottom.obj](Documentation/CAD_Models/WMORE_Bottom.obj) and [WMORE_Top.obj](/Documentation/CAD_Models/WMORE_Top.obj). the Case is identical for the Coordinator and Logger.  
 Once printed and all the components soldered place them in to the case as follows:  
 
 <!--
@@ -280,8 +281,8 @@ additionally, could use transparent materials for positions close to led's
 clearly illustrate how components are to be fitted together, include some screenshots of the title animation and recommended order of steps for assembly
 -->
 
-<img src="Documentation/Case_Mechanical_Drawing.png" alt="Case_Mechanical_Drawing" width="500" /></br>
-[Figure 5.](Documentation/Case_Mechanical_Drawing.png) WMORE Logger and Coordinator wiring Diagram 
+<img src="Documentation/CAD_Models/Case_Mechanical_Drawings.png" alt="Case_Mechanical_Drawing" width="500" /></br>
+[Figure 5.](Documentation/CAD_Models/Case_Mechanical_Drawings.png) WMORE Logger and Coordinator wiring Diagram 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -325,7 +326,7 @@ Otherwise download and extract [WMORE.zip](/Software/WMORE.zip) and run `WMORE_H
 <!--
 make this part about "Tera Term" stand out more
 -->
-You also need to install [Tera Term](http://www.teraterm.org/) in order to download the data off of the WMOREs. The program may take a minute or two the first time you run it as it is searching for the location of Tera Term on your computer.
+You also **need** to install [Tera Term](http://www.teraterm.org/) in order to download the data off of the WMOREs. The program may take a minute or two the first time you run it as it is searching for the location of Tera Term on your computer.
 <!--
 alternative link for "Tera Term"
 https://ttssh2.osdn.jp/index.html.en

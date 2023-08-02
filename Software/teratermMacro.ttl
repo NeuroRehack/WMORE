@@ -8,7 +8,7 @@ sendln "sz *"
 pause 1
 sendln "\r"
 pause 1
-changedir "C:\Users\uqskaab\OneDrive - The University of Queensland\Documents\_Programing\230320_WMORE\test\\230405_103754_2_Logger"
+changedir "C:\Users\uqskaab\Desktop\2319_wmore_data\\230719_101440_Logger_0"
 zmodemrecv
 pause 1
 sendln "x"
