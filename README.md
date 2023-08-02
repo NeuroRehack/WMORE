@@ -92,10 +92,10 @@ Use the wiring diagram below to solder the components together.
 
 ### **Assembling The Case**
 ---
+Before assembling the case, 3D print the models in [WMORE_Bottom.fbx](CAD_Models/WMORE_Bottom.fbx) and [WMORE_Top.fbx](CAD_Models/WMORE_Top.fbx).
+Once printed and all the components soldered place them in to the case as follows:  
 
-Once soldered place the components in to the case as follows:  
-
-**MAKE SURE THE SLIDE SWITCH IN THE OFF POSITION WHILE ASSEMBLING!**
+**MAKE SURE THE SLIDE SWITCH IS IN THE OFF POSITION WHILE ASSEMBLING!**
 1. Place the Arduino Nano inside the top half of the case (see [Figure 5](Documentation/Case_Mechanical_Drawing.png)) with the micro usb port facing the back.
 2. Place the Push Button and Slide Switch in their respective frames  
    Make sure that the two soldered pin of the Slide Switch are towards the front. This is an arbitrary direction so that turning on the sensor is consistenly done by sliding the switch forward .
