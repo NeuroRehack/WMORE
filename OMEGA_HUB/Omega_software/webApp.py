@@ -36,10 +36,10 @@ def receive_data():
     if request.method == 'POST':
         # Deserialize JSON data to a list of dictionaries
         data = json.loads(request.data)
-        
+        stored_devices = []
         # Convert each dictionary to a DeviceInfo object
-        stored_devices = [DeviceObject(**device_data) for device_data in data]
-        [print(deviceObj.get_device_info()) for deviceObj in stored_devices]
+        stored_devices = [device_data for device_data in data]
+        [print(deviceObj) for deviceObj in stored_devices]
 
     # devices = [
     #     DeviceObject("/dev/ttyUSB0",0,1,2),

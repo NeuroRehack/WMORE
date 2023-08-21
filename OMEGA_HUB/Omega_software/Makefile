@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS=-Wall -g -pedantic
 
-all: zmodemFileReceive usbdevice_list
+all: zmodemFileReceive
 
 zmodemFileReceive: zmodemFileReceive.c
 	$(CC) $(CFLAGS) -o zmodemFileReceive zmodemFileReceive.c

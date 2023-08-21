@@ -1,14 +1,44 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Device Data</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Your Webpage</title>
 </head>
 <body>
-    <h1>Device Data</h1>
-    <ul>
-        {% for device in devices %}
-            <li>Comport: {{ device.get_device_info()["comport"] }}, Type: {{ device.get_device_info()["type"] }}, Status: {{ device.get_device_info()["status"] }}, ID: {{ device.get_device_info()["id"] }}</li>
-        {% endfor %}
-    </ul>
+    <header class="banner">
+        <div class="container">
+            <h1 class="logo">WMORE</h1>
+        </div>
+    </header>
+
+    <section class="image-gallery">
+        <div class="container">
+            <div class="image-card-container">
+                {% for device in devices %}
+                <div class="image-card">
+                    <p class="image-caption">
+                        <h2>{{ device["type"] }} - {{ device["id"] }}</h2>
+                        <img src="{{ url_for('static', filename='WMORE_render.png') }}" alt="Image 1"><br>
+                        Comport: {{ device["comport"] }} <br>
+                        Status: {{ device["status"] }} <br>
+                    </p>  
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
 </body>
+<footer class="footer">
+    <div class="container">
+        <p class="footer-text">Author Sami Kaab</p>
+    </div>
+</footer>
+<script>
+    // JavaScript to reload the page every 5 seconds
+    setInterval(function () {
+        window.location.reload();
+    }, 5000); // 5000 milliseconds (5 seconds)
+</script>
 </html>
