@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Device Data</title>
+</head>
+<body>
+    <h1>Device Data</h1>
+    <ul>
+        {% for device in devices %}
+            <li>Comport: {{ device.get_device_info()["comport"] }}, Type: {{ device.get_device_info()["type"] }}, Status: {{ device.get_device_info()["status"] }}, ID: {{ device.get_device_info()["id"] }}</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
