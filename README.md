@@ -120,20 +120,14 @@ Before flashing the arduino program to the OpenLogs, the Arduino IDE must be set
       - SparkFun_Qwiic_Button
       - SparkFun_Bio_Logger_Hub_Library or SparkFun_Bio_Sensor
 
-<!--
-Other libraries that need to be included:
-- SdFat_exFAT
--->
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 #### **Uploading Firmware Onto The OLA**
 ---
-Once the Arduino IDE has been set up, open the [WMORE_Coordinator.ino](Firmware/OpenLog_Coordinator/WMORE_Coordinator.ino) file or the [WMORE_Coordinator.ino](Firmware/OpenLog_Coordinator/WMORE_Coordinator.ino). 
+Once the Arduino IDE has been set up, open the [WMORE_Openlog_Coordinator.ino](/Firmware/WMORE_Openlog_Coordinator/WMORE_Openlog_Coordinator.ino) file or the [WMORE_Openlog_Logger.ino](/Firmware/WMORE_Openlog_Logger/WMORE_Openlog_Logger.ino). 
 
-<!--
-did you mean "WMORE_Openlog_Coordinator.ino" and "WMORE_Openlog_Logger.ino"
--->
+
 Connect the OLA to your computer, select the correct com port and press the upload button. The project may take a while to compile
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -156,7 +150,7 @@ The nRF Connect SDK and the Zephyr RTOS involve a fairly complex structure of fi
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-#### **Building the Zephyr Project**
+#### **Building the Zephyr Project** (for developpers)
 ---
 1. Install nRF Connect SDK v2.1.0 by following [this tutorial](https://www.nordicsemi.com/Products/Development-software/nRF-Connect-SDK/GetStarted#infotabs)
 2. In the NRf connect SDK extension in VS code click on the Create a new Aplication button
@@ -208,7 +202,6 @@ In order to flash the firmware to the Arduino nano, it is also necessary to inst
 
 ## **Hardware**
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
 ### **Soldering The Components**
