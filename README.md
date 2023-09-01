@@ -6,9 +6,6 @@
 <img src="Documentation/assembly.gif" alt="assembly.gif" width="400"/>
 </p>
 
-<!--
-Can add what WMORE stands for
--->
 
 This project aims at providing an opensource platform for synchronised inertial measurements.
 
@@ -26,7 +23,7 @@ This document provide information on the components needed to build the WMOREs, 
       - [**Setting up the Arduino environment**](#setting-up-the-arduino-environment)
       - [**Uploading Firmware Onto The OLA**](#uploading-firmware-onto-the-ola)
     - [**Nano**](#nano)
-      - [**Building the Zephyr Project**](#building-the-zephyr-project)
+      - [**Building the Zephyr Project** (for developpers)](#building-the-zephyr-project-for-developpers)
       - [**Uploading Firmware to Nano**](#uploading-firmware-to-nano)
   - [**Hardware**](#hardware)
     - [**Soldering The Components**](#soldering-the-components)
@@ -36,6 +33,7 @@ This document provide information on the components needed to build the WMOREs, 
   - [**Recording**](#recording)
   - [**WMORE Settings**](#wmore-settings)
   - [**WMORE LED Colour Code**](#wmore-led-colour-code)
+- [To Do](#to-do)
 
 # **Set Up**
 Required/useful skills to have:
@@ -366,4 +364,9 @@ When turning off the sensors all the LEDs should turn off if they don't reset th
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+
+# To Do 
+* investigate way to keep RTC on when the sensor is turned off
+  * add capacitor in parallel to the battery
+  * connect nano gpio to reset pin on opelog on boot
 
