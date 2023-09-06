@@ -152,6 +152,13 @@ void menuMain()
       else
         SerialPrintln(F("Quit aborted"));
     }
+    //------ added by SK  ----------
+    else if (incoming == 'i')
+    {
+      Serial.println(WMORE_VERSION);
+      break;
+    }
+    // -------------------------------
     else if (incoming == 'x')
       break;
     else if (incoming == STATUS_GETBYTE_TIMEOUT)
