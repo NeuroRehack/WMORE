@@ -12,10 +12,9 @@ This project aims at providing an opensource platform for synchronised inertial 
 The project comprises two types of sensors: a Logger and a Coordinator. The Coordinator is responsible for starting and stopping the recording on the Loggers while ensuring that they remain synchronized. Only one Coordinator is required to operate a group of Loggers.
 
 This document provide information on the components needed to build the WMOREs, how to program, assemble and use them.
-## **Table of Content**
 
+---
 - [**WMORE: an open-source wearable system for synchronous movement recording**](#wmore-an-open-source-wearable-system-for-synchronous-movement-recording)
-  - [**Table of Content**](#table-of-content)
 - [**Set Up**](#set-up)
   - [**Required Components**](#required-components)
   - [**Firmware**](#firmware)
@@ -173,7 +172,7 @@ You should now be able to build the project. You can follow the steps in the nex
 #### **Uploading Firmware to Nano**
 ---
 
-In order to flash the firmware to the Arduino nano, it is also necessary to install the [Bossa](https://www.shumatech.com/web/products/bossa) utility. An easy way to do this is to install the Arduino IDE and add the arduino nano 33 ble (sense) to the board manager, which should already have been done to support programming the OLA.
+In order to flash the firmware to the Arduino nano, it is also necessary to install the [Bossa](https://www.shumatech.com/web/products/bossa) utility. An easy way to do this is to install the Arduino IDE and add the arduino nano 33 ble (sense) to the board manager.
 
 - Connect the Nano to the computer and press the white tactile button twice (the orange LED should start flashing)
 
@@ -186,14 +185,14 @@ In order to flash the firmware to the Arduino nano, it is also necessary to inst
 
 - Enter the following command line for the Coordinator: 
   ```sh
-  .\bossac -d --port=<COMxx> -U -i -e -w <path_to_project>/Firmware/Nano_Coordinator/coordinator.bin -R
+  .\bossac -d --port=COM<xx> -U -i -e -w <path_to_project>/Firmware/Nano_Coordinator/coordinator.bin -R
   ```
   and for the Logger:
   ```sh
-  .\bossac -d --port=<COMxx> -U -i -e -w <path_to_project>/Firmware/Nano_Logger/logger.bin -R
+  .\bossac -d --port=COM<xx> -U -i -e -w <path_to_project>/Firmware/Nano_Logger/logger.bin -R
   ```
   
-**NOTE** : The appropriate .bin file **<path_to_project>** and **\<COMxx\>** should be substituted. The com port number can be found using the Device Manager. 
+**NOTE** : The appropriate .bin file **<path_to_project>** and **\<xx\>** should be substituted. The com port number can be found using the Device Manager. 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -205,7 +204,7 @@ In order to flash the firmware to the Arduino nano, it is also necessary to inst
 ### **Soldering The Components**
 ---
 Before wiring the components together, the OLA must be modified in 2 ways:
-1. The JST connector needs to be removed, in order for the Openlog to fit in the case. The battery will directly be wired to the pins underneath it. To do so disconnect the two surface mount pins of the JST connector (see [Figure 1](/Documentation/OpenLog_JST_Desolder_Location.jpg)) by cutting them off of the PCB using flush cutters, then silde the JST connector off its rails by pushing it away from the border of the PCB. The OLA should now look like the picture in [Figure 2](/Documentation/OpenLog_JST_Desoldered.jpg).
+1. The JST connector needs to be removed, in order for the Openlog to fit in the case. The battery will directly be wired to the pins underneath it. To do so, disconnect the two surface mount pins of the JST connector (see [Figure 1](/Documentation/OpenLog_JST_Desolder_Location.jpg)) by cutting them off of the PCB using flush cutters, then slide the JST connector off of its rails by pushing it away from the border of the PCB. The OLA should now look like the picture in [Figure 2](/Documentation/OpenLog_JST_Desoldered.jpg).
 
 2. The OLA has a charge current of approximately 450 mA. The 500 mAh Ecocell 503035P that is used in the WMOREs has a recommended charge current of 100 mA. If this battery is used then the OLA charge current must be reduced to 100 mA for safe operation. To achieve this, desolder the R4 resistor (which location is shown in [Figure 3.](/Documentation/Openlog_Battery_Voltage_Regulator_Resistor.jpg)) and replace it with a 4.7kΩ 0402 surface mount resistor.
 
@@ -216,12 +215,13 @@ Before wiring the components together, the OLA must be modified in 2 ways:
 The male JST connector on the battery also needs to be cut off.
 
 Use the wiring diagram below to solder the components together.  
-Pay attention to the wiring difference between the Coordinator and Logger.  
-The wire lengths are recommendations, however, The wires need to be long enough to reach the components but short enough to fit in the case. 
+The wire lengths are only recommendations. However, the wires need to be long enough to reach the components but short enough to fit in the case. 
 
 
 <img src="Documentation/WMORE_wiring_diagram.png" alt="WMORE_wiring_diagram" width="500"/></br>
 [Figure 4.](Documentation/WMORE_wiring_diagram.png) WMORE Logger and Coordinator wiring Diagram 
+
+At this stage if you have soldered a Coordinator and Logger it is a good idea to test them before putting the components in the case. To do so follow the steps outlined in the [Using the WMOREs](#Using_the_WMOREs) section.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -244,8 +244,8 @@ Once printed and all the components soldered place them in to the case as follow
 clearly illustrate how components are to be fitted together, include some screenshots of the title animation and recommended order of steps for assembly
 -->
 
-<img src="Documentation/CAD_Models/Case_Mechanical_Drawings.png" alt="Case_Mechanical_Drawing" width="500" /></br>
-[Figure 5.](Documentation/CAD_Models/Case_Mechanical_Drawings.png) WMORE Logger and Coordinator wiring Diagram 
+<img src="Documentation/CAD_Models/Case_Mechanical_Drawing.png" alt="Case_Mechanical_Drawing" width="500" /></br>
+[Figure 5.](Documentation/CAD_Models/Case_Mechanical_Drawing.png) WMORE Logger and Coordinator wiring Diagram 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -274,8 +274,7 @@ You also **need** to install [Tera Term](http://www.teraterm.org/) in order to d
 <!--
 Add spec file or documented command for converting the project to an exe file or create an exe file and make it avialable
 -->
-
-# **Using the WMOREs**
+# **Using the WMOREs**<a id="Using_the_WMOREs"></a>
 Once you have assemble at least one Coordinator and Logger connect them to a computer. Launch WMORE_HUB. 
 
 As explained before all interactions with the WMOREs can be done through a serial monitor. However, the program allows the user to automate some of the more repetitive and complex tasks such as:
@@ -347,7 +346,7 @@ There are some note worthy settings that are only accessible via the serial moni
   * Enabling/Disabling Filters (7 and 10)
   * Setting filter type (8 and 11)
 * Configure Power Options (7):
-  * Low Battery Voltage Detection (4) should be disabled
+  * Low Battery Voltage Detection (4) **should be disabled**
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -368,5 +367,6 @@ When turning off the sensors all the LEDs should turn off if they don't reset th
 # To Do 
 * investigate way to keep RTC on when the sensor is turned off
   * add capacitor in parallel to the battery
-  * connect nano gpio to reset pin on opelog on boot
+  * connect nano gpio to reset pin on openlog on boot
+* "enable" streaming mode
 
