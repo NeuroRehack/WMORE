@@ -120,10 +120,10 @@ def search_directory(root):
             return os.path.join(dirpath, TERATERM)
         
 def set_tera_term_location(window):
-    """_summary_
+    """Prompts the user to select the location of the Tera Term exe file
 
     Returns:
-        _type_: _description_
+        str: location of the Tera Term exe file            
     """
     teratermPath=""
     # Prompt user to select tera term exe file location
@@ -143,7 +143,7 @@ def set_tera_term_location(window):
         else:
             QtWidgets.QMessageBox.warning(window,"Download Feature","You will not be able to download data from the WMORE until you set the path.")        
     else:
-        answer = QtWidgets.QMessageBox.critical(window,"Wrong Path","The file you have chosen seems wrong.\nThe executable for Tera Term should be called ttermpro.exe\nTry again?",QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)  
+        answer = QtWidgets.QMessageBox.critical(window,"Wrong Path","The file you have chosen is invalid.\nThe executable for Tera Term should be called ttermpro.exe\nTry again?",QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)  
         if answer == QtWidgets.QMessageBox.Yes:
             set_tera_term_location(window)
         else:
@@ -165,7 +165,7 @@ def check_tera_term(window):
         # let user find where Tera Term is located
         answer = QtWidgets.QMessageBox.question(window, 
                                                 "Tera Term",
-                                                f"Tera Term seems to be missing.\nYou will not be able to download data from the WMORE until you set the path.\nDo you wan to set the path to Tera Term now?",
+                                                f"Tera Term seems to be missing.\nYou will not be able to download data from the WMORE until you install Tera Term.\nDo you wan to set the path to Tera Term now?",
                                                 QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
                                                 QtWidgets.QMessageBox.Yes)
         if answer == QtWidgets.QMessageBox.Yes:
@@ -186,8 +186,11 @@ def check_tera_term_automate():
         str: The path to the tera term exe file
     """
     teratermPath = get_config(CONFIG_PATH,'paths', 'teraterm_location')
+    # check if the path exists
+    if not os.path.exists(teratermPath):
+        teratermPath = None
     search_path = ROOT
-    if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
+    if teratermPath is None:
         # try to find where tera term is located
         with Pool() as pool:
             results = pool.map(search_directory, [os.path.join(search_path, d) for d in os.listdir(search_path)])
@@ -196,8 +199,6 @@ def check_tera_term_automate():
                 teratermPath = r
                 set_config(CONFIG_PATH,'paths', 'teraterm_location', teratermPath)
                 return teratermPath
-    if os.path.split(teratermPath)[-1] != 'ttermpro.exe':
-        teratermPath = None
-        
+    
     return teratermPath
         
