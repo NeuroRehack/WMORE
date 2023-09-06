@@ -10,7 +10,9 @@ void getData()
   {
     if (myICM.dataReady())
     {
-      intPeriod.full = period; // Average period relative to extTime
+      // commended by Sami //intPeriod.full = period; // Average period relative to extTime
+      intPeriod.full = lastSamplingPeriod; // Sami: measured sampling period
+
       digitalWrite(PIN_STAT_LED, HIGH); // Turn on blue LED
       myICM.getAGMT(); //Update values
     }

@@ -199,6 +199,9 @@ const int sampleTimer = 2;
 //const int syncTimer = 3;
 volatile uint32_t period = NOMINAL_PERIOD; // Initial estimate for timer period
 volatile uint32_t extTimerValue;
+volatile uint32_t extTimerValue2; // created by Sami
+volatile uint32_t samplingPeriod; // created by Sami // WMORE sampling
+volatile uint32_t lastSamplingPeriod; // created by Sami // last WMORE sampling
 volatile uint32_t intTimerValue;
 volatile uint32_t timerValue; 
 volatile uint32_t extTimerValueLast = 0;
@@ -724,6 +727,11 @@ void setup() {
   intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
   pin_config(PinName(PIN_STOP_LOGGING), intPinConfig); // Make sure the pull-up does actually stay enabled
   stopLoggingSeen = false; // Make sure the flag is clear
+
+  // Modified by Sami -- set pin 12 to output and low
+  pinMode(BREAKOUT_PIN_TX, OUTPUT);
+  digitalWrite(BREAKOUT_PIN_TX, LOW);
+  // end of modification
  
   analogReadResolution(14); //Increase from default of 10
 
@@ -753,8 +761,12 @@ void setup() {
 void loop() {
 
   if (timerIntFlag == true) { // Act if sampling timer has interrupted
+    // added by Sami -- set pin 12 to toggle between low and high
+    digitalWrite(BREAKOUT_PIN_TX, HIGH);
+    extTimerValue2 = am_hal_stimer_counter_get();// added by Sami
     timerIntFlag = false; // Reset sampling timer flag
     myRTC.getTime(); // Get the local time from the RTC
+    lastSamplingPeriod = samplingPeriod; // added by Sami // the previous sampling period to write to SD card
     getData(); // Get data from IMU and global time from Coordinator 
     writeSDBin(); // Store IMU and time data     
     if (stopLoggingSeen == true) { // Stop logging if directed by Coordinator
@@ -764,6 +776,10 @@ void loop() {
 //      beginDataLogging(); // Open file in preparation for next logging run
 //      waitToLog(); // Wait until directed to start logging again
     } 
+    // added by Sami -- set pin 12 to toggle between low and high
+    digitalWrite(BREAKOUT_PIN_TX, LOW); 
+    // end of modification
+    samplingPeriod = am_hal_stimer_counter_get() - extTimerValue2; // added by Sami
   }  
 
   if (Serial.available()) {
@@ -777,7 +793,7 @@ void loop() {
   //  triggerPinFlag = false;
   //  Serial.println(timeDifference);
   //}
-  
+
 }
 
 //----------------------------------------------------------------------------
@@ -853,9 +869,10 @@ void disableCIPOpullUp() // updated for v2.1.0 of the Apollo3 core
 
 void configureSerial1TxRx(void) // Configure pins 12 and 13 for UART1 TX and RX
 {
-  am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
-  pinConfigTx.uFuncSel = AM_HAL_PIN_12_UART1TX;
-  pin_config(PinName(BREAKOUT_PIN_TX), pinConfigTx);
+  // Commented out by Sami ---------------------------------------------
+  // am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
+  // pinConfigTx.uFuncSel = AM_HAL_PIN_12_UART1TX;
+  // pin_config(PinName(BREAKOUT_PIN_TX), pinConfigTx);
   am_hal_gpio_pincfg_t pinConfigRx = g_AM_BSP_GPIO_COM_UART_RX;
   pinConfigRx.uFuncSel = AM_HAL_PIN_13_UART1RX;
   pinConfigRx.ePullup = AM_HAL_GPIO_PIN_PULLUP_WEAK; // Put a weak pull-up on the Rx pin
@@ -1133,7 +1150,7 @@ void writeSDBin(void) {
   {
     // Write binary data
     uint32_t recordLength = sensorDataFile.write(outputData, SD_RECORD_LENGTH); // WMORE TODO add error checking and resolve hard-coded length        
-      
+
   // Force sync every 500ms
   // WMORE - forced sync does not appear to be needed, and may cause write delays
 //  if (rtcMillis() - lastDataLogSyncTime > 500)
