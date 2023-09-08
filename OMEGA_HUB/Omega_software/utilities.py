@@ -17,7 +17,7 @@ ERROR = 3
 
 COORDINATOR = 0 # device is a coordinator
 LOGGER = 1 # device is a logger
-DEBUG = 1 # set to 1 to print serial data
+DEBUG = 0 # set to 1 to print serial data
 
 class DeviceObject:
     def __init__(self, comport, type, status, id):
@@ -26,6 +26,7 @@ class DeviceObject:
         self.status = status
         self.id = id
         self.ser = None
+        self.files = None
         
         
     def get_info(self):
@@ -131,7 +132,7 @@ class DeviceObject:
                 
             if command == "dir":
                 # ignore files not ending in .bin or .txt
-                files = [line for line in lines if line.endswith(".bin") or line.endswith(".txt")]
+                files = [line for line in lines if line.endswith(".bin")]
                 # get the files to delete (those that have 0 bytes)
                 filesToDelete = [file.split(" ")[-1] for file in files if not int(file.split(" ")[-2])]
                 # get the files to download
@@ -143,7 +144,8 @@ class DeviceObject:
                     send_command(command, self.ser)
                     lines = read_serial_data(self.ser)
             i+=1
-        return files
+        self.files = [WMOREFILE(date=file.split(" ")[0], time=file.split(" ")[1], size=file.split(" ")[-2], filename=file.split(" ")[-1]) for file in files]
+        
     
     
     
@@ -218,7 +220,7 @@ def run_zmodem_receive(deviceObj, maxRetries=3):
     finally:
         # Change back to the original directory (optional, but recommended)
         os.chdir('/root/WMORE')
-    return folderPath
+        return folderPath
 
 
 
@@ -289,14 +291,29 @@ def send_update(devices_dict):
 
 
 class WMOREFILE():
-    def __init__(self, date= None, time= None, size = None, filename = None):
+    def __init__(self, date= None, time= None, size = None, filename = None, path = None):
         self.filename = filename
-        self.size = size
+        self.path = path
+        self.size = int(size) if size is not None else None
         self.date = date
         self.time = time
     def print_file(self):
         print(f"filename: {self.filename}, size: {self.size}, date: {self.date}, time: {self.time}")
-        
+
+
+def get_downloaded_files(path):
+    files = os.listdir(path)
+    files_list = []
+    for file in files:
+        file_path = os.path.join(path, file)
+        file_size = os.path.getsize(file_path)
+        files_list.append(WMOREFILE(size = file_size, filename = file, path = file_path))
+    return files_list
+
+def clean_files(files):
+    clean_files = [file for file in files if (file.filename.endswith(".bin") or file.filename.endswith(".txt")) and file.size != 0]
+    [os.remove(file.path) for file in files if file not in clean_files]
+    return clean_files
 
 if __name__ == "__main__":
     devices_dict = {}
@@ -322,18 +339,44 @@ if __name__ == "__main__":
         for device in devices_dict.keys():
             deviceObj = devices_dict[device] 
             if deviceObj.type == LOGGER and deviceObj.status == CONNECTED:
-                files = deviceObj.get_file_list()
-                [print(file) for file in files]
-                files = [WMOREFILE(date=file.split(" ")[0], time=file.split(" ")[1], size=file.split(" ")[-2], filename=file.split(" ")[-1]) for file in files]
+                deviceObj.get_file_list()
                 deviceObj.disconnect()
-                [file.print_file() for file in files]
-                # deviceObj.status = BUSY
+                [file.print_file() for file in deviceObj.files]
+                deviceObj.status = BUSY
                 # send_update(devices_dict)
-                
-                # # run_zmodem_receive(deviceObj,3)
+                if len(deviceObj.files) > 0:
+                    # folderPath = run_zmodem_receive(deviceObj,3)
+                    downloaded_files = clean_files(get_downloaded_files("//root//WMORE//data//230908_4"))
+                    print("downloaded files:\n")
+                    [file.print_file() for file in downloaded_files]
+                    print("device files:\n")
+                    [file.print_file() for file in deviceObj.files] 
+                    # compare the name and size of the files in downloaded_files and deviceObj.files to see if all files have been downloaded
+                    for device_file in deviceObj.files:
+                        file_not_found = True
+                        for file in downloaded_files:
+                            if device_file.filename  == file.filename:
+                                print(f"found {device_file.filename}")
+                                file_not_found = False
+                                
+                                if file.size == device_file.size:
+                                    print(f"\tfile {file.filename} downloaded successfully")
+                                    break
+                                else:
+                                    print(f"\tfile {file.filename} not downloaded successfully:\n\tdevice file size: {device_file.size}\n\tdownloaded file size: {file.size}")
+                                    break
+                        if file_not_found:
+                            print(f"file {file.filename} not found")
+                            
+
+                        
+                        
+                    
+                    
+                                                                
                 # # format_device(device)
             
-                # deviceObj.status = CHARGING
+                deviceObj.status = CHARGING
                 # send_update(devices_dict)
 
         
