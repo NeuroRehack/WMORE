@@ -25,9 +25,7 @@ class DeviceObject:
         return {"comport": self.comport, "type": type_dict[self.type], "status": status_dict[self.status], "id": self.id}
                
     
-@app.route('/home', methods=['GET'])
-def hello():
-    return "Hello, Flask!"
+
 
 @app.route('/receive_data', methods=['POST'])
 def receive_data():
@@ -48,7 +46,7 @@ def receive_data():
     # [print(deviceObj.get_device_info()) for deviceObj in devices]
     return "hi"
 
-@app.route('/show_receive_data', methods=['GET'])
+@app.route('/', methods=['GET'])
 def show_receive_data():
     return render_template('template.html', devices=stored_devices)
 

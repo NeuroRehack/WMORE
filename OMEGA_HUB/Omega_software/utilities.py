@@ -6,7 +6,8 @@ import subprocess
 import json
 import requests
 import pickle
-
+from tqdm import tqdm
+import queue
 
 
 CONNECTED = 0   # Device has only just been connected
@@ -14,9 +15,9 @@ BUSY = 1        # Files being downloaded or rtc being set
 CHARGING = 2    # Files downloaded rtc set
 ERROR = 3
 
-COORDINATOR = 0
-LOGGER = 1
-DEBUG = 1
+COORDINATOR = 0 # device is a coordinator
+LOGGER = 1 # device is a logger
+DEBUG = 1 # set to 1 to print serial data
 
 class DeviceObject:
     def __init__(self, comport, type, status, id):
@@ -25,6 +26,8 @@ class DeviceObject:
         self.status = status
         self.id = id
         self.ser = None
+        self.get_type()
+        self.get_id()
         
     def connect(self):
         try:
@@ -42,7 +45,6 @@ class DeviceObject:
             print("error disconnecting from device")
             self.ser = None
         
-    
     def format_device(self):
         if self.ser is None:
             self.connect()
@@ -122,21 +124,21 @@ class DeviceObject:
                     i-=1
                 
             if command == "dir":
-                # ignore .txt (settings) files
-                files = [line for line in lines if ".bin" in line]
+                files = [line for line in lines]
+                # get the files to delete (those that have 0 bytes)
                 filesToDelete = [file.split(" ")[-1] for file in files if not int(file.split(" ")[-2])]
-                # ignore empty files
+                # get the files to download
                 files = [file for file in files if int(file.split(" ")[-2])]
 
-                nbFiles = len(filesToDelete)
-                for k,file in enumerate(filesToDelete): 
+                # delete empty files
+                for file in tqdm(filesToDelete): 
                     command = f"del {file}"
                     send_command(command, self.ser)
                     lines = read_serial_data(self.ser)
-                    nbFilesLeft = nbFiles - k
-                    print(f"\n\t\t\t\t{k}/{nbFiles} - eta:{nbFilesLeft}")                    
             i+=1
         return files
+    
+    
     
     def to_dict(self):
         status_dict = {CONNECTED:"connected", BUSY:"busy", CHARGING:"charging"}
@@ -229,10 +231,8 @@ def check_for_new_device(connected_devices_list, devices_dict):
         if device not in devices_dict.keys():
             deviceObj = DeviceObject(comport=device, type=None,status=CONNECTED, id=None)
             print(f"\nnew device connected !: {device}\n")
-            deviceObj.get_type()
             typeToPrint = "Logger" if deviceObj.type == LOGGER else "Coordinator" 
             print(f"\ndevice is {typeToPrint}\n")
-            deviceObj.get_id()
             devices_dict[device] = deviceObj
             connectionChanged = True
     if connectionChanged:
@@ -274,9 +274,22 @@ def send_update(devices_dict):
     except:
         print("server not connected\n")
 
+
+class WMOREFILE():
+    def __init__(self, date= None, time= None, size = None, filename = None):
+        self.filename = filename
+        self.size = size
+        self.date = date
+        self.time = time
+    def print_file(self):
+        print(f"filename: {self.filename}, size: {self.size}, date: {self.date}, time: {self.time}")
+        
+
 if __name__ == "__main__":
     devices_dict = {}
     lastupload = time.time()
+    # create a queue to store the devices
+    wmore_queue = queue.Queue()
     while True:
         now = time.time()
         connected_devices_list = get_usb_device_list()
@@ -292,9 +305,14 @@ if __name__ == "__main__":
             deviceObj = devices_dict[device] 
             if deviceObj.type == LOGGER and deviceObj.status == CONNECTED:
                 files = deviceObj.get_file_list()
-                print(files)
+                [print(file) for file in files]
+                files = [WMOREFILE(date=file.split(" ")[0], time=file.split(" ")[1], size=file.split(" ")[-2], filename=file.split(" ")[-1]) for file in files]
+                deviceObj.disconnect()
+                [file.print_file() for file in files]
+                deviceObj.status = BUSY
+                send_update(devices_dict)
                 
-                run_zmodem_receive(deviceObj,3)
+                # run_zmodem_receive(deviceObj,3)
                 # format_device(device)
             
                 deviceObj.status = CHARGING
