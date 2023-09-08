@@ -26,8 +26,14 @@ class DeviceObject:
         self.status = status
         self.id = id
         self.ser = None
+        
+        
+    def get_info(self):
+        self.status = BUSY
         self.get_type()
         self.get_id()
+        self.status = CONNECTED
+        return
         
     def connect(self):
         try:
@@ -124,7 +130,8 @@ class DeviceObject:
                     i-=1
                 
             if command == "dir":
-                files = [line for line in lines]
+                # ignore files not ending in .bin or .txt
+                files = [line for line in lines if line.endswith(".bin") or line.endswith(".txt")]
                 # get the files to delete (those that have 0 bytes)
                 filesToDelete = [file.split(" ")[-1] for file in files if not int(file.split(" ")[-2])]
                 # get the files to download
@@ -141,8 +148,8 @@ class DeviceObject:
     
     
     def to_dict(self):
-        status_dict = {CONNECTED:"connected", BUSY:"busy", CHARGING:"charging"}
-        type_dict = {COORDINATOR : "Coordinator",LOGGER : "Logger"}
+        status_dict = {CONNECTED:"connected", BUSY:"busy", CHARGING:"charging", None:None}
+        type_dict = {COORDINATOR : "Coordinator",LOGGER : "Logger", None : None}
         return {
             "comport": self.comport, 
             "type": type_dict[self.type], 
@@ -211,6 +218,9 @@ def run_zmodem_receive(deviceObj, maxRetries=3):
     finally:
         # Change back to the original directory (optional, but recommended)
         os.chdir('/root/WMORE')
+    return folderPath
+
+
 
 def send_command(command,serial):
         """Format input string and send it to serial device
@@ -229,14 +239,17 @@ def check_for_new_device(connected_devices_list, devices_dict):
     connectionChanged = False
     for device in connected_devices_list:
         if device not in devices_dict.keys():
-            deviceObj = DeviceObject(comport=device, type=None,status=CONNECTED, id=None)
+            
+            deviceObj = DeviceObject(comport=device, type=None,status=BUSY, id=None)
+            get_info_thread = threading.Thread(target=deviceObj.get_info)
+            get_info_thread.start()
             print(f"\nnew device connected !: {device}\n")
-            typeToPrint = "Logger" if deviceObj.type == LOGGER else "Coordinator" 
-            print(f"\ndevice is {typeToPrint}\n")
+            # typeToPrint = "Logger" if deviceObj.type == LOGGER else "Coordinator" 
+            # print(f"\ndevice is {typeToPrint}\n")
             devices_dict[device] = deviceObj
-            connectionChanged = True
-    if connectionChanged:
-        send_update(devices_dict)
+    #         connectionChanged = True
+    # if connectionChanged:
+    #     send_update(devices_dict)
     return devices_dict
 
 def check_for_device_disconnection(connected_devices_list, devices_dict):
@@ -298,6 +311,11 @@ if __name__ == "__main__":
         #check for disconnection
         devices_dict = check_for_device_disconnection(connected_devices_list, devices_dict)
         [print(deviceObj.to_dict()) for deviceObj in devices_dict.values()]
+        print("_"*50+"\n")
+        # # overwrite last printed line
+        # for i in range(len(devices_dict.keys())+1):
+        #     print("\033[F", end="")
+        
         
             
         # check for whether to download or not
@@ -309,14 +327,14 @@ if __name__ == "__main__":
                 files = [WMOREFILE(date=file.split(" ")[0], time=file.split(" ")[1], size=file.split(" ")[-2], filename=file.split(" ")[-1]) for file in files]
                 deviceObj.disconnect()
                 [file.print_file() for file in files]
-                deviceObj.status = BUSY
-                send_update(devices_dict)
+                # deviceObj.status = BUSY
+                # send_update(devices_dict)
                 
-                # run_zmodem_receive(deviceObj,3)
-                # format_device(device)
+                # # run_zmodem_receive(deviceObj,3)
+                # # format_device(device)
             
-                deviceObj.status = CHARGING
-                send_update(devices_dict)
+                # deviceObj.status = CHARGING
+                # send_update(devices_dict)
 
         
         time.sleep(1)
