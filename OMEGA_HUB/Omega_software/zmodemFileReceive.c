@@ -89,6 +89,11 @@ void minicom_automation(int minicom_pipe_1[2], int minicom_pipe_2[2],char* file_
                 waitForFiles = 0;
                 cmdIndex++;
             }
+            if(waitForFiles && strstr(output_buf,"Transfer incomplete") != NULL){
+                printf("download incomplete\n");
+                free(szcmd);
+                exit(1);
+            }
             if(!waitForFiles && cmdIndex == 3 && file_index < num_files){
                 printf("\n\n\n\nhoooooooooooooo\n\n\n\n\n");fflush(stdout);
                 //send "\r" to minicom

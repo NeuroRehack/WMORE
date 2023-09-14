@@ -9,6 +9,7 @@ import pickle
 from tqdm import tqdm
 import queue
 import logging
+from backup_to_drive import upload, is_internet_available
 
 
 CONNECTED = 0   # Device has only just been connected
@@ -30,6 +31,9 @@ class DeviceObject:
         self.id = id
         self.ser = None
         self.files = None
+        logging.info(f"new device connected: {self.comport}")
+
+        self.type_dict = {COORDINATOR : "Coordinator",LOGGER : "Logger", None : None}
         
         
     def set_download_path(self):
@@ -50,10 +54,15 @@ class DeviceObject:
         """Get the device type, id and download path
         """
         self.status = BUSY
+        logging.info(f"{self.comport} device status: {self.status}")
         self.get_type()
+        logging.info(f"{self.comport} device type: {self.type_dict[self.type]}")
         self.get_id()
+        logging.info(f"{self.comport} device id: {self.id}")
         self.set_download_path()
-        self.status = CONNECTED
+        self.download_files()
+        self.status = CHARGING
+        logging.info(f"{self.comport} device status: {self.status}")
         return
         
     def connect(self):
@@ -90,6 +99,7 @@ class DeviceObject:
             time.sleep(1)
         time.sleep(5)
         self.disconnect()
+        logging.info(f"Logger {self.id} formatted")
     
     def get_id(self):
         """Get the device id
@@ -172,15 +182,53 @@ class DeviceObject:
                 # get the files to download
                 files = [file for file in files if int(file.split(" ")[-2])]
 
-                # delete empty files
-                for file in tqdm(filesToDelete): 
-                    command = f"del {file}"
-                    send_command(command, self.ser)
-                    lines = read_serial_data(self.ser)
+                # # delete empty files
+                # for file in tqdm(filesToDelete): 
+                #     command = f"del {file}"
+                #     send_command(command, self.ser)
+                #     lines = read_serial_data(self.ser)
             i+=1
         self.files = [WMOREFILE(date=file.split(" ")[0], time=file.split(" ")[1], size=file.split(" ")[-2], filename=file.split(" ")[-1]) for file in files]
+        logging.info(f"logger {self.id} files: {[file.filename for file in self.files]}")
         
-    
+    def download_files(self):
+        if self.files is None:
+            self.get_file_list()
+            self.disconnect()
+        if len(self.files) > 1:# there's alway the OLA_settings.txt file
+            # get downloaded files
+            downloaded_files = get_downloaded_files(self.download_path)
+            # remove empty files
+            downloaded_files = clean_files(downloaded_files)
+           
+            
+            device_file_dict = {file.filename:file.size for file in self.files}
+            downloaded_files_dict = {file.filename:file.size for file in downloaded_files}
+            redownload_files = []
+            delete_files = []
+            # add files that have not been downloaded or have been corrupted to the list of files to redownload
+            [redownload_files.append(file) for file in device_file_dict.keys() if (file in downloaded_files_dict.keys() and device_file_dict[file] != downloaded_files_dict[file]) or file not in downloaded_files_dict.keys()]
+            # add corrupted files and files that don't exist on the device to the list of files to delete
+            [delete_files.append(file) for file in downloaded_files_dict.keys() if (file in device_file_dict.keys() and device_file_dict[file] != downloaded_files_dict[file])]# or file not in device_file_dict.keys()]
+            
+            print(f"delete files: {delete_files}")
+            print(f"redownload files: {redownload_files}")
+            # log the files to delete and redownload
+            if len(delete_files) > 0 or len(redownload_files) > 0:
+                logging.info(f"logger {self.id} delete files: {delete_files}")
+                logging.info(f"logger {self.id} download files: {redownload_files}")
+            # get rid of the corrupted files
+            [os.remove(os.path.join(self.download_path, file)) for file in delete_files if os.path.exists(os.path.join(self.download_path, file))]
+            
+            if len(redownload_files) > 0:
+                if sorted(redownload_files) == sorted(list(device_file_dict.keys())):
+                    redownload_files = None
+                run_zmodem_receive(deviceObj=self,maxRetries=3, filesToDownload=redownload_files)
+                self.download_files()
+            else:
+                self.format_device()
+                
+
     
     
     def to_dict(self):
@@ -243,12 +291,12 @@ def run_zmodem_receive(deviceObj = None, maxRetries=3, filesToDownload=None):
     os.chdir(folderPath)
     
     # Command to execute
-    command = ['/root/WMORE/zmodemFileReceive', deviceObj.comport]
+    command = [os.path.join(ROOT_PATH, "zmodemFileReceive"), deviceObj.comport]
     if filesToDownload is not None:
         for file in filesToDownload:
             command.append(file)
     # log the command and the files to download
-    logging.info(f"command: {command}")
+    logging.info(f"{deviceObj.id} zmodem command: {command}")
     
 
     try:
@@ -288,7 +336,6 @@ def check_for_new_device(connected_devices_list, devices_dict):
             get_info_thread = threading.Thread(target=deviceObj.get_info)
             get_info_thread.start()
             print(f"\nnew device connected !: {device}\n")
-            logging.info(f"new device connected: {device}")
             # typeToPrint = "Logger" if deviceObj.type == LOGGER else "Coordinator" 
             # print(f"\ndevice is {typeToPrint}\n")
             devices_dict[device] = deviceObj
@@ -303,7 +350,6 @@ def check_for_device_disconnection(connected_devices_list, devices_dict):
     for device in devices_dict.keys():
         if device not in connected_devices_list:
             print("\ndevice disconnected !\n")
-            logging.info(f"device disconnected: {device}")
             # Only add connected devices to new connected devices dict
             new_device_dict = {k: v for k,v in devices_dict.items() if k != device}
             connectionChanged = True
@@ -387,70 +433,83 @@ if __name__ == "__main__":
     logging.basicConfig(filename=logfilename, level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
     
     devices_dict = {}
-    lastupload = time.time()
+    lastupload = 0
     # create a queue to store the devices
     wmore_queue = queue.Queue()
     full_download = False
+    last_dict = {}
     while True:
         # print('\033c', end='')
         now = time.time()
         connected_devices_list = get_usb_device_list()
         #check for new connection
         devices_dict = check_for_new_device(connected_devices_list, devices_dict)
-        send_update(devices_dict)
+        # send_update(devices_dict)
         #check for disconnection
         devices_dict = check_for_device_disconnection(connected_devices_list, devices_dict)
-        [print(deviceObj.to_dict()) for deviceObj in devices_dict.values()]
+        [print(deviceObj.to_dict()) for deviceObj in devices_dict.values() if last_dict != devices_dict]
+        last_dict = devices_dict
+        try_download = True
+        for deviceObj in devices_dict.values():
+            if deviceObj.status == CHARGING:
+                try_download = False
+        if is_internet_available():
+            if now - lastupload > 60:
+                print("uploading to drive")
+                logging.info("uploading to drive")
+                upload()
+                lastupload = time.time()
+        
         # print("_"*50+"\n")
 
-        for device in devices_dict.keys():
-            deviceObj = devices_dict[device] 
-            # check for whether to download or not
-            if deviceObj.type == LOGGER and deviceObj.status == CONNECTED:
-                if deviceObj.files is None:
-                    deviceObj.get_file_list()
-                    deviceObj.disconnect()
-                [file.print_file() for file in deviceObj.files]
-                # deviceObj.status = BUSY
-                send_update(devices_dict)
-                if len(deviceObj.files) > 0:
-                    # get downloaded files
-                    downloaded_files = get_downloaded_files(deviceObj.download_path)
-                    # remove empty files
-                    downloaded_files = clean_files(downloaded_files)
-                    print("downloaded files:\n")
-                    [file.print_file() for file in downloaded_files]
-                    print("device files:\n")
-                    [file.print_file() for file in deviceObj.files] 
+        # for device in devices_dict.keys():
+        #     deviceObj = devices_dict[device] 
+        #     # check for whether to download or not
+        #     if deviceObj.type == LOGGER and deviceObj.status == CONNECTED:
+        #         if deviceObj.files is None:
+        #             deviceObj.get_file_list()
+        #             deviceObj.disconnect()
+        #         [file.print_file() for file in deviceObj.files]
+        #         # deviceObj.status = BUSY
+        #         send_update(devices_dict)
+        #         if len(deviceObj.files) > 0:
+        #             # get downloaded files
+        #             downloaded_files = get_downloaded_files(deviceObj.download_path)
+        #             # remove empty files
+        #             downloaded_files = clean_files(downloaded_files)
+        #             print("downloaded files:\n")
+        #             [file.print_file() for file in downloaded_files]
+        #             print("device files:\n")
+        #             [file.print_file() for file in deviceObj.files] 
                     
-                    device_file_dict = {file.filename:file.size for file in deviceObj.files}
-                    downloaded_files_dict = {file.filename:file.size for file in downloaded_files}
-                    redownload_files = []
-                    delete_files = []
-                    # add files that have not been downloaded or have been corrupted to the list of files to redownload
-                    [redownload_files.append(file) for file in device_file_dict.keys() if (file in downloaded_files_dict.keys() and device_file_dict[file] != downloaded_files_dict[file]) or file not in downloaded_files_dict.keys()]
-                    # add corrupted files and files that don't exist on the device to the list of files to delete
-                    [delete_files.append(file) for file in downloaded_files_dict.keys() if (file in device_file_dict.keys() and device_file_dict[file] != downloaded_files_dict[file]) or file not in device_file_dict.keys()]
+        #             device_file_dict = {file.filename:file.size for file in deviceObj.files}
+        #             downloaded_files_dict = {file.filename:file.size for file in downloaded_files}
+        #             redownload_files = []
+        #             delete_files = []
+        #             # add files that have not been downloaded or have been corrupted to the list of files to redownload
+        #             [redownload_files.append(file) for file in device_file_dict.keys() if (file in downloaded_files_dict.keys() and device_file_dict[file] != downloaded_files_dict[file]) or file not in downloaded_files_dict.keys()]
+        #             # add corrupted files and files that don't exist on the device to the list of files to delete
+        #             [delete_files.append(file) for file in downloaded_files_dict.keys() if (file in device_file_dict.keys() and device_file_dict[file] != downloaded_files_dict[file]) or file not in device_file_dict.keys()]
                    
-                    print(f"delete files: {delete_files}")
-                    print(f"redownload files: {redownload_files}")
-                    # log the files to delete and redownload
-                    if len(delete_files) > 0 or len(redownload_files) > 0:
-                        logging.info(f"delete files: {delete_files}")
-                        logging.info(f"redownload files: {redownload_files}")
-                    # get rid of the corrupted files
-                    [os.remove(os.path.join(deviceObj.download_path, file)) for file in delete_files if os.path.exists(os.path.join(deviceObj.download_path, file))]
+        #             print(f"delete files: {delete_files}")
+        #             print(f"redownload files: {redownload_files}")
+        #             # log the files to delete and redownload
+        #             if len(delete_files) > 0 or len(redownload_files) > 0:
+        #                 logging.info(f"delete files: {delete_files}")
+        #                 logging.info(f"redownload files: {redownload_files}")
+        #             # get rid of the corrupted files
+        #             [os.remove(os.path.join(deviceObj.download_path, file)) for file in delete_files if os.path.exists(os.path.join(deviceObj.download_path, file))]
                     
-                    if len(redownload_files) > 0:
-                        if sorted(redownload_files) == sorted(list(device_file_dict.keys())):
-                            redownload_files = None
-                        run_zmodem_receive(deviceObj=deviceObj,maxRetries=3, filesToDownload=redownload_files)
+        #             if len(redownload_files) > 0:
+        #                 if sorted(redownload_files) == sorted(list(device_file_dict.keys())):
+        #                     redownload_files = None
+        #                 run_zmodem_receive(deviceObj=deviceObj,maxRetries=3, filesToDownload=redownload_files)
                     
                                 
-                # # format_device(device)
+        #         # # format_device(device)
             
-                # deviceObj.status = CHARGING
-                send_update(devices_dict)
+        #         # deviceObj.status = CHARGING
+        #         send_update(devices_dict)
 
         
         time.sleep(1)

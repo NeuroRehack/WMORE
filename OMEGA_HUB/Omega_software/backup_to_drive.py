@@ -26,11 +26,14 @@ DATA_DIR = "data"
 BACKUP_DIR = "BackedUp"
 
 
-# def setup_logging():
-#     """Configure logging for the script."""
-#     log_file = "backup.log"
-#     logging.basicConfig(filename=log_file, level=logging.DEBUG,
-#                         format="%(asctime)s %(levelname)s %(message)s")
+def setup_logging():
+    logfilename = '/root/WMORE/logs/WMORE.log'
+    # create file if it doesn't exist
+    if not os.path.exists(logfilename):
+        with open(logfilename, 'w') as f:
+            pass
+    #setup logging  
+    logging.basicConfig(filename=logfilename, level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
 
 
 def get_credentials():
@@ -46,124 +49,15 @@ def get_credentials():
 
     return creds
 
-# def create_folder(service,folderName, parent_id=None):
-#     """
-#     Create a folder named `FOLDER_NAME` on Google Drive.
-
-#     Args:
-#         service: The Google Drive API client service object.
-#         folderName: The path of the folder to create.
-
-#     Returns:
-#         The ID of the created or existing folder.
-#     """
-#     # Search for an existing folder with the name `FOLDER_NAME`
-#     response = service.files().list(
-#         q=f"name='{folderName}' and mimeType='application/vnd.google-apps.folder'",
-#         spaces="drive"
-#     ).execute()
-
-#     # If no folder exists, create a new one with the name `FOLDER_NAME`
-#     if not response["files"]:
-#         file_metadata = {
-#             "name": folderName,
-#             "mimeType": "application/vnd.google-apps.folder",
-#             "parents": [parent_id] if parent_id else "root"
-#         }
-#         file = service.files().create(body=file_metadata, fields="id").execute()
-#         folder_id = file.get("id")
-#     # If a folder exists, use its ID
-#     else:
-#         folder_id = response["files"][0]["id"]
-
-#     # Return the ID of the created or existing folder
-#     return folder_id
-
-# def create_folder_structure(service, folder_path):
-#     """
-#     Create the folder structure on Google Drive.
-
-#     Args:
-#         service: The Google Drive API client service object.
-#         folder_path: The path of the folder to create.
-    
-#     """
-#     # Split the folder path into a list of folders
-#     folders = folder_path.split(os.path.sep)
-
-#     # Create the folder structure on Google Drive
-#     for folder in folders:
-#         # create folder if it doesn't exist with its parent folder being the previous folder or FOLDER_NAME if it's the first folder
-#         folder_id = create_folder(service, folder) if folder == folders[0] else create_folder(service, folder, folder_id)
-        
-        
-  
-    
-
-
-# def upload_file(service, filename, folder_id):
-#     """
-#     Upload a file to the Google Drive folder.
-
-#     Args:
-#         service: The Google Drive API client service object.
-#         filename: The name of the file to upload.
-#         folder_id: The ID of the Google Drive folder to upload the file to.
-#     """
-#     # Define the metadata for the file
-#     file_metadata = {"name": os.path.basename(filename), "parents": [folder_id]}
-
-#     # Create a MediaFileUpload object for the file to be uploaded
-#     media = MediaFileUpload(filename, resumable=True)
-
-#     # Upload the file to the Google Drive folder
-#     upload_file = service.files().create(
-#         body=file_metadata, media_body=media, fields="id"
-#     ).execute()
-#     print(upload_file)
-#     # Log a message to indicate that the file has been backed up
-#     logging.info(f"Backed up file: {filename}")
-
-#     # Move the file to the backup directory
-#     dirname = os.path.dirname(filename)
-
-#     moveDirname = os.path.join(BACKUP_DIR,dirname)
-#     # create the directory if it doesn't exist
-#     os.makedirs(moveDirname, exist_ok=True)
-#     # # # # # # # # # new path for the file
-#     # # # # # # # # newFileName = os.path.join(moveDirname, os.path.basename(filename))
-#     # # # # # # # # os.rename(filename, newFileName)
-
-
-
-# def backup_files(file_list):
-#     """
-#     Backup files from the `data` directory to Google Drive.
-#     """
-#     # Get the user credentials for Google Drive
-#     creds = get_credentials()
-
-#     # Build the Google Drive API client with the user credentials
-#     service = build("drive", "v3", credentials=creds)
-
-#     # Create a folder named `FOLDER_NAME` on Google Drive
-#     folder_id = create_folder(service,FOLDER_NAME)
-
-#     # Loop over all files in the `data` directory and upload them to the Google Drive folder
-#     for filename in file_list:
-#         folder_id = create_folder_structure(service, os.path.dirname(filename))
-#         upload_file(service, filename, folder_id)
-
-
 
 def is_internet_available():
     """Check if an internet connection is available."""
     try:
         requests.get("http://google.com", timeout=5)
-        logging.info("Internet access available")
+        # logging.info("Internet access available")
         return True
     except:
-        logging.error("No internet access available")
+        # logging.error("No internet access available")
         return False
 
 def delete_all():
@@ -261,6 +155,7 @@ def upload_file(service, file_path, parent_folder_id):
 
     media = MediaFileUpload(file_path, mimetype='application/octet-stream')
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    logging.info(f"Backed up file: {file_path}")
     return file['id']
 
 
