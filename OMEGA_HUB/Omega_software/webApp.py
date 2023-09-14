@@ -46,7 +46,7 @@ def receive_data():
     # [print(deviceObj.get_device_info()) for deviceObj in devices]
     return "hi"
 
-@app.route('/', methods=['GET'])
+@app.route('/wmore', methods=['GET'])
 def show_receive_data():
     return render_template('template.html', devices=stored_devices)
 

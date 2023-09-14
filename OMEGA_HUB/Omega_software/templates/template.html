@@ -21,8 +21,8 @@
                     <p class="image-caption">
                         <h2>{{ device["type"] }} - {{ device["id"] }}</h2>
                         <img src="{{ url_for('static', filename='WMORE_render.png') }}" alt="Image 1"><br>
-                        Comport: {{ device["comport"] }} <br>
-                        Status: {{ device["status"] }} <br>
+                        <span class="device-info">Comport: {{ device["comport"] }} <br>Status: {{ device["status"] }}</span>
+
                     </p>  
                 </div>
                 {% endfor %}

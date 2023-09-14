@@ -51,8 +51,8 @@ body {
 }
 
 /* Style the image captions */
-.image-caption {
-    font-size: 18px; /* Adjust as needed */
+.device-info {
+    font-size: 36px; /* Adjust as needed */
     margin: 10px 0;
 }
 
