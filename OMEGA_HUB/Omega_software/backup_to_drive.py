@@ -18,13 +18,11 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 from google.oauth2 import service_account
 
-
 # Constants
 SCOPES = ["https://www.googleapis.com/auth/drive"]
-FOLDER_NAME = "WMORE_DATA"
+DRIVE_ROOT_FOLDER = "WMORE_DATA"
 DATA_DIR = "data"
 BACKUP_DIR = "BackedUp"
-
 
 def setup_logging():
     logfilename = '/root/WMORE/logs/WMORE.log'
@@ -34,7 +32,6 @@ def setup_logging():
             pass
     #setup logging  
     logging.basicConfig(filename=logfilename, level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
-
 
 def get_credentials():
     """
@@ -48,7 +45,6 @@ def get_credentials():
     creds = service_account.Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
 
     return creds
-
 
 def is_internet_available():
     """Check if an internet connection is available."""
@@ -116,9 +112,6 @@ def download_all():
 
         print(f"Downloaded file: {file_path}")
 
-
-
-
 def create_folder(service, name, parent_folder_id=None):
     # check if folder exists and return id if it does
     query = f"name='{name}' and mimeType='application/vnd.google-apps.folder'"
@@ -167,19 +160,54 @@ def clone_folder_structure(service, local_folder, parent_folder_id=None):
 
     for item in os.listdir(local_folder):
         item_path = os.path.join(local_folder, item)
-        if os.path.isdir(item_path):
+        if os.path.isdir(item_path): # if item is a folder, recursively clone it
             clone_folder_structure(service, item_path, folder_id)
-        else:
-            upload_file(service, item_path, folder_id)
+        else: # if item is a file, upload it
+            file_exists = check_if_already_exist(item_path, service, folder_id)
+            if not file_exists:
+                upload_file(service, item_path, folder_id)
+            else:
+                print(f"{item_path} already exists")
 
 def upload():
     # Get the user credentials for Google Drive
     creds = get_credentials()
     # Build the Google Drive API client with the user credentials
     service = build("drive", "v3", credentials=creds)
-    local_root_folder = DATA_DIR
-    drive_root_folder_id = create_folder(service, FOLDER_NAME)  # Replace 'My Drive' with your desired top-level folder name
-    clone_folder_structure(service,local_root_folder, drive_root_folder_id)
+    drive_root_folder_id = create_folder(service, DRIVE_ROOT_FOLDER)
+    clone_folder_structure(service, DATA_DIR, drive_root_folder_id)
+    
+def check_if_already_exist(file_path, service, parent_folder_id):
+    """
+    Check if a file with the same name and size as 'file_path' already exists in the specified Google Drive folder.
+
+    Args:
+        file_path (str): The local file path to check.
+        service: The Google Drive API service.
+        parent_folder_id (str): The ID of the parent folder to check within.
+
+    Returns:
+        bool: True if a file with the same name and size exists, False otherwise.
+    """
+    file_name = os.path.basename(file_path)
+    # Get the file size
+    file_size = os.path.getsize(file_path)
+
+    # Create a query to search for the file by name and parent folder
+    query = f"name='{file_name}' and '{parent_folder_id}' in parents"
+
+    # Execute the query and retrieve the list of matching files
+    response = service.files().list(q=query, spaces='drive', fields='files(name, size)').execute()
+    matching_files = response.get('files', [])
+
+    # Check if any of the matching files have the same name and size
+    for matching_file in matching_files:
+        if matching_file['name'] == file_name and int(matching_file['size']) == file_size:
+            return True
+
+    return False
+
+     
 
 if __name__ == "__main__":
 #     # setup_logging()
@@ -188,14 +216,5 @@ if __name__ == "__main__":
     # delete_all()
     # exit()
 
-#     if is_internet_available():
-#         file_list = []
-#         # recursively walk the directory tree and add file paths to the list
-#         for root, dirs, files in os.walk(DATA_DIR):
-#             for filename in files:
-#                 file_list.append(os.path.join(root, filename))       
-#         print(file_list)
-#         backup_files(file_list)
-#         # download_all()
-#         # get_credentials()
-    upload()
+    if is_internet_available():
+        upload()
