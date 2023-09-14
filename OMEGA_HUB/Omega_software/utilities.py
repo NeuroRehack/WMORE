@@ -8,6 +8,7 @@ import requests
 import pickle
 from tqdm import tqdm
 import queue
+import logging
 
 
 CONNECTED = 0   # Device has only just been connected
@@ -18,6 +19,8 @@ ERROR = 3
 COORDINATOR = 0 # device is a coordinator
 LOGGER = 1 # device is a logger
 DEBUG = 0 # set to 1 to print serial data
+ROOT_PATH = "/root/WMORE"
+DATA_PATH = os.path.join(ROOT_PATH, "data")
 
 class DeviceObject:
     def __init__(self, comport, type, status, id):
@@ -29,14 +32,33 @@ class DeviceObject:
         self.files = None
         
         
+    def set_download_path(self):
+        type_dict = {COORDINATOR : "Coordinator",LOGGER : "Logger", None : None}
+        if self.id is None:
+            self.get_id()
+        # set the download path
+        currTime = time.strftime("%y%m%d")
+        folderName = os.path.join(f"{type_dict[self.type]}_{self.id}", str(currTime))#f"{currTime}_{self.id}"
+        self.download_path = os.path.join(DATA_PATH, folderName)
+        path = ""
+        for folder in os.path.split(self.download_path):
+            path = os.path.join(path, folder)
+            if not os.path.exists(path):
+                os.mkdir(path)
+
     def get_info(self):
+        """Get the device type, id and download path
+        """
         self.status = BUSY
         self.get_type()
         self.get_id()
+        self.set_download_path()
         self.status = CONNECTED
         return
         
     def connect(self):
+        """Connect to the device
+        """
         try:
             self.ser = serial.Serial(self.comport, baudrate=115200, timeout=1)
             print(f"connected to {self.comport}")
@@ -45,6 +67,8 @@ class DeviceObject:
             self.ser = None
     
     def disconnect(self):
+        """Disconnect from the device
+        """
         try:
             self.ser.close()
             self.ser = None
@@ -53,6 +77,8 @@ class DeviceObject:
             self.ser = None
         
     def format_device(self):
+        """Format the sd card on the device
+        """
         if self.ser is None:
             self.connect()
         read_serial_data(self.ser)
@@ -66,6 +92,11 @@ class DeviceObject:
         self.disconnect()
     
     def get_id(self):
+        """Get the device id
+
+        Returns:
+            deviceID (int): the device id
+        """
         print("Get device id\n")
         type = None
         if self.ser is None:
@@ -92,8 +123,9 @@ class DeviceObject:
             i+=1
         return deviceID
     
-    # check if the device is a logger or a coordinator
     def get_type(self):
+        """Get the device type (logger or coordinator)
+        """
         print("Get device type\n")
         type = None
         if self.ser is None:
@@ -111,6 +143,8 @@ class DeviceObject:
                     return
         
     def get_file_list(self):
+        """Get the list of files on the device
+        """
         print("get logger file list")
         if self.ser is None:
             self.connect()
@@ -132,7 +166,7 @@ class DeviceObject:
                 
             if command == "dir":
                 # ignore files not ending in .bin or .txt
-                files = [line for line in lines if line.endswith(".bin")]
+                files = [line for line in lines if (line.endswith(".bin") or line.endswith(".txt"))]
                 # get the files to delete (those that have 0 bytes)
                 filesToDelete = [file.split(" ")[-1] for file in files if not int(file.split(" ")[-2])]
                 # get the files to download
@@ -150,6 +184,11 @@ class DeviceObject:
     
     
     def to_dict(self):
+        """Convert the device object to a dictionary
+
+        Returns:
+            dict: dictionary containing the device object attributes
+        """
         status_dict = {CONNECTED:"connected", BUSY:"busy", CHARGING:"charging", None:None}
         type_dict = {COORDINATOR : "Coordinator",LOGGER : "Logger", None : None}
         return {
@@ -194,12 +233,9 @@ def read_serial_data(ser):
     [print(line) for line in lines if DEBUG]
     return lines
 
-def run_zmodem_receive(deviceObj, maxRetries=3):
-    # currtime YYMMDD
-    currTime = time.strftime("%y%m%d")
     
-    folderName = f"{currTime}_{deviceObj.id}"
-    folderPath = f"/root/WMORE/data/{folderName}"
+def run_zmodem_receive(deviceObj = None, maxRetries=3, filesToDownload=None):
+    folderPath = deviceObj.download_path
     # create a directory for the device if it doesn't exist
     if not os.path.exists(folderPath):
         os.mkdir(folderPath)
@@ -208,6 +244,12 @@ def run_zmodem_receive(deviceObj, maxRetries=3):
     
     # Command to execute
     command = ['/root/WMORE/zmodemFileReceive', deviceObj.comport]
+    if filesToDownload is not None:
+        for file in filesToDownload:
+            command.append(file)
+    # log the command and the files to download
+    logging.info(f"command: {command}")
+    
 
     try:
         # Run the command and wait for it to complete
@@ -216,10 +258,10 @@ def run_zmodem_receive(deviceObj, maxRetries=3):
         print(f"Error occurred: {e}")
         if maxRetries > 0:
             time.sleep(10)
-            run_zmodem_receive(deviceObj, maxRetries-1)
+            run_zmodem_receive(deviceObj, maxRetries-1, filesToDownload)
     finally:
         # Change back to the original directory (optional, but recommended)
-        os.chdir('/root/WMORE')
+        os.chdir(ROOT_PATH)
         return folderPath
 
 
@@ -246,6 +288,7 @@ def check_for_new_device(connected_devices_list, devices_dict):
             get_info_thread = threading.Thread(target=deviceObj.get_info)
             get_info_thread.start()
             print(f"\nnew device connected !: {device}\n")
+            logging.info(f"new device connected: {device}")
             # typeToPrint = "Logger" if deviceObj.type == LOGGER else "Coordinator" 
             # print(f"\ndevice is {typeToPrint}\n")
             devices_dict[device] = deviceObj
@@ -260,6 +303,7 @@ def check_for_device_disconnection(connected_devices_list, devices_dict):
     for device in devices_dict.keys():
         if device not in connected_devices_list:
             print("\ndevice disconnected !\n")
+            logging.info(f"device disconnected: {device}")
             # Only add connected devices to new connected devices dict
             new_device_dict = {k: v for k,v in devices_dict.items() if k != device}
             connectionChanged = True
@@ -302,6 +346,16 @@ class WMOREFILE():
 
 
 def get_downloaded_files(path):
+    """ get the files in the folder specified by path
+    Args:
+        path (str): path to the folder containing the files to download
+    Return:
+        files_list (list): list of WMOREFILE objects
+    """
+    
+    if not os.path.exists(path):
+        os.mkdir(path)
+        
     files = os.listdir(path)
     files_list = []
     for file in files:
@@ -311,73 +365,92 @@ def get_downloaded_files(path):
     return files_list
 
 def clean_files(files):
+    """ Remove empty downloaded files
+
+    Args:
+        files (list): list of WMOREFILE objects
+
+    Returns:
+        clean_files (list):  list of WMOREFILE objects
+    """
     clean_files = [file for file in files if (file.filename.endswith(".bin") or file.filename.endswith(".txt")) and file.size != 0]
     [os.remove(file.path) for file in files if file not in clean_files]
     return clean_files
 
 if __name__ == "__main__":
+    logfilename = '/root/WMORE/logs/WMORE.log'
+    # create file if it doesn't exist
+    if not os.path.exists(logfilename):
+        with open(logfilename, 'w') as f:
+            pass
+    #setup logging  
+    logging.basicConfig(filename=logfilename, level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    
     devices_dict = {}
     lastupload = time.time()
     # create a queue to store the devices
     wmore_queue = queue.Queue()
+    full_download = False
     while True:
+        # print('\033c', end='')
         now = time.time()
         connected_devices_list = get_usb_device_list()
         #check for new connection
         devices_dict = check_for_new_device(connected_devices_list, devices_dict)
+        send_update(devices_dict)
         #check for disconnection
         devices_dict = check_for_device_disconnection(connected_devices_list, devices_dict)
         [print(deviceObj.to_dict()) for deviceObj in devices_dict.values()]
-        print("_"*50+"\n")
-        # # overwrite last printed line
-        # for i in range(len(devices_dict.keys())+1):
-        #     print("\033[F", end="")
-        
-        
-            
-        # check for whether to download or not
+        # print("_"*50+"\n")
+
         for device in devices_dict.keys():
             deviceObj = devices_dict[device] 
+            # check for whether to download or not
             if deviceObj.type == LOGGER and deviceObj.status == CONNECTED:
-                deviceObj.get_file_list()
-                deviceObj.disconnect()
+                if deviceObj.files is None:
+                    deviceObj.get_file_list()
+                    deviceObj.disconnect()
                 [file.print_file() for file in deviceObj.files]
-                deviceObj.status = BUSY
-                # send_update(devices_dict)
+                # deviceObj.status = BUSY
+                send_update(devices_dict)
                 if len(deviceObj.files) > 0:
-                    # folderPath = run_zmodem_receive(deviceObj,3)
-                    downloaded_files = clean_files(get_downloaded_files("//root//WMORE//data//230908_4"))
+                    # get downloaded files
+                    downloaded_files = get_downloaded_files(deviceObj.download_path)
+                    # remove empty files
+                    downloaded_files = clean_files(downloaded_files)
                     print("downloaded files:\n")
                     [file.print_file() for file in downloaded_files]
                     print("device files:\n")
                     [file.print_file() for file in deviceObj.files] 
-                    # compare the name and size of the files in downloaded_files and deviceObj.files to see if all files have been downloaded
-                    for device_file in deviceObj.files:
-                        file_not_found = True
-                        for file in downloaded_files:
-                            if device_file.filename  == file.filename:
-                                print(f"found {device_file.filename}")
-                                file_not_found = False
+                    
+                    device_file_dict = {file.filename:file.size for file in deviceObj.files}
+                    downloaded_files_dict = {file.filename:file.size for file in downloaded_files}
+                    redownload_files = []
+                    delete_files = []
+                    # add files that have not been downloaded or have been corrupted to the list of files to redownload
+                    [redownload_files.append(file) for file in device_file_dict.keys() if (file in downloaded_files_dict.keys() and device_file_dict[file] != downloaded_files_dict[file]) or file not in downloaded_files_dict.keys()]
+                    # add corrupted files and files that don't exist on the device to the list of files to delete
+                    [delete_files.append(file) for file in downloaded_files_dict.keys() if (file in device_file_dict.keys() and device_file_dict[file] != downloaded_files_dict[file]) or file not in device_file_dict.keys()]
+                   
+                    print(f"delete files: {delete_files}")
+                    print(f"redownload files: {redownload_files}")
+                    # log the files to delete and redownload
+                    if len(delete_files) > 0 or len(redownload_files) > 0:
+                        logging.info(f"delete files: {delete_files}")
+                        logging.info(f"redownload files: {redownload_files}")
+                    # get rid of the corrupted files
+                    [os.remove(os.path.join(deviceObj.download_path, file)) for file in delete_files if os.path.exists(os.path.join(deviceObj.download_path, file))]
+                    
+                    if len(redownload_files) > 0:
+                        if sorted(redownload_files) == sorted(list(device_file_dict.keys())):
+                            redownload_files = None
+                        run_zmodem_receive(deviceObj=deviceObj,maxRetries=3, filesToDownload=redownload_files)
+                    
                                 
-                                if file.size == device_file.size:
-                                    print(f"\tfile {file.filename} downloaded successfully")
-                                    break
-                                else:
-                                    print(f"\tfile {file.filename} not downloaded successfully:\n\tdevice file size: {device_file.size}\n\tdownloaded file size: {file.size}")
-                                    break
-                        if file_not_found:
-                            print(f"file {file.filename} not found")
-                            
-
-                        
-                        
-                    
-                    
-                                                                
                 # # format_device(device)
             
-                deviceObj.status = CHARGING
-                # send_update(devices_dict)
+                # deviceObj.status = CHARGING
+                send_update(devices_dict)
 
         
         time.sleep(1)
