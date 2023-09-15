@@ -12,7 +12,6 @@ import logging
 import datetime
 from backup_to_drive import upload, is_internet_available
 
-
 CONNECTED = 0   # Device has only just been connected
 BUSY = 1        # Files being downloaded or rtc being set
 CHARGING = 2    # Files downloaded rtc set
@@ -23,6 +22,8 @@ LOGGER = 1 # device is a logger
 DEBUG = 0 # set to 1 to print serial data
 ROOT_PATH = "/root/WMORE"
 DATA_PATH = os.path.join(ROOT_PATH, "data")
+LOG_FILE = os.path.join(ROOT_PATH, "logs" ,"log.txt")
+
 
 TIME_ZONE = 10 #Australia/Sydney
 
@@ -62,6 +63,17 @@ FILE_LIST_COMMANDS = [
     'x',
     'x'
 ]
+
+class WMOREFILE():
+    def __init__(self, date= None, time= None, size = None, filename = None, path = None):
+        self.filename = filename
+        self.path = path
+        self.size = int(size) if size is not None else None
+        self.date = date
+        self.time = time
+    def print_file(self):
+        print(f"filename: {self.filename}, size: {self.size}, date: {self.date}, time: {self.time}")
+
 class DeviceObject:
     def __init__(self, comport, type, status, id):
         self.comport = comport
@@ -258,6 +270,8 @@ class DeviceObject:
         logging.info(f"logger {self.id} files: {[file.filename for file in self.files]}")
         
     def download_files(self):
+        """Checks if the files on the device are the same as the files on the HUB and downloads the files that are not on the HUB or are corrupted
+        """
         if self.files is None:
             self.get_file_list()
             self.disconnect()
@@ -266,7 +280,6 @@ class DeviceObject:
             downloaded_files = get_downloaded_files(self.download_path)
             # remove empty files
             downloaded_files = clean_files(downloaded_files)
-           
             
             device_file_dict = {file.filename:file.size for file in self.files}
             downloaded_files_dict = {file.filename:file.size for file in downloaded_files}
@@ -312,7 +325,6 @@ class DeviceObject:
             "id": self.id
             }
 
-
 def read_serial_data(ser):
     lines = []
     i = 0
@@ -346,8 +358,7 @@ def read_serial_data(ser):
             pass
     [print(line) for line in lines if DEBUG]
     return lines
-
-    
+ 
 def run_zmodem_receive(deviceObj = None, maxRetries=3, filesToDownload=None):
     folderPath = deviceObj.download_path
     # create a directory for the device if it doesn't exist
@@ -378,8 +389,6 @@ def run_zmodem_receive(deviceObj = None, maxRetries=3, filesToDownload=None):
         os.chdir(ROOT_PATH)
         return folderPath
 
-
-
 def send_command(command,serial):
         """Format input string and send it to serial device
 
@@ -392,7 +401,6 @@ def send_command(command,serial):
         serial.write(command.encode())
         time.sleep(1)
         
-
 def check_for_new_device(connected_devices_list, devices_dict):
     connectionChanged = False
     for device in connected_devices_list:
@@ -431,7 +439,6 @@ def get_usb_device_list():
             devices.append(port.device)
     return devices
 
-
 def send_update(devices_dict):
         # serialize data of the dict.values()
     serialized_data = json.dumps([deviceObj.to_dict() for deviceObj in devices_dict.values()])
@@ -444,18 +451,6 @@ def send_update(devices_dict):
         lastupload = time.time()        
     except:
         print("server not connected\n")
-
-
-class WMOREFILE():
-    def __init__(self, date= None, time= None, size = None, filename = None, path = None):
-        self.filename = filename
-        self.path = path
-        self.size = int(size) if size is not None else None
-        self.date = date
-        self.time = time
-    def print_file(self):
-        print(f"filename: {self.filename}, size: {self.size}, date: {self.date}, time: {self.time}")
-
 
 def get_downloaded_files(path):
     """ get the files in the folder specified by path
@@ -489,14 +484,13 @@ def clean_files(files):
     [os.remove(file.path) for file in files if file not in clean_files]
     return clean_files
 
-if __name__ == "__main__":
-    logfilename = '/root/WMORE/logs/WMORE.log'
+def main():
     # create file if it doesn't exist
-    if not os.path.exists(logfilename):
-        with open(logfilename, 'w') as f:
+    if not os.path.exists(LOG_FILE):
+        with open(LOG_FILE, 'w') as f:
             pass
     #setup logging debug
-    logging.basicConfig(filename=logfilename, level=logging.DEBUG, format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    logging.basicConfig(filename=LOG_FILE, level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
     
     devices_dict = {}
     lastupload = 0
@@ -533,6 +527,5 @@ if __name__ == "__main__":
 
         time.sleep(1)
 
-        
-    
-
+if __name__ == "__main__":
+    main()
