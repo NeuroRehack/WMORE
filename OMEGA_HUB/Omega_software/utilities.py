@@ -9,6 +9,7 @@ import pickle
 from tqdm import tqdm
 import queue
 import logging
+import datetime
 from backup_to_drive import upload, is_internet_available
 
 
@@ -23,6 +24,44 @@ DEBUG = 0 # set to 1 to print serial data
 ROOT_PATH = "/root/WMORE"
 DATA_PATH = os.path.join(ROOT_PATH, "data")
 
+TIME_ZONE = 10 #Australia/Sydney
+
+RTC_COMMANDS = [
+    'm',  
+    '2',  
+    '4',  
+    "year",  # will be replaced by the year
+    "month",  # will be replaced by the month
+    "day",  # will be replaced by the day
+    '6',  
+    "hour",  # will be replaced by the hour
+    "minute",  # will be replaced by the minute
+    "second",  # will be replaced by the second
+    'x'  
+]
+FORMAT_COMMANDS = [
+    'm', 
+    's', 
+    'fmt'  
+]
+ID_COMMANDS = [
+    'x',
+    '1',
+    'x'
+]
+TYPE_COMMANDS = [
+    'i',
+    'i',
+    'i'
+]
+
+FILE_LIST_COMMANDS = [
+    'x',
+    's',
+    'dir',
+    'x',
+    'x'
+]
 class DeviceObject:
     def __init__(self, comport, type, status, id):
         self.comport = comport
@@ -60,7 +99,10 @@ class DeviceObject:
         self.get_id()
         logging.info(f"{self.comport} device id: {self.id}")
         self.set_download_path()
-        self.download_files()
+        if self.type == LOGGER:
+            self.download_files()
+        elif self.type == COORDINATOR:
+            self.set_rtc()
         self.status = CHARGING
         logging.info(f"{self.comport} device status: {self.status}")
         return
@@ -91,8 +133,7 @@ class DeviceObject:
         if self.ser is None:
             self.connect()
         read_serial_data(self.ser)
-        cmd = ["x","s","fmt"]
-        for command in cmd:
+        for command in FORMAT_COMMANDS:
             send_command(command,self.ser)
             time.sleep(1)
             read_serial_data(self.ser)
@@ -111,10 +152,9 @@ class DeviceObject:
         type = None
         if self.ser is None:
             self.connect()
-        cmd = ["x","1","x"]
         i = 0
-        while i < len(cmd):
-            command = cmd[i]
+        while i < len(ID_COMMANDS):
+            command = ID_COMMANDS[i]
             send_command(command,self.ser)
             lines = read_serial_data(self.ser)
             for line in lines:
@@ -140,8 +180,8 @@ class DeviceObject:
         type = None
         if self.ser is None:
             self.connect()
-        cmd = ["i","i","i"]
-        for command in cmd:
+        
+        for command in TYPE_COMMANDS:
             send_command(command,self.ser)
             lines = read_serial_data(self.ser)
             for line in lines:
@@ -151,6 +191,33 @@ class DeviceObject:
                 elif "Logger" in line:
                     self.type = LOGGER
                     return
+    def set_rtc(self):
+        """Set the rtc on the device
+        """
+        date_time_components = {
+            'year': '%y',
+            'month': '%m',
+            'day': '%d',
+            'hour': '%H',
+            'minute': '%M',
+            'second': '%S'
+        }
+        print("Set RTC\n")
+        if self.ser is None:
+            self.connect()
+        read_serial_data(self.ser)
+        for command in RTC_COMMANDS:
+            if command in date_time_components.keys():
+                dt = datetime.datetime.now() + datetime.timedelta(hours=TIME_ZONE)
+                command = dt.strftime(date_time_components[command])
+                
+            send_command(command,self.ser)
+            time.sleep(1)
+            read_serial_data(self.ser)
+            time.sleep(1)
+        time.sleep(5)
+        self.disconnect()
+        logging.info(f"Coordinator {self.id} rtc set to {dt}")
         
     def get_file_list(self):
         """Get the list of files on the device
@@ -159,10 +226,9 @@ class DeviceObject:
         if self.ser is None:
             self.connect()
         read_serial_data(self.ser)
-        cmd = ["x","s","dir","x","x"]
         i = 0
-        while i < len(cmd):
-            command = cmd[i]
+        while i < len(FILE_LIST_COMMANDS):
+            command = FILE_LIST_COMMANDS[i]
             send_command(command,self.ser)
             lines = read_serial_data(self.ser)
             if i == 0:
@@ -429,8 +495,8 @@ if __name__ == "__main__":
     if not os.path.exists(logfilename):
         with open(logfilename, 'w') as f:
             pass
-    #setup logging  
-    logging.basicConfig(filename=logfilename, level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s %(message)s')
+    #setup logging debug
+    logging.basicConfig(filename=logfilename, level=logging.DEBUG, format='%(asctime)s %(levelname)s %(name)s %(message)s')
     
     devices_dict = {}
     lastupload = 0
@@ -457,62 +523,16 @@ if __name__ == "__main__":
             if now - lastupload > 60:
                 print("uploading to drive")
                 logging.info("uploading to drive")
-                upload()
-                lastupload = time.time()
-        
+                try:
+                    upload()
+                    lastupload = time.time()
+                except:
+                    print("error uploading to drive")
+                    logging.debug("error uploading to drive")   
         # print("_"*50+"\n")
 
-        # for device in devices_dict.keys():
-        #     deviceObj = devices_dict[device] 
-        #     # check for whether to download or not
-        #     if deviceObj.type == LOGGER and deviceObj.status == CONNECTED:
-        #         if deviceObj.files is None:
-        #             deviceObj.get_file_list()
-        #             deviceObj.disconnect()
-        #         [file.print_file() for file in deviceObj.files]
-        #         # deviceObj.status = BUSY
-        #         send_update(devices_dict)
-        #         if len(deviceObj.files) > 0:
-        #             # get downloaded files
-        #             downloaded_files = get_downloaded_files(deviceObj.download_path)
-        #             # remove empty files
-        #             downloaded_files = clean_files(downloaded_files)
-        #             print("downloaded files:\n")
-        #             [file.print_file() for file in downloaded_files]
-        #             print("device files:\n")
-        #             [file.print_file() for file in deviceObj.files] 
-                    
-        #             device_file_dict = {file.filename:file.size for file in deviceObj.files}
-        #             downloaded_files_dict = {file.filename:file.size for file in downloaded_files}
-        #             redownload_files = []
-        #             delete_files = []
-        #             # add files that have not been downloaded or have been corrupted to the list of files to redownload
-        #             [redownload_files.append(file) for file in device_file_dict.keys() if (file in downloaded_files_dict.keys() and device_file_dict[file] != downloaded_files_dict[file]) or file not in downloaded_files_dict.keys()]
-        #             # add corrupted files and files that don't exist on the device to the list of files to delete
-        #             [delete_files.append(file) for file in downloaded_files_dict.keys() if (file in device_file_dict.keys() and device_file_dict[file] != downloaded_files_dict[file]) or file not in device_file_dict.keys()]
-                   
-        #             print(f"delete files: {delete_files}")
-        #             print(f"redownload files: {redownload_files}")
-        #             # log the files to delete and redownload
-        #             if len(delete_files) > 0 or len(redownload_files) > 0:
-        #                 logging.info(f"delete files: {delete_files}")
-        #                 logging.info(f"redownload files: {redownload_files}")
-        #             # get rid of the corrupted files
-        #             [os.remove(os.path.join(deviceObj.download_path, file)) for file in delete_files if os.path.exists(os.path.join(deviceObj.download_path, file))]
-                    
-        #             if len(redownload_files) > 0:
-        #                 if sorted(redownload_files) == sorted(list(device_file_dict.keys())):
-        #                     redownload_files = None
-        #                 run_zmodem_receive(deviceObj=deviceObj,maxRetries=3, filesToDownload=redownload_files)
-                    
-                                
-        #         # # format_device(device)
-            
-        #         # deviceObj.status = CHARGING
-        #         send_update(devices_dict)
+        time.sleep(1)
 
         
-        time.sleep(1)
-                
     
 
