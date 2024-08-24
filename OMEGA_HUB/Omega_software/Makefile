@@ -1,13 +1,11 @@
 CC=gcc
-CFLAGS=-Wall -g -pedantic
+CFLAGS=-Wall -g
 
-all: zmodemFileReceive
+all: rtc2
 
-zmodemFileReceive: zmodemFileReceive.c
-	$(CC) $(CFLAGS) -o zmodemFileReceive zmodemFileReceive.c
-
+rtc2: rtc2.c
+	$(CC) $(CFLAGS) rtc2.c -o rtc2
 
 clean:
-	rm -f zmodemFileReceive
+	rm -f rtc2
 
-	

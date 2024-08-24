@@ -1,0 +1,3 @@
+cd /root/WMORE
+source ./venv/bin/activate
+python /root/WMORE/utilities.py
