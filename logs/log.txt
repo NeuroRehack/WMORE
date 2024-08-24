@@ -1,0 +1,10 @@
+txt file
+e
+2024-08-24 11:18:13,647 INFO root uploading to drive
+2024-08-24 11:18:15,309 INFO root uploading to drive
+2024-08-24 11:18:16,971 INFO root uploading to drive
+2024-08-24 11:18:18,634 INFO root uploading to drive
+2024-08-24 11:18:20,296 INFO root uploading to drive
+2024-08-24 11:18:21,984 INFO root uploading to drive
+2024-08-24 11:18:23,653 INFO root uploading to drive
+2024-08-24 11:18:25,328 INFO root uploading to drive
