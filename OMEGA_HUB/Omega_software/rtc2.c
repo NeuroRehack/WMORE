@@ -26,10 +26,14 @@ void set_time(int bus, int hour, int min, int sec) {
 }
 
 // Function to fetch and set the system time from an NTP server
-void set_system_time_from_ntp() {
+// UPDATE IVE COMMENTED IT OUT BECAUSE APPARENTLY NTP IS ALREADY
+// RUNNING WHEN BOOTING UP THE OMEGA, SO THIS IS JUST CAUSING ANOTHER
+// INSTANCE OF NTPD TO RUN WHICH THEN GIVES ERRORS
+// IVE ALSO COMMENTED OUT THE CALLING OF THIS FUNCTION FROM MAIN 
+//void set_system_time_from_ntp() {
     // Using ntpdate to set system time; ensure ntpdate is installed
-    system("ntpd -q -p pool.ntp.org");
-}
+  //  system("ntpd -q -p pool.ntp.org");
+//}
 
 // Function to read the current time from the RTC
 void read_time(int bus) {
@@ -59,7 +63,7 @@ int main() {
     int bus = 0; // Set this to your I2C bus number
 
     // Fetch and set the system time from an NTP server
-    set_system_time_from_ntp();
+    //set_system_time_from_ntp();
 
     // Get the system time
     time_t t = time(NULL);
@@ -68,10 +72,7 @@ int main() {
     // Set the RTC time
     set_time(bus, tm->tm_hour, tm->tm_min, tm->tm_sec);
 
-    while (1) {
-        read_time(bus);
-        sleep(10); // Delay for 10 seconds
-    }
+    read_time(bus);
 
     return 0;
 }

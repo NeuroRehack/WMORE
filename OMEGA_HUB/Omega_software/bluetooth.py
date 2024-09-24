@@ -1,6 +1,7 @@
 import pygatt
 import time
 import logging
+import subprocess
 from binascii import hexlify
 
 # Enable debug logging for pygatt
@@ -24,8 +25,8 @@ def poll_characteristic(device, characteristic_handle):
         if value:
             hex_value = hexlify(value).decode('utf-8')
             print(f"Polled value: {hex_value}")
-	    
-	    #Write the value to log.txt
+
+            # Write the value to log.txt
             with open("log.txt","a") as log_file:
                 log_file.write(f"{hex_value}\n")
         else:
@@ -34,6 +35,18 @@ def poll_characteristic(device, characteristic_handle):
         print(f"Error reading characteristic: {e}")
     except Exception as e:
         print(f"Unexpected error: {e}")
+
+def get_and_print_rtc_time():
+    """
+    Executes the 'rtc2' shell script and prints the RTC time.
+    """
+    try:
+        # Execute the shell script and capture the output
+        result = subprocess.run(['./rtc2'], stdout=subprocess.PIPE)
+        output = result.stdout.decode('utf-8').strip()
+        print(f"RTC Output: {output}")
+    except Exception as e:
+        print(f"Error executing rtc2 script: {e}")
 
 try:
     adapter.start()
@@ -44,6 +57,7 @@ try:
     # Manually poll the characteristic every 5 seconds
     while True:
         poll_characteristic(device, characteristic_handle)
+        get_and_print_rtc_time()
         time.sleep(5)  # Wait 5 seconds before polling again
 
 except pygatt.exceptions.BLEError as e:
