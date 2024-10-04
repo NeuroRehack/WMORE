@@ -1,0 +1,6 @@
+# python gitignore
+*.pyc
+*.spec
+dist/
+build/
+__pycache__/
