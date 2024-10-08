@@ -7,18 +7,21 @@ import subprocess
 import datetime
 from binascii import hexlify
 
+# The objective of this script is to connect to BLE devices that are advertising IMU data,
+# and store that information on board. Furthermore, the script needs to send the RTC time 
+# that the MCU has access to, to the IMU/s to reconfigure their clocks to ensure accuracy 
+# from drifts.
+
 # Enable debug logging for pygatt
 logging.basicConfig()
 logging.getLogger('pygatt').setLevel(logging.INFO)  # Set to DEBUG for detailed logs
 
 # List of MAC addresses of the BLE devices (add as many as needed)
-#mac_addresses = ["C0:C3:60:27:81:51", "C0:C3:0C:25:25:51"]
-mac_addresses = ["C0:C3:0C:25:25:51"]  # Replace with your devices' MAC addresses
+# mac_addresses = ["C0:C3:60:27:81:51", "C0:C3:0C:25:25:51"]
+mac_addresses = ["C0:C3:60:27:81:51"] 
 
 characteristic_handle = 0x000c  # Reading characteristic handle (assuming same for all devices)
-send_handle_dev0 = 0x000e  # Writing characteristic handle (assuming same for all devices)
-characteristic_handle_dev1 = 0x000c
-#send_handle_dev1
+send_handle_dev0 = 0x000e      # Writing characteristic handle (assuming same for all devices)
 
 # Initialize the adapter (ensure run_as_root=False if needed)
 adapter = pygatt.GATTToolBackend()
@@ -50,7 +53,7 @@ def poll_characteristic(device, device_id):
                     total_bytes_received += bytes_received
                     message_count += 1
 
-                print(f"Device {device_id} - Polled value: {text_value}")
+                #print(f"Device {device_id} - Polled value: {text_value}")
 
                 # Write the value to log.txt
                 with open(f"log_{device_id}.txt", "a") as log_file:
@@ -97,38 +100,89 @@ def data_rate_monitor():
     except Exception as e:
         print(f"Data rate monitor - Unexpected error: {e}")
 
-def rtc_function():
-    """
-    Executes the 'rtc2' -o file file and returns the RTC time as a string.
-    """
+# Just a quick and easy function converting the extracted RTC time from a string into an integer
+# It is being converted to an integer to be sent to the IMU. This can be changed according to what
+# ever the next person working on this wants.
+def convert_time_to_int(time_str):
     try:
-        # Execute the shell script and capture the output
-        result = subprocess.run(['./rtc2'], stdout=subprocess.PIPE)
-        output = result.stdout.decode('utf-8').strip()
-        print(f"RTC Output: {output}")
-
-        # Extract the time from the output (assuming format "Current Time: HH:MM:SS")
-        time_str = output.split(": ", 1)[1]
-        return time_str
+        parts = time_str.split(":")
+        if len(parts) != 3:
+            print(f"Invalid time format: {time_str}")
+            return None
+        hour = parts[0].zfill(2)
+        minute = parts[1].zfill(2)
+        second = parts[2].zfill(2)
+        time_int = int(f"{hour}{minute}{second}")
+        return time_int
     except Exception as e:
-        print(f"Error executing rtc2 script: {e}")
+        print(f"Error converting time to integer: {e}")
         return None
 
+def rtc_function():
+    """
+    Executes the 'rtc2' script and returns the RTC time as an integer.
+    Converts the time from "HH:MM:SS" to an integer "HHMMSS" (e.g., "14:10:32" -> 141032).
+    Also prints the converted integer for debugging.
+    """
+    try:
+        # Execute the rtc2 script and capture the output
+        # Ensure that 'rtc2' is in the same directory or provide the absolute path
+        result = subprocess.run(['./rtc2'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        # Get and print the stdout output
+        output = result.stdout.decode('utf-8').strip()
+        print(output)  # Debug print to see the raw output
+        
+        # Define the expected prefix in the rtc2 output
+        expected_prefix = "Current time: "
+        
+        # Check if the expected prefix exists in the output
+        if expected_prefix in output:
+            # Extract the time string after the prefix
+            time_str = output.split(expected_prefix, 1)[1]
+            print(f"Extracted Time String: {time_str}")  # Debug print
+            
+            # Convert the time string to an integer
+            rtc_time_int = convert_time_to_int(time_str)
+            print(f"Converted RTC Time to Integer: {rtc_time_int}")  # Debug print
+            return rtc_time_int
+        else:
+            print(f"Expected prefix '{expected_prefix}' not found in RTC output.")
+            return None
+    except FileNotFoundError:
+        print("Error: 'rtc2' script not found. Ensure it exists and the path is correct.")
+        return None
+    except Exception as e:
+        print(f"Unexpected error in rtc_function: {e}")
+        return None
 
+def send_time_to_device(device, write_handle, time_int):
+    """
+    Sends the integer RTC time to the device via the specified write handle.
+    """
+    try:
+        # Convert the integer to bytes
+        time_bytes = time_int.to_bytes(4, byteorder='little')
+        device.char_write_handle(write_handle, time_bytes, wait_for_response=True)
+        print(f"Sent RTC time {time_int} to device.")
+    except Exception as e:
+        print(f"Error writing RTC time to device: {e}")
 
-
-# def send_time_to_device(device, write_handle, time_str):
-#     try:
-#         # Convert time_str to a datetime object
-#         time_obj = datetime.datetime.strptime(time_str, '%H:%M:%S')
-#         # Convert to UNIX timestamp
-#         timestamp = int(time_obj.timestamp())
-#         # Convert to bytes (assuming 4-byte integer)
-#         time_bytes = timestamp.to_bytes(4, byteorder='little')
-#         device.char_write_handle(write_handle, time_bytes)
-#         print(f"Sent timestamp {timestamp} to device.")
-#     except Exception as e:
-#         print(f"Error writing time to device: {e}")
+#This is the trigger bit that Nathaneal and I have agreed upon, any future work on this
+# will probably require a more secure handshake. In this case we are just waiting for a
+#-1 to be send to the IMU.
+def send_trigger_to_device(device, write_handle, trigger_int):
+    """
+    Sends an integer trigger to the device via the specified write handle.
+    """
+    try:
+        # Convert the integer to bytes
+        # Assuming the IMU expects a 4-byte integer for -1
+        trigger_bytes = trigger_int.to_bytes(4, byteorder='little', signed=True)
+        device.char_write_handle(write_handle, trigger_bytes, wait_for_response=True)
+        print(f"Sent trigger {trigger_int} to device.")
+    except Exception as e:
+        print(f"Error sending trigger to device: {e}")
 
 try:
     adapter.start()
@@ -141,29 +195,39 @@ try:
     monitor_thread = threading.Thread(target=data_rate_monitor, daemon=True)
     monitor_thread.start()
     threads.append(monitor_thread)
-    rtc_function()
+
     # Connect to each device and start polling in a separate thread
     for idx, mac_address in enumerate(mac_addresses):
+        device_id = mac_address.replace(":", "")
         print(f"Connecting to device {idx} with MAC address {mac_address}...")
         try:
             device = adapter.connect(mac_address, timeout=10)
-            print(f"Device {idx} - Connection successful!")
+            print(f"Device {device_id} - Connection successful!")
 
             # Optionally exchange MTU (may not increase in BLE 4.0)
             try:
                 mtu = device.exchange_mtu(247)
-                print(f"Device {idx} - MTU size exchanged: {mtu}")
+                print(f"Device {device_id} - MTU size exchanged: {mtu}")
             except Exception as e:
-                print(f"Device {idx} - MTU exchange failed: {e}")
+                print(f"Device {device_id} - MTU exchange failed: {e}")
+
+            # Send RTC time as integer
+            rtc_time_int = rtc_function()
+            if rtc_time_int is not None:
+                send_time_to_device(device, send_handle_dev0, rtc_time_int)
+                # Send -1 to prompt the IMU to transmit its data
+                send_trigger_to_device(device, send_handle_dev0, -1)
+            else:
+                print(f"Device {device_id} - RTC time not sent due to conversion failure.")
 
             # Start polling in a separate thread
-            thread = threading.Thread(target=poll_characteristic, args=(device, idx), daemon=True)
+            thread = threading.Thread(target=poll_characteristic, args=(device, device_id), daemon=True)
             thread.start()
             threads.append(thread)
         except pygatt.exceptions.BLEError as e:
-            print(f"Device {idx} - BLE Error: {e}")
+            print(f"Device {device_id} - BLE Error: {e}")
         except Exception as e:
-            print(f"Device {idx} - An unexpected error occurred: {e}")
+            print(f"Device {device_id} - An unexpected error occurred: {e}")
 
     # Keep the main thread alive
     while True:
@@ -175,8 +239,5 @@ except Exception as e:
     print(f"An unexpected error occurred: {e}")
 finally:
     print("Stopping adapter...")
-    try:
-        adapter.stop()
-    except Exception as e:
-        print(f"Error stopping adapter: {e}")
-
+    adapter.stop()
+       
