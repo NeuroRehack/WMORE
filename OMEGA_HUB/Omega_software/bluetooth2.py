@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
 
 #Attempting parallel connections one last time, the bluetooth.py script was using the pygatt
 #backend, which didnt allow for multiple connections. I have tried now with bleak, which is a 
-#different library. As far as I can tell 2 IMU's work, there is potential to test for more but
-#I have run out of time - Adi
+#different library. As far as I can tell 3 IMU's work.
 import asyncio
 from bleak import BleakClient
 import subprocess
@@ -272,6 +270,3 @@ if __name__ == "__main__":
         logger.info("Script interrupted by user.")
     except Exception as e:
         logger.error(f"An unexpected error occurred in main: {e}")
-
-
-

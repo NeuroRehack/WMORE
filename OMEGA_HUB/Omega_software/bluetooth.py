@@ -16,12 +16,11 @@ from binascii import hexlify
 logging.basicConfig()
 logging.getLogger('pygatt').setLevel(logging.INFO)  # Set to DEBUG for detailed logs
 
-# List of MAC addresses of the BLE devices (add as many as needed)
-# mac_addresses = ["C0:C3:60:27:81:51", "C0:C3:0C:25:25:51"]
+# List of MAC addresses of the BLE devices 
 mac_addresses = ["C0:C3:60:27:81:51"] 
 
-characteristic_handle = 0x000c  # Reading characteristic handle (assuming same for all devices)
-send_handle_dev0 = 0x000e      # Writing characteristic handle (assuming same for all devices)
+characteristic_handle = 0x000c  # Reading characteristic handle 
+send_handle_dev0 = 0x000e      # Writing characteristic handle 
 
 # Initialize the adapter (ensure run_as_root=False if needed)
 adapter = pygatt.GATTToolBackend()
