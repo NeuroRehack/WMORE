@@ -1,0 +1,2403 @@
+/*
+  OpenLog Artemis
+  By: Nathan Seidle and Paul Clark
+  SparkFun Electronics
+  Date: November 26th, 2019
+  License: MIT. Please see LICENSE.md for more details.
+  Feel like supporting our work? Buy a board from SparkFun!
+  https://www.sparkfun.com/products/16832
+  https://www.sparkfun.com/products/19426
+
+  This firmware runs the OpenLog Artemis. A large variety of system settings can be
+  adjusted by connecting at 115200bps.
+
+  The Board should be set to SparkFun Apollo3 \ RedBoard Artemis ATP.
+
+  v1.0 Power Consumption:
+   Sleep between reads, RTC fully charged, no Qwiic, SD, no USB, no Power LED: 260uA
+   10Hz logging IMU, no Qwiic, SD, no USB, no Power LED: 9-27mA
+
+  TODO:
+  (done) Create settings file for sensor. Load after qwiic bus is scanned.
+  (done on larger Strings) Remove String dependencies.
+  (done) Bubble sort list of devices.
+  (done) Remove listing for muxes.
+  (done) Verify the printing of all sensors is %f, %d correct
+  (done) Add begin function seperate from everything, call after wakeup instead of detect
+  (done) Add counter to output to look for memory leaks on long runs
+  (done) Add AHT20 support
+  (done) Add SHTC3 support
+  (done) Change settings extension to txt
+  (done) Fix max I2C speed to use linked list
+  Currently device settings are not recorded to EEPROM, only deviceSettings.txt
+  Is there a better way to dynamically create size of sdOutputData array so we don't ever get larger than X sensors outputting?
+  Find way to store device configs into EEPROM
+  Log four pressure sensors and graph them on plotter
+  (checked) Test GPS - not sure about %d with int32s. Does lat, long, and alt look correct?
+  (done) Test NAU7802s
+  (done) Test SCD30s (Add an extended delay for the SCD30. (Issue #5))
+  (won't do?) Add a 'does not like to be powered cycled' setting for each device type. I think this has been superceded by "Add individual power-on delays for each sensor type?.
+  (done) Add support for logging VIN
+  (done) Investigate error in time between logs (https://github.com/sparkfun/OpenLog_Artemis/issues/13)
+  (done) Invesigate RTC reset issue (https://github.com/sparkfun/OpenLog_Artemis/issues/13 + https://forum.sparkfun.com/viewtopic.php?f=123&t=53157)
+    The solution is to make sure that the OLA goes into deep sleep as soon as the voltage monitor detects that the power has failed.
+    The user will need to press the reset button once power has been restored. Using the WDT to check the monitor and do a POR wasn't reliable.
+  (done) Investigate requires-reset issue on battery power (") (X04 + CCS811/BME280 enviro combo)
+  (done) Add a fix so that the MS8607 does not also appear as an MS5637
+  (done) Add "set RTC from GPS" functionality
+  (done) Add UTCoffset functionality (including support for negative numbers)
+  (done) Figure out how to give the u-blox time to establish a fix if it has been powered down between log intervals. The user can specify up to 60s for the Qwiic power-on delay.
+  Add support for VREG_ENABLE
+  (done) Add support for PWR_LED
+  (done) Use the WDT to reset the Artemis when power is reconnected (previously the Artemis would have stayed in deep sleep)
+  Add a callback function to the u-blox library so we can abort waiting for UBX data if the power goes low
+  (done) Add support for the ADS122C04 ADC (Qwiic PT100)
+  (done) Investigate why usBetweenReadings appears to be longer than expected. We needed to read millis _before_ enabling the lower power clock!
+  (done) Correct u-blox pull-ups
+  (done) Add an olaIdentifier to prevent problems when using two code variants that have the same sizeOfSettings
+  (done) Add a fix for the IMU wake-up issue identified in https://github.com/sparkfun/OpenLog_Artemis/issues/18
+  (done) Add a "stop logging" feature on GPIO 32: allow the pin to be used to read a stop logging button instead of being an analog input
+  (done) Allow the user to set the default qwiic bus pull-up resistance (u-blox will still use 'none')
+  (done) Add support for low battery monitoring using VIN
+  (done) Output sensor data via the serial TX pin (Issue #32)
+  (done) Add support for SD card file transfer (ZMODEM) and delete. (Issue #33) With thanks to: ecm-bitflipper (https://github.com/ecm-bitflipper/Arduino_ZModem)
+  (done) Add file creation and access timestamps
+  (done) Add the ability to trigger data collection via Pin 11 (Issue #36)
+  (done) Correct the measurement count misbehaviour (Issue #31)
+  (done) Use the corrected IMU temperature calculation (Issue #28)
+  (done) Add individual power-on delays for each sensor type. Add an extended delay for the SCD30. (Issue #5)
+  (done) v1.7: Fix readVin after sleep bug: https://github.com/sparkfun/OpenLog_Artemis/issues/39
+  (done) Change detectQwiicDevices so that the MCP9600 (Qwiic Thermocouple) is detected correctly
+  (done) Add support for the MPRLS0025PA micro pressure sensor
+  (done) Add support for the SN-GCJA5 particle sensor
+  (done) Add IMU accelerometer and gyro full scale and digital low pass filter settings to menuIMU
+  (done) Add a fix to make sure the MS8607 is detected correctly: https://github.com/sparkfun/OpenLog_Artemis/issues/54
+  (done) Add logMicroseconds: https://github.com/sparkfun/OpenLog_Artemis/issues/49
+  (done) Add an option to use autoPVT when logging GNSS data: https://github.com/sparkfun/OpenLog_Artemis/issues/50
+  (done) Corrected an issue when using multiple MS8607's: https://github.com/sparkfun/OpenLog_Artemis/issues/62
+  (done) Add a feature to use the TX and RX pins as a duplicate Terminal
+  (done) Add serial log timestamps with a token (as suggested by @DennisMelamed in PR https://github.com/sparkfun/OpenLog_Artemis/pull/70 and Issue https://github.com/sparkfun/OpenLog_Artemis/issues/63)
+  (done) Add "sleep on pin" functionality based @ryanneve's PR https://github.com/sparkfun/OpenLog_Artemis/pull/64 and Issue https://github.com/sparkfun/OpenLog_Artemis/issues/46
+  (done) Add "wake at specified times" functionality based on Issue https://github.com/sparkfun/OpenLog_Artemis/issues/46
+  (done) Add corrections for the SCD30 based on Forum post by paulvha: https://forum.sparkfun.com/viewtopic.php?p=222455#p222455
+  (done) Add support for the SGP40 VOC Index sensor
+  (done) Add support for the SDP3X Differential Pressure sensor
+  (done) Add support for the MS5837 - as used in the BlueRobotics BAR02 and BAR30 water pressure sensors
+  (done) Correct an issue which was causing the OLA to crash when waking from sleep and outputting serial data https://github.com/sparkfun/OpenLog_Artemis/issues/79
+  (done) Correct low-power code as per https://github.com/sparkfun/OpenLog_Artemis/issues/78
+  (done) Correct a bug in menuAttachedDevices when useTxRxPinsForTerminal is enabled https://github.com/sparkfun/OpenLog_Artemis/issues/82
+  (done) Add ICM-20948 DMP support. Requires v1.2.6 of the ICM-20948 library. DMP logging is limited to: Quat6 or Quat9, plus raw accel, gyro and compass. https://github.com/sparkfun/OpenLog_Artemis/issues/47
+  (done) Add support for exFAT. Requires v2.0.6 of Bill Greiman's SdFat library. https://github.com/sparkfun/OpenLog_Artemis/issues/34
+  (done) Add minimum awake time: https://github.com/sparkfun/OpenLog_Artemis/issues/83
+  (done) Add support for the Pulse Oximeter: https://github.com/sparkfun/OpenLog_Artemis/issues/81
+  (done - but does not work) Add support for the Qwiic Button. The QB uses clock-stretching and the Artemis really doesn't enjoy that...
+  (done) Increase DMP data resolution to five decimal places https://github.com/sparkfun/OpenLog_Artemis/issues/90
+
+  (in progress) Update to Apollo3 v2.1.0 - FIRMWARE_VERSION_MAJOR = 2.
+  (done) Implement printf float (OLA uses printf float in _so_ many places...): https://github.com/sparkfun/Arduino_Apollo3/issues/278
+  (worked around) attachInterrupt(PIN_POWER_LOSS, powerDownOLA, FALLING); triggers an immediate interrupt - https://github.com/sparkfun/Arduino_Apollo3/issues/416
+  (done) Add a setQwiicPullups function
+  (done) Check if we need ap3_set_pin_to_analog when coming out of sleep
+  (done) Investigate why code does not wake from deep sleep correctly
+  (worked around) Correct SerialLog RX: https://github.com/sparkfun/Arduino_Apollo3/issues/401
+    The work-around is to use Serial1 in place of serialLog and then to manually force UART1 to use pins 12 and 13
+    We need a work-around anyway because if pins 12 or 13 have been used as analog inputs, Serial1.begin does not re-configure them for UART TX and RX
+  (in progress) Reduce sleep current as much as possible. v1.2.1 achieved ~110uA. With v2.1.0 the draw is more like 260uA...
+
+  (in progress) Update to Apollo3 v2.2.0 - FIRMWARE_VERSION_MAJOR = 2; FIRMWARE_VERSION_MINOR = 1.
+  (done) Add a fix for issue #109 - check if a BME280 is connected before calling multiplexerBegin: https://github.com/sparkfun/OpenLog_Artemis/issues/109
+  (done) Correct issue #104. enableSD was redundant. The microSD power always needs to be on if there is a card inserted, otherwise the card pulls
+         the SPI lines low, preventing communication with the IMU:  https://github.com/sparkfun/OpenLog_Artemis/issues/104
+
+  v2.2:
+    Use Apollo3 v2.2.1 with changes by paulvha to fix Issue 117 (Thank you Paul!)
+      https://github.com/sparkfun/OpenLog_Artemis/issues/117#issuecomment-1085881142
+    Also includes Paul's SPI.end fix
+      https://github.com/sparkfun/Arduino_Apollo3/issues/442
+      In libraries/SPI/src/SPI.cpp change end() to:
+        void arduino::MbedSPI::end() {
+            if (dev) {
+                delete dev;
+                dev = NULL;
+            }
+        }      
+    Use SdFat v2.1.2
+    Compensate for missing / not-populated IMU
+    Add support for yyyy/mm/dd and ISO 8601 date style (Issue 118)
+    Add support for fractional time zone offsets
+
+  v2.3 BETA:
+    Change GNSS maximum rate to 25Hz as per:
+      https://github.com/sparkfun/OpenLog_Artemis/issues/121
+      https://forum.sparkfun.com/viewtopic.php?f=172&t=57512
+    Decided not to include this in the next full release.
+    I suspect it will cause major badness on (e.g.) M8 modules that cannot support 25Hz.
+    
+  v2.3:
+    Resolve https://forum.sparkfun.com/viewtopic.php?f=171&t=58109
+
+  v2.4:
+    Add noPowerLossProtection to the main branch
+    Add changes by KDB: If we are streaming to Serial, start the stream with a Mime Type marker, followed by CR
+    Add debug option to only open the menu using a printable character: based on https://github.com/sparkfun/OpenLog_Artemis/pull/125
+
+  v2.5:
+    Add Tony Whipple's PR #146 - thank you @whipple63
+    Add support for the ISM330DHCX, MMC5983MA, KX134 and ADS1015
+    Resolve issue #87
+
+  v2.6:
+    Add support for the LPS28DFW - thank you @gauteh #179
+    Only disable I2C SDA and SCL during sleep when I2C bus is being powered down - thank you @whipple63 #167
+    Add calibrationConcentration support for the SCD30 - thank you @hotstick #181
+    Add limited support for the VEML7700 light sensor
+
+  v2.7:
+    Resolve serial logging issue - crash on startup - #182
+*/
+// Nathan bug fix attempt
+#include "bug_fix.h"
+#include "Sensors.h"
+// Added by Nathan
+//----------------------------------------------------------------------------
+// WMORE defines
+
+// WMORE version number, which is different to the Openlog Artemis version number it's based on
+#define WMORE_VERSION "WMORE Logger v0.1" 
+
+// WMORE defines for synchronised sampling clock
+#define TIMERB_PERIOD 65535U // Free-running timer period
+#define SYNC_TIMER_PERIOD 4294967295U // Free-running timer period
+#define STIMER_PERIOD 4294967295U // Free-running timer period
+//#define NOMINAL_PERIOD 328U // initial estimate for 100 Hz timer XT @ 32768 Hz 
+//#define NOMINAL_PERIOD 1875U // initial estimate for 100 Hz timer HFRC @ 187500 Hz
+#define NOMINAL_PERIOD 29700U // initial estimate for 100 Hz timer HFRC @ 3 MHz 
+#define MAX_TIME_DIFF (NOMINAL_PERIOD * 1.2)  // bounds check
+#define MIN_TIME_DIFF (NOMINAL_PERIOD * 0.8) // bounds check
+#define MAX_SYNC (NOMINAL_PERIOD * 100) // too far out of sync?
+#define PERIOD_AVG_BUFFER_SIZE 256U
+//#define TIMER_CLOCK AM_HAL_CTIMER_XT_32_768KHZ
+//#define TIMER_CLOCK AM_HAL_CTIMER_HFRC_187_5KHZ
+#define TIMER_CLOCK AM_HAL_CTIMER_HFRC_3MHZ
+#define RTC_UPDATE_INTERVAL_MINS 1U
+#define LEDS_WAIT 0U // LEDS indicate waiting to start logging
+#define LEDS_LOG 1U // LEDS indicate logging 
+
+//----------------------------------------------------------------------------
+// WMORE timestamp structure
+
+// Union to allow individual uint8_t access into uint32_t
+union periodUnion {
+  uint8_t part[4]; // individual bytes
+  uint32_t full; // 32-bit word
+};
+
+// Struct for synchronisation packets
+struct {
+  uint8_t valid;
+  uint8_t years;
+  uint8_t months;
+  uint8_t days;
+  uint8_t hours;
+  uint8_t minutes;
+  uint8_t seconds;
+  uint8_t hundredths; 
+} syncPacket;
+
+//----------------------------------------------------------------------------
+// WMORE measures of time for logging
+
+periodUnion intPeriod; // internal 
+
+uint8_t lastRTCSetMinutes = 0; // WMORE minutes of last time RTC was updated by Coordinator
+uint8_t outputDataCount; // WMORE counter for binary writes to outputData
+uint8_t batteryVoltage; // WMORE battery voltage 
+
+//----------------------------------------------------------------------------
+// WMORE synchronisation constants and variables, and ISRs
+
+const int sampleTimer = 2;
+//const int syncTimer = 3;
+volatile uint32_t period = NOMINAL_PERIOD; // Initial estimate for timer period
+volatile uint32_t extTimerValue;
+volatile uint32_t extTimerValue2; // created by Sami
+volatile uint32_t samplingPeriod; // created by Sami // WMORE sampling
+volatile uint32_t lastSamplingPeriod; // created by Sami // last WMORE sampling
+volatile uint32_t intTimerValue;
+volatile uint32_t timerValue; 
+volatile uint32_t extTimerValueLast = 0;
+volatile int32_t timerAdj = 0;
+//volatile int adjust;
+volatile bool triggerPinFlag = false;
+volatile bool timerIntFlag = false;
+volatile uint8_t periodAvgPtr = 0; // pointer into circular buffer
+volatile uint32_t timeDifference;
+//volatile uint32_t lastSync = 0;
+//volatile uint32_t thisSync = 0;
+uint32_t periodAvgBuffer[PERIOD_AVG_BUFFER_SIZE] = 
+                           {NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD}; // circular buffer
+
+//----------------------------------------------------------------------------
+
+
+const int FIRMWARE_VERSION_MAJOR = 2;
+const int FIRMWARE_VERSION_MINOR = 7;
+
+//Define the OLA board identifier:
+//  This is an int which is unique to this variant of the OLA and which allows us
+//  to make sure that the settings in EEPROM are correct for this version of the OLA
+//  (sizeOfSettings is not necessarily unique and we want to avoid problems when swapping from one variant to another)
+//  It is the sum of:
+//    the variant * 0x100 (OLA = 1; GNSS_LOGGER = 2; GEOPHONE_LOGGER = 3)
+//    the major firmware version * 0x10
+//    the minor firmware version
+#define OLA_IDENTIFIER 0x127 // Stored as 294 decimal in OLA_settings.txt
+
+//#define noPowerLossProtection // Uncomment this line to disable the sleep-on-power-loss functionality
+
+#include "Sensors.h"
+
+#include "settings.h"
+
+//Define the pin functions
+//Depends on hardware version. This can be found as a marking on the PCB.
+//x04 was the SparkX 'black' version.
+//v10 was the first red version.
+#define HARDWARE_VERSION_MAJOR 1
+#define HARDWARE_VERSION_MINOR 0
+
+#if(HARDWARE_VERSION_MAJOR == 0 && HARDWARE_VERSION_MINOR == 4)
+const byte PIN_MICROSD_CHIP_SELECT = 10;
+const byte PIN_IMU_POWER = 22;
+#elif(HARDWARE_VERSION_MAJOR == 1 && HARDWARE_VERSION_MINOR == 0)
+const byte PIN_MICROSD_CHIP_SELECT = 23;
+const byte PIN_IMU_POWER = 27;
+const byte PIN_PWR_LED = 29;
+const byte PIN_VREG_ENABLE = 25;
+const byte PIN_VIN_MONITOR = 34; // VIN/3 (1M/2M - will require a correction factor)
+#endif
+
+const byte PIN_POWER_LOSS = 3;
+//const byte PIN_LOGIC_DEBUG = 11; // Useful for debugging issues like the slippery mux bug
+const byte PIN_MICROSD_POWER = 15;
+const byte PIN_QWIIC_POWER = 18;
+const byte PIN_STAT_LED = 19;
+const byte PIN_IMU_INT = 37;
+const byte PIN_IMU_CHIP_SELECT = 44;
+const byte PIN_STOP_LOGGING = 32;
+const byte BREAKOUT_PIN_32 = 32;
+const byte BREAKOUT_PIN_TX = 12;
+const byte BREAKOUT_PIN_RX = 13;
+const byte BREAKOUT_PIN_11 = 11;
+const byte PIN_TRIGGER = 11;
+const byte PIN_QWIIC_SCL = 8;
+const byte PIN_QWIIC_SDA = 9;
+
+const byte PIN_SPI_SCK = 5;
+const byte PIN_SPI_CIPO = 6;
+const byte PIN_SPI_COPI = 7;
+
+const byte SD_RECORD_LENGTH = 40; // WMORE Record length for binary file
+
+// Include this many extra bytes when starting a mux - to try and avoid the slippery mux bug
+// This should be 0 but 3 or 7 seem to work better depending on which way the wind is blowing.
+const byte EXTRA_MUX_STARTUP_BYTES = 3;
+
+enum returnStatus {
+  STATUS_GETBYTE_TIMEOUT = 255,
+  STATUS_GETNUMBER_TIMEOUT = -123455555,
+  STATUS_PRESSED_X,
+};
+
+//Setup Qwiic Port
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#include <Wire.h>
+TwoWire qwiic(PIN_QWIIC_SDA,PIN_QWIIC_SCL); //Will use pads 8/9
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+//EEPROM for storing settings
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#include <EEPROM.h>
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+//microSD Interface
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#include <SPI.h>
+
+#include <SdFat.h> //SdFat by Bill Greiman: http://librarymanager/All#SdFat_exFAT
+
+#define SD_FAT_TYPE 3 // SD_FAT_TYPE = 0 for SdFat/File, 1 for FAT16/FAT32, 2 for exFAT, 3 for FAT16/FAT32 and exFAT.
+#define SD_CONFIG SdSpiConfig(PIN_MICROSD_CHIP_SELECT, SHARED_SPI, SD_SCK_MHZ(24)) // 24MHz
+
+#if SD_FAT_TYPE == 1
+SdFat32 sd;
+File32 sensorDataFile; //File that all sensor data is written to
+File32 serialDataFile; //File that all incoming serial data is written to
+#elif SD_FAT_TYPE == 2
+SdExFat sd;
+ExFile sensorDataFile; //File that all sensor data is written to
+ExFile serialDataFile; //File that all incoming serial data is written to
+#elif SD_FAT_TYPE == 3
+SdFs sd;
+FsFile sensorDataFile; //File that all sensor data is written to
+FsFile serialDataFile; //File that all incoming serial data is written to
+#else // SD_FAT_TYPE == 0
+SdFat sd;
+File sensorDataFile; //File that all sensor data is written to
+File serialDataFile; //File that all incoming serial data is written to
+#endif  // SD_FAT_TYPE
+
+//#define PRINT_LAST_WRITE_TIME // Uncomment this line to enable the 'measure the time between writes' diagnostic
+
+char sensorDataFileName[30] = ""; //We keep a record of this file name so that we can re-open it upon wakeup from sleep
+char serialDataFileName[30] = ""; //We keep a record of this file name so that we can re-open it upon wakeup from sleep
+const int sdPowerDownDelay = 100; //Delay for this many ms before turning off the SD card power
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+//Add RTC interface for Artemis
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#include "RTC.h" //Include RTC library included with the Aruino_Apollo3 core
+Apollo3RTC myRTC; //Create instance of RTC class
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+//Create UART instance for OpenLog style serial logging
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+UART SerialLog(BREAKOUT_PIN_TX, BREAKOUT_PIN_RX);  // Declares a Uart object called SerialLog with TX on pin 12 and RX on pin 13
+
+uint64_t lastSeriaLogSyncTime = 0;
+uint64_t lastAwakeTimeMillis;
+const int MAX_IDLE_TIME_MSEC = 500;
+bool newSerialData = false;
+char incomingBuffer[256 * 2]; //This size of this buffer is sensitive. Do not change without analysis using OpenLog_Serial.
+int incomingBufferSpot = 0;
+int charsReceived = 0; //Used for verifying/debugging serial reception
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+//Add ICM IMU interface
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#include "ICM_20948.h"  // Click here to get the library: http://librarymanager/All#SparkFun_ICM_20948_IMU
+ICM_20948_SPI myICM;
+icm_20948_DMP_data_t dmpData; // Global storage for the DMP data - extracted from the FIFO
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+//Header files for all compatible Qwiic sensors
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+// #include "SparkFun_I2C_Mux_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_I2C_Mux
+// #include "SparkFunCCS811.h" //Click here to get the library: http://librarymanager/All#SparkFun_CCS811
+// #include "SparkFun_VL53L1X.h" //Click here to get the library: http://librarymanager/All#SparkFun_VL53L1X
+// #include "SparkFunBME280.h" //Click here to get the library: http://librarymanager/All#SparkFun_BME280
+// #include "SparkFun_LPS25HB_Arduino_Library.h"  //Click here to get the library: http://librarymanager/All#SparkFun_LPS25HB
+// #include "SparkFun_VEML6075_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_VEML6075
+// #include "SparkFun_PHT_MS8607_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_PHT_MS8607
+// #include "SparkFun_MCP9600.h" //Click here to get the library: http://librarymanager/All#SparkFun_MCP9600
+// #include "SparkFun_SGP30_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_SGP30
+// #include "SparkFun_VCNL4040_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_VCNL4040
+// #include "SparkFun_MS5637_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_MS5637
+// #include "SparkFun_TMP117.h" //Click here to get the library: http://librarymanager/All#SparkFun_TMP117
+// #include "SparkFun_u-blox_GNSS_Arduino_Library.h" //http://librarymanager/All#SparkFun_u-blox_GNSS
+// #include "SparkFun_Qwiic_Scale_NAU7802_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_NAU7802
+// #include "SparkFun_SCD30_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_SCD30
+// #include "SparkFun_Qwiic_Humidity_AHT20.h" //Click here to get the library: http://librarymanager/All#Qwiic_Humidity_AHT20 by SparkFun
+// #include "SparkFun_SHTC3.h" // Click here to get the library: http://librarymanager/All#SparkFun_SHTC3
+// #include "SparkFun_ADS122C04_ADC_Arduino_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_ADS122C04
+// #include "SparkFun_MicroPressure.h" // Click here to get the library: http://librarymanager/All#SparkFun_MicroPressure
+// #include "SparkFun_Particle_Sensor_SN-GCJA5_Arduino_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_Particle_Sensor_SN-GCJA5
+// #include "SparkFun_SGP40_Arduino_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_SGP40
+// #include "SparkFun_SDP3x_Arduino_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_SDP3x
+// #include "MS5837.h" // Click here to download the library: https://github.com/sparkfunX/BlueRobotics_MS5837_Library
+// #include "SparkFun_Qwiic_Button.h" // Click here to get the library: http://librarymanager/All#SparkFun_Qwiic_Button_Switch
+// #include "SparkFun_Bio_Sensor_Hub_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_Bio_Sensor
+// #include "SparkFun_ISM330DHCX.h" // Click here to get the library: http://librarymanager/All#SparkFun_6DoF_ISM330DHCX
+// #include "SparkFun_MMC5983MA_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_MMC5983MA
+// #include "SparkFun_ADS1015_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_ADS1015
+// #include "SparkFun_KX13X.h" //Click here to get the library: http://librarymanager/All#SparkFun_KX13X
+// #include "SparkFun_LPS28DFW_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_LPS28DFW_Arduino_Library
+// #include "SparkFun_VEML7700_Arduino_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_VEML7700
+
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+//Global variables
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+uint64_t measurementStartTime; //Used to calc the actual update rate. Max is ~80,000,000ms in a 24 hour period.
+uint64_t lastSDFileNameChangeTime; //Used to calculate the interval since the last SD filename change
+unsigned long measurementCount = 0; //Used to calc the actual update rate.
+unsigned long measurementTotal = 0; //The total number of recorded measurements. (Doesn't get reset when the menu is opened)
+char sdOutputData[512 * 2]; //Factor of 512 for easier recording to SD in 512 chunks
+unsigned long lastReadTime = 0; //Used to delay until user wants to record a new reading
+unsigned long lastDataLogSyncTime = 0; //Used to record to SD every half second
+unsigned int totalCharactersPrinted = 0; //Limit output rate based on baud rate and number of characters to print
+bool takeReading = true; //Goes true when enough time has passed between readings or we've woken from sleep
+bool sleepAfterRead = false; //Used to keep the code awake for at least minimumAwakeTimeMillis
+const uint64_t maxUsBeforeSleep = 2000000ULL; //Number of us between readings before sleep is activated.
+const byte menuTimeout = 15; //Menus will exit/timeout after this number of seconds
+const int sdCardMenuTimeout = 60; // sdCard menu will exit/timeout after this number of seconds
+volatile static bool stopLoggingSeen = false; //Flag to indicate if we should stop logging
+uint64_t qwiicPowerOnTime = 0; //Used to delay after Qwiic power on to allow sensors to power on, then answer autodetect
+unsigned long qwiicPowerOnDelayMillis; //Wait for this many milliseconds after turning on the Qwiic power before attempting to communicate with Qwiic devices
+int lowBatteryReadings = 0; // Count how many times the battery voltage has read low
+const int lowBatteryReadingsLimit = 10; // Don't declare the battery voltage low until we have had this many consecutive low readings (to reject sampling noise)
+volatile static bool triggerEdgeSeen = false; //Flag to indicate if a trigger interrupt has been seen
+char serialTimestamp[40]; //Buffer to store serial timestamp, if needed
+volatile static bool powerLossSeen = false; //Flag to indicate if a power loss event has been seen
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+// gfvalvo's flash string helper code: https://forum.arduino.cc/index.php?topic=533118.msg3634809#msg3634809
+void SerialPrint(const char *);
+void SerialPrint(const __FlashStringHelper *);
+void SerialPrintln(const char *);
+void SerialPrintln(const __FlashStringHelper *);
+void DoSerialPrint(char (*)(const char *), const char *, bool newLine = false);
+
+volatile uint32_t periodSum = period * PERIOD_AVG_BUFFER_SIZE; // initialise running sum
+#define DUMP( varname ) {Serial.printf("%s: %d\r\n", #varname, varname); if (settings.useTxRxPinsForTerminal == true) Serial1.printf("%s: %d\r\n", #varname, varname);}
+#define SerialPrintf1( var ) {Serial.printf( var ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var );}
+#define SerialPrintf2( var1, var2 ) {Serial.printf( var1, var2 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2 );}
+#define SerialPrintf3( var1, var2, var3 ) {Serial.printf( var1, var2, var3 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3 );}
+#define SerialPrintf4( var1, var2, var3, var4 ) {Serial.printf( var1, var2, var3, var4 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3, var4 );}
+#define SerialPrintf5( var1, var2, var3, var4, var5 ) {Serial.printf( var1, var2, var3, var4, var5 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3, var4, var5 );}
+
+// The Serial port for the Zmodem connection
+// must not be the same as DSERIAL unless all
+// debugging output to DSERIAL is removed
+Stream *ZSERIAL;
+
+// Serial output for debugging info for Zmodem
+Stream *DSERIAL;
+
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#include "WDT.h" // WDT support
+
+volatile static bool petTheDog = true; // Flag to control whether the WDT ISR pets (resets) the timer.
+
+// Interrupt handler for the watchdog.
+extern "C" void am_watchdog_isr(void)
+{
+  // Clear the watchdog interrupt.
+  wdt.clear();
+
+  // Restart the watchdog if petTheDog is true
+  if (petTheDog)
+    wdt.restart(); // "Pet" the dog.
+}
+
+void startWatchdog()
+{
+  // Set watchdog timer clock to 16 Hz
+  // Set watchdog interrupt to 1 seconds (16 ticks / 16 Hz = 1 second)
+  // Set watchdog reset to 1.25 seconds (20 ticks / 16 Hz = 1.25 seconds)
+  // Note: Ticks are limited to 255 (8-bit)
+  wdt.configure(WDT_16HZ, 16, 20);
+  wdt.start(); // Start the watchdog
+}
+
+void stopWatchdog()
+{
+  wdt.stop();
+}
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+// Commented out by Nathan
+// void setup() {
+//   //If 3.3V rail drops below 3V, system will power down and maintain RTC
+//   pinMode(PIN_POWER_LOSS, INPUT); // BD49K30G-TL has CMOS output and does not need a pull-up
+
+//   delay(1); // Let PIN_POWER_LOSS stabilize
+
+// #ifndef noPowerLossProtection
+//   if (digitalRead(PIN_POWER_LOSS) == LOW) powerDownOLA(); //Check PIN_POWER_LOSS just in case we missed the falling edge
+//   //attachInterrupt(PIN_POWER_LOSS, powerDownOLA, FALLING); // We can't do this with v2.1.0 as attachInterrupt causes a spontaneous interrupt
+//   attachInterrupt(PIN_POWER_LOSS, powerLossISR, FALLING);
+// #else
+//   // No Power Loss Protection
+//   // Set up the WDT to generate a reset just in case the code crashes during a brown-out
+//   startWatchdog();
+// #endif
+//   powerLossSeen = false; // Make sure the flag is clear
+
+//   powerLEDOn(); // Turn the power LED on - if the hardware supports it
+
+//   pinMode(PIN_STAT_LED, OUTPUT);
+//   digitalWrite(PIN_STAT_LED, HIGH); // Turn the STAT LED on while we configure everything
+
+//   SPI.begin(); //Needed if SD is disabled
+
+//   //Do not start Serial1 before productionTest() otherwise the pin configuration gets overwritten
+//   //and subsequent Serial1.begin's don't restore the pins to UART mode...
+
+//   productionTest(); //Check if we need to go into production test mode
+
+//   //We need to manually restore the Serial1 TX and RX pins after they were changed by productionTest()
+//   configureSerial1TxRx();
+
+//   Serial.begin(115200); //Default for initial debug messages if necessary
+//   Serial1.begin(115200); //Default for initial debug messages if necessary
+
+//   //pinMode(PIN_LOGIC_DEBUG, OUTPUT); // Debug pin to assist tracking down slippery mux bugs
+//   //digitalWrite(PIN_LOGIC_DEBUG, HIGH);
+
+//   // Use the worst case power on delay for the Qwiic bus for now as we don't yet know what sensors are connected
+//   // (worstCaseQwiicPowerOnDelay is defined in settings.h)
+//   qwiicPowerOnDelayMillis = worstCaseQwiicPowerOnDelay;
+
+//   EEPROM.init();
+
+//   beginQwiic(); // Turn the qwiic power on as early as possible
+
+//   beginSD(); //285 - 293ms
+
+//   enableCIPOpullUp(); // Enable CIPO pull-up _after_ beginSD
+
+//   loadSettings(); //50 - 250ms
+
+//   if (settings.useTxRxPinsForTerminal == true)
+//   {
+//     Serial1.flush(); //Complete any previous prints at the previous baud rate
+//     Serial1.begin(settings.serialTerminalBaudRate); // Restart the serial port
+//   }
+//   else
+//   {
+//     Serial1.flush(); //Complete any previous prints
+//     if (settings.logSerial == false)
+//       Serial1.end(); // Stop the SerialLog port - but only if not logging serial, otherwise incoming data can cause a crash!
+//   }
+
+//   Serial.flush(); //Complete any previous prints
+//   Serial.begin(settings.serialTerminalBaudRate);
+
+//   SerialPrintf3("Artemis OpenLog v%d.%d\r\n", FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR);
+
+// #ifdef noPowerLossProtection
+//   SerialPrintln(F("** No Power Loss Protection **"));
+// #endif
+
+//   if (settings.useGPIO32ForStopLogging == true)
+//   {
+//     SerialPrintln(F("Stop Logging is enabled. Pull GPIO pin 32 to GND to stop logging."));
+//     pinMode(PIN_STOP_LOGGING, INPUT_PULLUP);
+//     delay(1); // Let the pin stabilize
+//     attachInterrupt(PIN_STOP_LOGGING, stopLoggingISR, FALLING); // Enable the interrupt
+//     am_hal_gpio_pincfg_t intPinConfig = g_AM_HAL_GPIO_INPUT_PULLUP;
+//     intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
+//     pin_config(PinName(PIN_STOP_LOGGING), intPinConfig); // Make sure the pull-up does actually stay enabled
+//     stopLoggingSeen = false; // Make sure the flag is clear
+//   }
+
+//   if (settings.useGPIO11ForTrigger == true)
+//   {
+//     pinMode(PIN_TRIGGER, INPUT_PULLUP);
+//     delay(1); // Let the pin stabilize
+//     am_hal_gpio_pincfg_t intPinConfig = g_AM_HAL_GPIO_INPUT_PULLUP;
+//     if (settings.fallingEdgeTrigger == true)
+//     {
+//       SerialPrintln(F("Falling-edge triggering is enabled. Sensor data will be logged on a falling edge on GPIO pin 11."));
+//       attachInterrupt(PIN_TRIGGER, triggerPinISR, FALLING); // Enable the interrupt
+//       intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
+//     }
+//     else
+//     {
+//       SerialPrintln(F("Rising-edge triggering is enabled. Sensor data will be logged on a rising edge on GPIO pin 11."));
+//       attachInterrupt(PIN_TRIGGER, triggerPinISR, RISING); // Enable the interrupt
+//       intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_LO2HI;
+//     }
+//     pin_config(PinName(PIN_TRIGGER), intPinConfig); // Make sure the pull-up does actually stay enabled
+//     triggerEdgeSeen = false; // Make sure the flag is clear
+//   }
+
+//   analogReadResolution(14); //Increase from default of 10
+
+//   beginDataLogging(); //180ms
+//   lastSDFileNameChangeTime = rtcMillis(); // Record the time of the file name change
+
+//   serialTimestamp[0] = '\0'; // Empty the serial timestamp buffer
+
+//   if (settings.useTxRxPinsForTerminal == false)
+//   {
+//     beginSerialLogging(); //20 - 99ms
+//     beginSerialOutput(); // Begin serial data output on the TX pin
+//   }
+
+//   beginIMU(); //61ms
+
+//   if (online.microSD == true) SerialPrintln(F("SD card online"));
+//   else SerialPrintln(F("SD card offline"));
+
+//   if (online.dataLogging == true) SerialPrintln(F("Data logging online"));
+//   else SerialPrintln(F("Datalogging offline"));
+
+//   if (online.serialLogging == true) SerialPrintln(F("Serial logging online"));
+//   else SerialPrintln(F("Serial logging offline"));
+
+//   if (online.IMU == true) SerialPrintln(F("IMU online"));
+//   else SerialPrintln(F("IMU offline - or not present"));
+
+//   if (settings.logMaxRate == true) SerialPrintln(F("Logging analog pins at max data rate"));
+
+//   if (settings.enableTerminalOutput == false && settings.logData == true) SerialPrintln(F("Logging to microSD card with no terminal output"));
+
+//   // if (detectQwiicDevices() == true) //159 - 865ms but varies based on number of devices attached
+//   // {
+//   //   beginQwiicDevices(); //Begin() each device in the node list
+//   //   loadDeviceSettingsFromFile(); //Load config settings into node list
+//   //   configureQwiicDevices(); //Apply config settings to each device in the node list
+//   //   int deviceCount = printOnlineDevice(); // Pretty-print the online devices
+
+//   //   if ((deviceCount == 0) && (settings.resetOnZeroDeviceCount == true)) // Check for resetOnZeroDeviceCount
+//   //   {
+//   //     if ((Serial.available()) || ((settings.useTxRxPinsForTerminal == true) && (Serial1.available())))
+//   //       menuMain(); //Present user menu - in case the user wants to disable resetOnZeroDeviceCount
+//   //     else
+//   //     {
+//   //       SerialPrintln(F("*** Zero Qwiic Devices Found! Resetting... ***"));
+//   //       SerialFlush();
+//   //       resetArtemis(); //Thank you and goodnight...
+//   //     }
+//   //   }
+//   // }
+//   else
+//     SerialPrintln(F("No Qwiic devices detected"));
+
+//   // KDB add
+//   // If we are streaming to Serial, start the stream with a Mime Type marker, followed by CR
+//   SerialPrintln(F("Content-Type: text/csv"));
+//   SerialPrintln("");
+  
+//   if (settings.showHelperText == true) 
+//     printHelperText(OL_OUTPUT_SERIAL | OL_OUTPUT_SDCARD); //printHelperText to terminal and sensor file
+
+//   //If we are sleeping between readings then we cannot rely on millis() as it is powered down
+//   //Use RTC instead
+//   measurementStartTime = rtcMillis();
+
+//   digitalWrite(PIN_STAT_LED, LOW); // Turn the STAT LED off now that everything is configured
+
+//   lastAwakeTimeMillis = rtcMillis();
+
+//   //If we are immediately going to go to sleep after the first reading then
+//   //first present the user with the config menu in case they need to change something
+//   if (checkIfItIsTimeToSleep())
+//     menuMain(true); // Always open the menu - even if there is nothing in the serial buffers
+// }
+
+//----------------------------------------------------------------------------
+// WMORE
+// Sample timer ISR
+
+#ifdef __cplusplus
+  extern "C" {
+#endif
+// C++ compilations must declare the ISR as a "C" routine or else its name will get mangled
+// and the linker will not use this routine to replace the default ISR
+void timerISR();
+
+#ifdef __cplusplus
+  }
+#endif
+
+extern "C" void timerISR()
+{
+  am_hal_ctimer_period_set(sampleTimer, AM_HAL_CTIMER_TIMERA, period + timerAdj, 1); // adjust period once
+  am_hal_ctimer_int_clear(AM_HAL_CTIMER_INT_TIMERA2); // clear the timer interrupt
+  timerIntFlag = true; // trigger IMU sampling
+  timerAdj = 0; // DON'T FORGET TO DO THIS, EITHER IN ISR OR MAIN LOOP!!!
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Synchronisation input ISR
+
+#ifdef __cplusplus
+  extern "C" {
+#endif
+// C++ compilations must declare the ISR as a "C" routine or else its name will get mangled
+// and the linker will not use this routine to replace the default ISR
+void triggerPinISR();
+
+#ifdef __cplusplus
+  }
+#endif
+
+extern "C" void triggerPinISR() {
+
+  // Process external sync interrupt and calculate adjustment
+  // Get interrupt flags
+  uint64_t gpio_int_mask = 0x00;
+  am_hal_gpio_interrupt_status_get(true, &gpio_int_mask);
+  // read the current internal timer (sampling timer) value
+  intTimerValue = am_hal_ctimer_read(sampleTimer, AM_HAL_CTIMER_TIMERA);
+  // read the current external event timer (sync timer) value
+  extTimerValue = am_hal_stimer_counter_get(); // Now using STIMER instead of timer 3 
+  am_hal_gpio_interrupt_clear(AM_HAL_GPIO_BIT(gpio_int_mask)); // clear GPIO interrupt
+  adjustTime(); // Adjust the sampling timer
+  // store previous timer value
+  extTimerValueLast = extTimerValue;   
+  //triggerPinFlag = true; // Currently used for debugging 
+}
+
+//----------------------------------------------------------------------------
+// WMORE 
+// Engage burst mode
+// Based on Ambiq burst mode example
+
+void burstMode(void) {
+  
+  am_hal_burst_avail_e          eBurstModeAvailable;
+  am_hal_burst_mode_e           eBurstMode;
+  
+  am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_SYSCLK_MAX, 0);
+  //am_hal_cachectrl_config(&am_hal_cachectrl_defaults);
+  //am_hal_cachectrl_enable();
+  //am_bsp_low_power_init();
+  am_hal_burst_mode_initialize(&eBurstModeAvailable);
+  am_hal_burst_mode_enable(&eBurstMode);
+}
+//----------------------------------------------------------------------------
+// WMORE 
+// Set clock state
+
+void clockState(void) {
+
+  burstMode(); // Engage burst mode
+
+  //am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ);
+  //
+  // Enable the XT for the RTC.
+  //
+  am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_XTAL_START, 0);
+
+  //
+  // Select XT for RTC clock source
+  //
+  am_hal_rtc_osc_select(AM_HAL_RTC_OSC_XT);
+
+  //
+  // Enable the RTC.
+  //
+  am_hal_rtc_osc_enable();  
+  
+  delay(1); // wait for clock to settle
+  
+  // Enable HFADJ 
+  // TODO: confirm this is working
+  am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_HFADJ_ENABLE, 0);  
+}
+
+//----------------------------------------------------------------------------
+// WMORE 
+// Configure sample timer
+
+void setupSampleTimer(int timerNum, uint32_t periodTicks)
+{
+  //  Refer to Ambiq Micro Apollo3 Blue MCU datasheet section 13.2.2
+  //  and am_hal_ctimer.c line 710 of 2210.
+  //
+   am_hal_ctimer_config_single(timerNum, AM_HAL_CTIMER_TIMERA,
+                              TIMER_CLOCK |
+                              AM_HAL_CTIMER_FN_REPEAT |
+                              AM_HAL_CTIMER_INT_ENABLE);
+  //
+  //  Repeated Count: Periodic 1-clock-cycle wide pulses with optional interrupts.
+  //  The last parameter to am_hal_ctimer_period_set() has no effect in this mode.
+  //
+  am_hal_ctimer_period_set(timerNum, AM_HAL_CTIMER_TIMERA, periodTicks, 1);
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Adjust timer A period based on valid period information
+// from the external sync interrupt.
+
+void adjustTime(void) {
+  if (extTimerValue >= extTimerValueLast) { 
+    // calculate period between most recent sync events
+    timeDifference = extTimerValue - extTimerValueLast; 
+  } else { // Sync timer rollover case
+    timeDifference = STIMER_PERIOD - extTimerValueLast + extTimerValue;
+  }  
+  // update the external sync period moving average
+  // bounds check
+  if ((timeDifference <= MAX_TIME_DIFF) && (timeDifference >= MIN_TIME_DIFF)) { 
+    // Add the newest sample and subtract the oldest from the running sum
+    periodSum = periodSum + timeDifference - periodAvgBuffer[periodAvgPtr]; 
+    // Overwrite the oldest sample with the newest sample
+    periodAvgBuffer[periodAvgPtr] = timeDifference; 
+    // Calculate the average
+    period = periodSum / PERIOD_AVG_BUFFER_SIZE;
+    // Increment the buffer pointer, modulo the buffer size
+    periodAvgPtr++ % PERIOD_AVG_BUFFER_SIZE;
+  }
+  // Calculate a period adjustment value to be applied once
+  // When did the sync event happen relative to the local timer  
+  if (intTimerValue < (period / 2)) { 
+    timerAdj = (intTimerValue / 1); // try proportional to distance to desired timeout (/4, /2, /1 tried) 
+  } else {
+    timerAdj = -1 * (((period - intTimerValue) / 1)); // try proportional to distance to desired timeout (/4, /2, /1 tried)
+  } 
+}
+
+//----------------------------------------------------------------------------
+// WMORE 
+// Set up synchronisation resources
+
+void setupSync(void) {
+
+  // Set up synchronisation trigger pin
+  pinMode(PIN_TRIGGER, INPUT_PULLUP);
+  delay(1); // Settling delay
+  attachInterrupt(PIN_TRIGGER, triggerPinISR, FALLING); // Enable the interrupt
+  am_hal_gpio_pincfg_t intPinConfig = g_AM_HAL_GPIO_INPUT_PULLUP;
+  intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
+  pin_config(PinName(PIN_TRIGGER), intPinConfig); // Make sure the pull-up does actually stay enabled
+  //triggerPinFlag = false; // Make sure the flag is clear
+
+  // Setup sample interval timer
+  setupSampleTimer(sampleTimer, period); // timerNum, period, padNum
+  am_hal_ctimer_start(sampleTimer, AM_HAL_CTIMER_TIMERA);
+  NVIC_EnableIRQ(CTIMER_IRQn);
+  am_hal_ctimer_int_clear(AM_HAL_CTIMER_INT_TIMERA2);
+  am_hal_ctimer_int_enable(AM_HAL_CTIMER_INT_TIMERA2);  
+  am_hal_ctimer_int_register(AM_HAL_CTIMER_INT_TIMERA2, timerISR);
+  am_hal_interrupt_master_enable();
+
+}
+
+//----------------------------------------------------------------------------
+
+void beginIMU()
+{
+  pinMode(PIN_IMU_POWER, OUTPUT);
+  pin_config(PinName(PIN_IMU_POWER), g_AM_HAL_GPIO_OUTPUT); // Make sure the pin does actually get re-configured
+  pinMode(PIN_IMU_CHIP_SELECT, OUTPUT);
+  pin_config(PinName(PIN_IMU_CHIP_SELECT), g_AM_HAL_GPIO_OUTPUT); // Make sure the pin does actually get re-configured
+  digitalWrite(PIN_IMU_CHIP_SELECT, HIGH); //Be sure IMU is deselected
+
+  if (settings.enableIMU == true && settings.logMaxRate == false)
+  {
+    //Reset ICM by power cycling it
+    imuPowerOff();
+    for (int i = 0; i < 10; i++) //10 is fine
+    {
+      checkBattery();
+      delay(1);
+    }
+    imuPowerOn();
+    for (int i = 0; i < 25; i++) //Allow ICM to come online. Typical is 11ms. Max is 100ms. https://cdn.sparkfun.com/assets/7/f/e/c/d/DS-000189-ICM-20948-v1.3.pdf
+    {
+      checkBattery();
+      delay(1);
+    }
+
+    if (settings.printDebugMessages) myICM.enableDebugging();
+    myICM.begin(PIN_IMU_CHIP_SELECT, SPI, 7000000); // WMORE set IMU SPI rate to 7 MHz
+    if (myICM.status != ICM_20948_Stat_Ok)
+    {
+      printDebug("beginIMU: first attempt at myICM.begin failed. myICM.status = " + (String)myICM.status + "\r\n");
+      //Try one more time with longer wait
+
+      //Reset ICM by power cycling it
+      imuPowerOff();
+      for (int i = 0; i < 10; i++) //10 is fine
+      {
+        checkBattery();
+        delay(1);
+      }
+      imuPowerOn();
+      for (int i = 0; i < 100; i++) //Allow ICM to come online. Typical is 11ms. Max is 100ms.
+      {
+        checkBattery();
+        delay(1);
+      }
+
+      myICM.begin(PIN_IMU_CHIP_SELECT, SPI, 7000000); // WMORE set IMU SPI rate to 7MHz
+      if (myICM.status != ICM_20948_Stat_Ok)
+      {
+        printDebug("beginIMU: second attempt at myICM.begin failed. myICM.status = " + (String)myICM.status + "\r\n");
+        digitalWrite(PIN_IMU_CHIP_SELECT, HIGH); //Be sure IMU is deselected
+        SerialPrintln(F("ICM-20948 failed to init."));
+        imuPowerOff();
+        online.IMU = false;
+        return;
+      }
+    }
+
+    //Give the IMU extra time to get its act together. This seems to fix the IMU-not-starting-up-cleanly-after-sleep problem...
+    //Seems to need a full 25ms. 10ms is not enough.
+    for (int i = 0; i < 25; i++) //Allow ICM to come online.
+    {
+      checkBattery();
+      delay(1);
+    }
+
+    bool success = true;
+
+    //Check if we are using the DMP
+
+    //Perform a full startup (not minimal) for non-DMP mode
+    ICM_20948_Status_e retval = myICM.startupDefault(false);
+    if (retval != ICM_20948_Stat_Ok)
+    {
+      SerialPrintln(F("Error: Could not startup the IMU in non-DMP mode!"));
+      success = false;
+    }
+
+    ICM_20948_smplrt_t mySmplrt;
+    mySmplrt.a = 0;  // maximum accel sample rate: see Table 19 in datasheet DS-000189-ICM-20948-v1.5.pdf
+    mySmplrt.g = 0;  // maximum gyro sample rate: see Table 17 in datasheet DS-000189-ICM-20948-v1.5.pdf 
+    myICM.setSampleRate( ICM_20948_Internal_Acc, mySmplrt );
+    myICM.setSampleRate( ICM_20948_Internal_Gyr, mySmplrt );
+  
+    //Update the full scale and DLPF settings
+    retval = myICM.enableDLPF(ICM_20948_Internal_Acc, settings.imuAccDLPF);
+    if (retval != ICM_20948_Stat_Ok)
+    {
+      SerialPrintln(F("Error: Could not configure the IMU Accelerometer DLPF!"));
+      success = false;
+    }
+    retval = myICM.enableDLPF(ICM_20948_Internal_Gyr, settings.imuGyroDLPF);
+    if (retval != ICM_20948_Stat_Ok)
+    {
+      SerialPrintln(F("Error: Could not configure the IMU Gyro DLPF!"));
+      success = false;
+    }
+    ICM_20948_dlpcfg_t dlpcfg;
+    dlpcfg.a = settings.imuAccDLPFBW;
+    dlpcfg.g = settings.imuGyroDLPFBW;
+    retval = myICM.setDLPFcfg((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), dlpcfg);
+    if (retval != ICM_20948_Stat_Ok)
+    {
+      SerialPrintln(F("Error: Could not configure the IMU DLPF BW!"));
+      success = false;
+    }
+    ICM_20948_fss_t FSS;
+    FSS.a = settings.imuAccFSS;
+    FSS.g = settings.imuGyroFSS;
+    retval = myICM.setFullScale((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), FSS);
+    if (retval != ICM_20948_Stat_Ok)
+    {
+      SerialPrintln(F("Error: Could not configure the IMU Full Scale!"));
+      success = false;
+    }
+    
+    if (success)
+    {
+      online.IMU = true;
+      delay(50); // Give the IMU time to get its first measurement ready
+    }
+    else
+    {
+      //Power down IMU
+      imuPowerOff();
+      online.IMU = false;
+    }
+  }
+  else
+  {
+    //Power down IMU
+    imuPowerOff();
+    online.IMU = false;
+  }
+}
+
+// Commented out by Nathan | Merge
+// void loop() {
+//   checkBattery(); // Check for low battery
+
+//   if ((Serial.available()) || ((settings.useTxRxPinsForTerminal == true) && (Serial1.available())))
+//     menuMain(); //Present user menu
+
+//   if (settings.logSerial == true && online.serialLogging == true && settings.useTxRxPinsForTerminal == false)
+//   {
+//     size_t timestampCharsLeftToWrite = strlen(serialTimestamp);
+//     //SerialPrintf2("timestampCharsLeftToWrite is %d\r\n", timestampCharsLeftToWrite);
+//     //SerialFlush();
+
+//     if (Serial1.available() || (timestampCharsLeftToWrite > 0))
+//     {
+//       while (Serial1.available() || (timestampCharsLeftToWrite > 0))
+//       {
+//         if (timestampCharsLeftToWrite > 0) // Based on code written by @DennisMelamed in PR #70
+//         {
+//           incomingBuffer[incomingBufferSpot++] = serialTimestamp[0]; // Add a timestamp character to incomingBuffer
+
+//           for (size_t i = 0; i < timestampCharsLeftToWrite; i++)
+//           {
+//             serialTimestamp[i] = serialTimestamp[i+1]; // Shuffle the remaining chars along by one
+//           }
+
+//           timestampCharsLeftToWrite -= 1;
+//         }
+//         else
+//         {
+//           incomingBuffer[incomingBufferSpot++] = Serial1.read();
+
+//           //Get the RTC timestamp if we just received the timestamp token
+//           if (settings.timestampSerial && (incomingBuffer[incomingBufferSpot-1] == settings.timeStampToken))
+//           {
+//             getTimeString(&serialTimestamp[2]);
+//             serialTimestamp[0] = 0x0A; // Add Line Feed at the start of the timestamp
+//             serialTimestamp[1] = '^'; // Add an up-arrow to indicate the timestamp relates to the preceeding data
+//             serialTimestamp[strlen(serialTimestamp) - 1] = 0x0A; // Change the final comma of the timestamp to a Line Feed
+//           }
+//         }
+
+//         if (incomingBufferSpot == sizeof(incomingBuffer))
+//         {
+//           digitalWrite(PIN_STAT_LED, HIGH); //Toggle stat LED to indicating log recording
+//           serialDataFile.write(incomingBuffer, sizeof(incomingBuffer)); //Record the buffer to the card
+//           digitalWrite(PIN_STAT_LED, LOW);
+//           incomingBufferSpot = 0;
+//         }
+//         charsReceived++;
+//         checkBattery();
+//       }
+
+//       //If we are sleeping between readings then we cannot rely on millis() as it is powered down
+//       //Use RTC instead
+//       lastSeriaLogSyncTime = rtcMillis(); //Reset the last sync time to now
+//       newSerialData = true;
+//     }
+//     else if (newSerialData == true)
+//     {
+//       if ((rtcMillis() - lastSeriaLogSyncTime) > MAX_IDLE_TIME_MSEC) //If we haven't received any characters recently then sync log file
+//       {
+//         if (incomingBufferSpot > 0)
+//         {
+//           //Write the remainder of the buffer
+//           digitalWrite(PIN_STAT_LED, HIGH); //Toggle stat LED to indicating log recording
+//           serialDataFile.write(incomingBuffer, incomingBufferSpot); //Record the buffer to the card
+//           serialDataFile.sync();
+//           if (settings.frequentFileAccessTimestamps == true)
+//             updateDataFileAccess(&serialDataFile); // Update the file access time & date
+//           digitalWrite(PIN_STAT_LED, LOW);
+
+//           incomingBufferSpot = 0;
+//         }
+
+//         newSerialData = false;
+//         lastSeriaLogSyncTime = rtcMillis(); //Reset the last sync time to now
+//         printDebug("Total chars received: " + (String)charsReceived + "\r\n");
+//       }
+//     }
+//   }
+
+//   //In v2.1 of the core micros() becomes corrupted during deep sleep so only test if we are not sleeping
+//   if (settings.usBetweenReadings < maxUsBeforeSleep)
+//   {
+//     if ((micros() - lastReadTime) >= settings.usBetweenReadings)
+//       takeReading = true;
+//   }
+
+//   //Check for a trigger event
+//   if (settings.useGPIO11ForTrigger == true)
+//   {
+//     if (triggerEdgeSeen == true)
+//     {
+//       takeReading = true; // If triggering is enabled and a trigger event has been seen, then take a reading.
+//     }
+//     else
+//     {
+//       takeReading = false; // If triggering is enabled and a trigger even has not been seen, then make sure we don't take a reading based on settings.usBetweenReadings.
+//     }
+//   }
+
+//   //Is it time to get new data?
+//   if ((settings.logMaxRate == true) || (takeReading == true))
+//   {
+//     takeReading = false;
+//     lastReadTime = micros();
+
+// #ifdef PRINT_LAST_WRITE_TIME
+//     if (settings.printDebugMessages)
+//     {
+//       // Print how long it has been since the last write
+//       char tempTimeRev[20]; // Char array to hold to usBR (reversed order)
+//       char tempTime[20]; // Char array to hold to usBR (correct order)
+//       static uint64_t lastWriteTime; //Used to calculate the time since the last SD write (sleep-proof)
+//       unsigned long usBR = rtcMillis() - lastWriteTime;
+//       unsigned int i = 0;
+//       if (usBR == 0ULL) // if usBetweenReadings is zero, set tempTime to "0"
+//       {
+//         tempTime[0] = '0';
+//         tempTime[1] = 0;
+//       }
+//       else
+//       {
+//         while (usBR > 0)
+//         {
+//           tempTimeRev[i++] = (usBR % 10) + '0'; // divide by 10, convert the remainder to char
+//           usBR /= 10; // divide by 10
+//         }
+//         unsigned int j = 0;
+//         while (i > 0)
+//         {
+//           tempTime[j++] = tempTimeRev[--i]; // reverse the order
+//           tempTime[j] = 0; // mark the end with a NULL
+//         }
+//       }
+
+//       //printDebug("ms since last write: " + (String)tempTime + "\r\n");
+//       printDebug((String)tempTime + "\r\n");
+
+//       lastWriteTime = rtcMillis();
+//     }
+// #endif
+// Commented back in by Nathan | Merge
+    // getData(sdOutputData, sizeof(sdOutputData)); //Query all enabled sensors for data 
+
+    // //Print to terminal
+    // if (settings.enableTerminalOutput == true)
+    //   SerialPrint(sdOutputData); //Print to terminal
+
+    // //Output to TX pin
+    // if ((settings.outputSerial == true) && (online.serialOutput == true))
+    //   Serial1.print(sdOutputData); //Print to TX pin
+
+    // //Record to SD
+    // if ((settings.logData == true) && (online.microSD))
+    // {
+    //   digitalWrite(PIN_STAT_LED, HIGH);
+    //   uint32_t recordLength = sensorDataFile.write(sdOutputData, strlen(sdOutputData));
+    //   if (recordLength != strlen(sdOutputData)) //Record the buffer to the card
+    //   {
+    //     if (settings.printDebugMessages == true)
+    //     {
+    //       SerialPrintf3("*** sensorDataFile.write data length mismatch! *** recordLength: %d, outputDataLength: %d\r\n", recordLength, strlen(sdOutputData));
+    //     }
+    //   }
+
+//       //Force sync every 500ms
+//       if (rtcMillis() - lastDataLogSyncTime > 500)
+//       {
+//         lastDataLogSyncTime = rtcMillis();
+//         sensorDataFile.sync();
+//         if (settings.frequentFileAccessTimestamps == true)
+//           updateDataFileAccess(&sensorDataFile); // Update the file access time & date
+//       }
+
+//       //Check if it is time to open a new log file
+//       uint64_t secsSinceLastFileNameChange = rtcMillis() - lastSDFileNameChangeTime; // Calculate how long we have been logging for
+//       secsSinceLastFileNameChange /= 1000ULL; // Convert to secs
+//       if ((settings.openNewLogFilesAfter > 0) && (((unsigned long)secsSinceLastFileNameChange) >= settings.openNewLogFilesAfter))
+//       {
+//         //Close existings files
+//         if (online.dataLogging == true)
+//         {
+//           sensorDataFile.sync();
+//           updateDataFileAccess(&sensorDataFile); // Update the file access time & date
+//           sensorDataFile.close();
+//           strcpy(sensorDataFileName, findNextAvailableLog(settings.nextDataLogNumber, "dataLog"));
+//           beginDataLogging(); //180ms
+//           if (settings.showHelperText == true) 
+//             printHelperText(OL_OUTPUT_SDCARD); //printHelperText to the sensor file
+//         }
+//         if (online.serialLogging == true)
+//         {
+//           serialDataFile.sync();
+//           updateDataFileAccess(&serialDataFile); // Update the file access time & date
+//           serialDataFile.close();
+//           strcpy(serialDataFileName, findNextAvailableLog(settings.nextSerialLogNumber, "serialLog"));
+//           beginSerialLogging();
+//         }
+
+//         lastSDFileNameChangeTime = rtcMillis(); // Record the time of the file name change
+//       }
+
+//       digitalWrite(PIN_STAT_LED, LOW);
+//     }
+
+//     if ((settings.useGPIO32ForStopLogging == true) && (stopLoggingSeen == true)) // Has the user pressed the stop logging button?
+//     {
+//       stopLogging();
+//     }
+
+//     triggerEdgeSeen = false; // Clear the trigger seen flag here - just in case another trigger was received while we were logging data to SD card
+
+//     // Code changes here are based on suggestions by @ryanneve in Issue #46, PR #64 and Issue #83
+//     if (checkIfItIsTimeToSleep())
+//     {
+//       sleepAfterRead = true;
+//     }
+//   }
+
+//   if (sleepAfterRead == true)
+//   {
+//     // Check if we should stay awake because settings.minimumAwakeTimeMillis is non-zero
+//     if ((settings.usBetweenReadings >= maxUsBeforeSleep) && (settings.minimumAwakeTimeMillis > 0))
+//     {
+//       // Check if we have been awake long enough (millis is reset to zero when waking from sleep)
+//       // goToSleep will automatically compensate for how long we have been awake
+//       if ((rtcMillis() - lastAwakeTimeMillis) < settings.minimumAwakeTimeMillis)
+//         return; // Too early to sleep - leave sleepAfterRead set true
+//     }
+
+//     sleepAfterRead = false;
+//     goToSleep(howLongToSleepFor());
+//   }
+// }
+
+uint32_t howLongToSleepFor(void)
+{
+  //Counter/Timer 6 will use the 32kHz clock
+  //Calculate how many 32768Hz system ticks we need to sleep for:
+  //sysTicksToSleep = msToSleep * 32768L / 1000
+  //We need to be careful with the multiply as we will overflow uint32_t if msToSleep is > 131072
+
+  //goToSleep will automatically compensate for how long we have been awake
+
+  uint32_t msToSleep;
+
+  if (checkSleepOnFastSlowPin())
+    msToSleep = (uint32_t)(settings.slowLoggingIntervalSeconds * 1000UL);
+  else if (checkSleepOnRTCTime())
+  {
+    // checkSleepOnRTCTime has returned true, so we know that we are between slowLoggingStartMOD and slowLoggingStopMOD
+    // We need to check how long it is until slowLoggingStopMOD (accounting for midnight!) and adjust the sleep duration
+    // if slowLoggingStopMOD occurs before slowLoggingIntervalSeconds
+
+    msToSleep = (uint32_t)(settings.slowLoggingIntervalSeconds * 1000UL); // Default to this
+
+    myRTC.getTime(); // Get the RTC time
+    long secondsOfDay = (myRTC.hour * 60 * 60) + (myRTC.minute * 60) + myRTC.seconds;
+
+    long slowLoggingStopSOD = settings.slowLoggingStopMOD * 60; // Convert slowLoggingStop to seconds-of-day
+
+    long secondsUntilStop = slowLoggingStopSOD - secondsOfDay; // Calculate how long it is until slowLoggingStop
+
+    // If secondsUntilStop is negative then we know that now is before midnight and slowLoggingStop is after midnight
+    if (secondsUntilStop < 0) secondsUntilStop += 24 * 60 * 60; // Add a day's worth of seconds if required to make secondsUntilStop positive
+
+    if (secondsUntilStop < settings.slowLoggingIntervalSeconds) // If we need to sleep for less than slowLoggingIntervalSeconds
+      msToSleep = (secondsUntilStop + 1) * 1000UL; // Adjust msToSleep, adding one extra second to make sure the next wake is > slowLoggingStop
+  }
+  else // checkSleepOnUsBetweenReadings
+  {
+    msToSleep = (uint32_t)(settings.usBetweenReadings / 1000ULL); // Sleep for usBetweenReadings
+  }
+
+  uint32_t sysTicksToSleep;
+  if (msToSleep < 131000)
+  {
+    sysTicksToSleep = msToSleep * 32768L; // Do the multiply first for short intervals
+    sysTicksToSleep = sysTicksToSleep / 1000L; // Now do the divide
+  }
+  else
+  {
+    sysTicksToSleep = msToSleep / 1000L; // Do the division first for long intervals (to avoid an overflow)
+    sysTicksToSleep = sysTicksToSleep * 32768L; // Now do the multiply
+  }
+
+  return (sysTicksToSleep);
+}
+
+bool checkIfItIsTimeToSleep(void)
+{
+
+  if (checkSleepOnUsBetweenReadings()
+  || checkSleepOnRTCTime()
+  || checkSleepOnFastSlowPin())
+    return(true);
+  else
+    return(false);
+}
+
+//Go to sleep if the time between readings is greater than maxUsBeforeSleep (2 seconds) and triggering is not enabled
+bool checkSleepOnUsBetweenReadings(void)
+{
+  if ((settings.useGPIO11ForTrigger == false) && (settings.usBetweenReadings >= maxUsBeforeSleep))
+    return (true);
+  else
+    return (false);
+}
+
+//Go to sleep if Fast/Slow logging on Pin 11 is enabled and Pin 11 is in the correct state
+bool checkSleepOnFastSlowPin(void)
+{
+  if ((settings.useGPIO11ForFastSlowLogging == true) && (digitalRead(PIN_TRIGGER) == settings.slowLoggingWhenPin11Is))
+    return (true);
+  else
+    return (false);
+}
+
+// Go to sleep if useRTCForFastSlowLogging is enabled and RTC time is between the start and stop times
+bool checkSleepOnRTCTime(void)
+{
+  // Check if we should be sleeping based on useGPIO11ForFastSlowLogging and slowLoggingStartMOD + slowLoggingStopMOD
+  bool sleepOnRTCTime = false;
+  if (settings.useRTCForFastSlowLogging == true)
+  {
+    if (settings.slowLoggingStartMOD != settings.slowLoggingStopMOD) // Only perform the check if the start and stop times are not equal
+    {
+      myRTC.getTime(); // Get the RTC time
+      int minutesOfDay = (myRTC.hour * 60) + myRTC.minute;
+
+      if (settings.slowLoggingStartMOD > settings.slowLoggingStopMOD) // If slow logging starts later than the stop time (i.e. slow over midnight)
+      {
+        if ((minutesOfDay >= settings.slowLoggingStartMOD) || (minutesOfDay < settings.slowLoggingStopMOD))
+          sleepOnRTCTime = true;
+      }
+      else // Slow logging starts earlier than the stop time
+      {
+        if ((minutesOfDay >= settings.slowLoggingStartMOD) && (minutesOfDay < settings.slowLoggingStopMOD))
+          sleepOnRTCTime = true;
+      }
+    }
+  }
+  return(sleepOnRTCTime);
+}
+
+void beginQwiic()
+{
+  pinMode(PIN_QWIIC_POWER, OUTPUT);
+  pin_config(PinName(PIN_QWIIC_POWER), g_AM_HAL_GPIO_OUTPUT); // Make sure the pin does actually get re-configured
+  qwiicPowerOn();
+  qwiic.begin();
+  setQwiicPullups(settings.qwiicBusPullUps); //Just to make it really clear what pull-ups are being used, set pullups here.
+}
+
+void setQwiicPullups(uint32_t qwiicBusPullUps)
+{
+  //Change SCL and SDA pull-ups manually using pin_config
+  am_hal_gpio_pincfg_t sclPinCfg = g_AM_BSP_GPIO_IOM1_SCL;
+  am_hal_gpio_pincfg_t sdaPinCfg = g_AM_BSP_GPIO_IOM1_SDA;
+
+  if (qwiicBusPullUps == 0)
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_NONE; // No pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_NONE;
+  }
+  else if (qwiicBusPullUps == 1)
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_1_5K; // Use 1K5 pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_1_5K;
+  }
+  else if (qwiicBusPullUps == 6)
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_6K; // Use 6K pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_6K;
+  }
+  else if (qwiicBusPullUps == 12)
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_12K; // Use 12K pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_12K;
+  }
+  else
+  {
+    sclPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_24K; // Use 24K pull-ups
+    sdaPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_24K;
+  }
+
+  pin_config(PinName(PIN_QWIIC_SCL), sclPinCfg);
+  pin_config(PinName(PIN_QWIIC_SDA), sdaPinCfg);
+}
+
+// Commented out by Nathan. Using the old version. The only difference is the use of the "silent" variable in the newer one | Merge
+// void beginSD(bool silent)
+// {
+//   pinMode(PIN_MICROSD_POWER, OUTPUT);
+//   pin_config(PinName(PIN_MICROSD_POWER), g_AM_HAL_GPIO_OUTPUT); // Make sure the pin does actually get re-configured
+//   pinMode(PIN_MICROSD_CHIP_SELECT, OUTPUT);
+//   pin_config(PinName(PIN_MICROSD_CHIP_SELECT), g_AM_HAL_GPIO_OUTPUT); // Make sure the pin does actually get re-configured
+//   digitalWrite(PIN_MICROSD_CHIP_SELECT, HIGH); //Be sure SD is deselected
+
+//   // If the microSD card is present, it needs to be powered on otherwise the IMU will fail to start
+//   // (The microSD card will pull the SPI pins low, preventing communication with the IMU)
+
+//   // For reasons I don't understand, we seem to have to wait for at least 1ms after SPI.begin before we call microSDPowerOn.
+//   // If you comment the next line, the Artemis resets at microSDPowerOn when beginSD is called from wakeFromSleep...
+//   // But only on one of my V10 red boards. The second one I have doesn't seem to need the delay!?
+//   delay(5);
+
+//   microSDPowerOn();
+
+//   //Max power up time is 250ms: https://www.kingston.com/datasheets/SDCIT-specsheet-64gb_en.pdf
+//   //Max current is 200mA average across 1s, peak 300mA
+//   for (int i = 0; i < 10; i++) //Wait
+//   {
+//     checkBattery();
+//     delay(1);
+//   }
+
+//   if (sd.begin(SD_CONFIG) == false) // Try to begin the SD card using the correct chip select
+//   {
+//     printDebug(F("SD init failed (first attempt). Trying again...\r\n"));
+//     for (int i = 0; i < 250; i++) //Give SD more time to power up, then try again
+//     {
+//       checkBattery();
+//       delay(1);
+//     }
+//     if (sd.begin(SD_CONFIG) == false) // Try to begin the SD card using the correct chip select
+//     {
+//       if (!silent)
+//       {
+//         SerialPrintln(F("SD init failed (second attempt). Is card present? Formatted?"));
+//         SerialPrintln(F("Please ensure the SD card is formatted correctly using https://www.sdcard.org/downloads/formatter/"));
+//       }
+//       digitalWrite(PIN_MICROSD_CHIP_SELECT, HIGH); //Be sure SD is deselected
+//       online.microSD = false;
+//       return;
+//     }
+//   }
+
+//   //Change to root directory. All new file creation will be in root.
+//   if (sd.chdir() == false)
+//   {
+//     if (!silent)
+//     {
+//       SerialPrintln(F("SD change directory failed"));
+//     }
+//     online.microSD = false;
+//     return;
+//   }
+
+//   online.microSD = true;
+// }
+
+// void beginIMU(bool silent)
+// {
+//   pinMode(PIN_IMU_POWER, OUTPUT);
+//   pin_config(PinName(PIN_IMU_POWER), g_AM_HAL_GPIO_OUTPUT); // Make sure the pin does actually get re-configured
+//   pinMode(PIN_IMU_CHIP_SELECT, OUTPUT);
+//   pin_config(PinName(PIN_IMU_CHIP_SELECT), g_AM_HAL_GPIO_OUTPUT); // Make sure the pin does actually get re-configured
+//   digitalWrite(PIN_IMU_CHIP_SELECT, HIGH); //Be sure IMU is deselected
+
+//   if (settings.enableIMU == true && settings.logMaxRate == false)
+//   {
+//     //Reset ICM by power cycling it
+//     imuPowerOff();
+//     for (int i = 0; i < 10; i++) //10 is fine
+//     {
+//       checkBattery();
+//       delay(1);
+//     }
+//     imuPowerOn();
+//     for (int i = 0; i < 25; i++) //Allow ICM to come online. Typical is 11ms. Max is 100ms. https://cdn.sparkfun.com/assets/7/f/e/c/d/DS-000189-ICM-20948-v1.3.pdf
+//     {
+//       checkBattery();
+//       delay(1);
+//     }
+
+//     if (settings.printDebugMessages) myICM.enableDebugging();
+//     myICM.begin(PIN_IMU_CHIP_SELECT, SPI, 4000000); //Set IMU SPI rate to 4MHz
+//     if (myICM.status != ICM_20948_Stat_Ok)
+//     {
+//       printDebug("beginIMU: first attempt at myICM.begin failed. myICM.status = " + (String)myICM.status + "\r\n");
+//       //Try one more time with longer wait
+
+//       //Reset ICM by power cycling it
+//       imuPowerOff();
+//       for (int i = 0; i < 10; i++) //10 is fine
+//       {
+//         checkBattery();
+//         delay(1);
+//       }
+//       imuPowerOn();
+//       for (int i = 0; i < 100; i++) //Allow ICM to come online. Typical is 11ms. Max is 100ms.
+//       {
+//         checkBattery();
+//         delay(1);
+//       }
+
+//       myICM.begin(PIN_IMU_CHIP_SELECT, SPI, 4000000); //Set IMU SPI rate to 4MHz
+//       if (myICM.status != ICM_20948_Stat_Ok)
+//       {
+//         printDebug("beginIMU: second attempt at myICM.begin failed. myICM.status = " + (String)myICM.status + "\r\n");
+//         digitalWrite(PIN_IMU_CHIP_SELECT, HIGH); //Be sure IMU is deselected
+//         if (!silent)
+//           SerialPrintln(F("ICM-20948 failed to init."));
+//         imuPowerOff();
+//         online.IMU = false;
+//         return;
+//       }
+//     }
+
+//     //Give the IMU extra time to get its act together. This seems to fix the IMU-not-starting-up-cleanly-after-sleep problem...
+//     //Seems to need a full 25ms. 10ms is not enough.
+//     for (int i = 0; i < 25; i++) //Allow ICM to come online.
+//     {
+//       checkBattery();
+//       delay(1);
+//     }
+
+//     bool success = true;
+
+//     //Check if we are using the DMP
+//     if (settings.imuUseDMP == false)
+//     {
+//       //Perform a full startup (not minimal) for non-DMP mode
+//       ICM_20948_Status_e retval = myICM.startupDefault(false);
+//       if (retval != ICM_20948_Stat_Ok)
+//       {
+//         SerialPrintln(F("Error: Could not startup the IMU in non-DMP mode!"));
+//         success = false;
+//       }
+//       //Update the full scale and DLPF settings
+//       retval = myICM.enableDLPF(ICM_20948_Internal_Acc, settings.imuAccDLPF);
+//       if (retval != ICM_20948_Stat_Ok)
+//       {
+//         SerialPrintln(F("Error: Could not configure the IMU Accelerometer DLPF!"));
+//         success = false;
+//       }
+//       retval = myICM.enableDLPF(ICM_20948_Internal_Gyr, settings.imuGyroDLPF);
+//       if (retval != ICM_20948_Stat_Ok)
+//       {
+//         SerialPrintln(F("Error: Could not configure the IMU Gyro DLPF!"));
+//         success = false;
+//       }
+//       ICM_20948_dlpcfg_t dlpcfg;
+//       dlpcfg.a = settings.imuAccDLPFBW;
+//       dlpcfg.g = settings.imuGyroDLPFBW;
+//       retval = myICM.setDLPFcfg((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), dlpcfg);
+//       if (retval != ICM_20948_Stat_Ok)
+//       {
+//         SerialPrintln(F("Error: Could not configure the IMU DLPF BW!"));
+//         success = false;
+//       }
+//       ICM_20948_fss_t FSS;
+//       FSS.a = settings.imuAccFSS;
+//       FSS.g = settings.imuGyroFSS;
+//       retval = myICM.setFullScale((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), FSS);
+//       if (retval != ICM_20948_Stat_Ok)
+//       {
+//         SerialPrintln(F("Error: Could not configure the IMU Full Scale!"));
+//         success = false;
+//       }
+//     }
+//     else
+//     {
+//       // Initialize the DMP
+//       ICM_20948_Status_e retval = myICM.initializeDMP();
+//       if (retval != ICM_20948_Stat_Ok)
+//       {
+//         SerialPrintln(F("Error: Could not startup the IMU in DMP mode!"));
+//         success = false;
+//       }
+
+//       int ODR = 0; // Set ODR to 55Hz
+//       if (settings.usBetweenReadings >= 500000ULL)
+//         ODR = 3; // 17Hz ODR rate when DMP is running at 55Hz
+//       if (settings.usBetweenReadings >= 1000000ULL)
+//         ODR = 10; // 5Hz ODR rate when DMP is running at 55Hz
+
+//       if (settings.imuLogDMPQuat6)
+//       {
+//         retval = myICM.enableDMPSensor(INV_ICM20948_SENSOR_GAME_ROTATION_VECTOR);
+//         if (retval != ICM_20948_Stat_Ok)
+//         {
+//           SerialPrintln(F("Error: Could not enable the Game Rotation Vector (Quat6)!"));
+//           success = false;
+//         }
+//         retval = myICM.setDMPODRrate(DMP_ODR_Reg_Quat6, ODR);
+//         if (retval != ICM_20948_Stat_Ok)
+//         {
+//           SerialPrintln(F("Error: Could not set the Quat6 ODR!"));
+//           success = false;
+//         }
+//       }
+//       if (settings.imuLogDMPQuat9)
+//       {
+//         retval = myICM.enableDMPSensor(INV_ICM20948_SENSOR_ROTATION_VECTOR);
+//         if (retval != ICM_20948_Stat_Ok)
+//         {
+//           SerialPrintln(F("Error: Could not enable the Rotation Vector (Quat9)!"));
+//           success = false;
+//         }
+//         retval = myICM.setDMPODRrate(DMP_ODR_Reg_Quat9, ODR);
+//         if (retval != ICM_20948_Stat_Ok)
+//         {
+//           SerialPrintln(F("Error: Could not set the Quat9 ODR!"));
+//           success = false;
+//         }
+//       }
+//       if (settings.imuLogDMPAccel)
+//       {
+//         retval = myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_ACCELEROMETER);
+//         if (retval != ICM_20948_Stat_Ok)
+//         {
+//           SerialPrintln(F("Error: Could not enable the DMP Accelerometer!"));
+//           success = false;
+//         }
+//         retval = myICM.setDMPODRrate(DMP_ODR_Reg_Accel, ODR);
+//         if (retval != ICM_20948_Stat_Ok)
+//         {
+//           SerialPrintln(F("Error: Could not set the Accel ODR!"));
+//           success = false;
+//         }
+//       }
+//       if (settings.imuLogDMPGyro)
+//       {
+//         retval = myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_GYROSCOPE);
+//         if (retval != ICM_20948_Stat_Ok)
+//         {
+//           SerialPrintln(F("Error: Could not enable the DMP Gyroscope!"));
+//           success = false;
+//         }
+//         retval = myICM.setDMPODRrate(DMP_ODR_Reg_Gyro, ODR);
+//         if (retval != ICM_20948_Stat_Ok)
+//         {
+//           SerialPrintln(F("Error: Could not set the Gyro ODR!"));
+//           success = false;
+//         }
+//         retval = myICM.setDMPODRrate(DMP_ODR_Reg_Gyro_Calibr, ODR);
+//         if (retval != ICM_20948_Stat_Ok)
+//         {
+//           SerialPrintln(F("Error: Could not set the Gyro Calibr ODR!"));
+//           success = false;
+//         }
+//       }
+//       if (settings.imuLogDMPCpass)
+//       {
+//         retval = myICM.enableDMPSensor(INV_ICM20948_SENSOR_MAGNETIC_FIELD_UNCALIBRATED);
+//         if (retval != ICM_20948_Stat_Ok)
+//         {
+//           SerialPrintln(F("Error: Could not enable the DMP Compass!"));
+//           success = false;
+//         }
+//         retval = myICM.setDMPODRrate(DMP_ODR_Reg_Cpass, ODR);
+//         if (retval != ICM_20948_Stat_Ok)
+//         {
+//           SerialPrintln(F("Error: Could not set the Compass ODR!"));
+//           success = false;
+//         }
+//         retval = myICM.setDMPODRrate(DMP_ODR_Reg_Cpass_Calibr, ODR);
+//         if (retval != ICM_20948_Stat_Ok)
+//         {
+//           SerialPrintln(F("Error: Could not set the Compass Calibr ODR!"));
+//           success = false;
+//         }
+//       }
+//       retval = myICM.enableFIFO(); // Enable the FIFO
+//       if (retval != ICM_20948_Stat_Ok)
+//       {
+//         SerialPrintln(F("Error: Could not enable the FIFO!"));
+//         success = false;
+//       }
+//       retval = myICM.enableDMP(); // Enable the DMP
+//       if (retval != ICM_20948_Stat_Ok)
+//       {
+//         SerialPrintln(F("Error: Could not enable the DMP!"));
+//         success = false;
+//       }
+//       retval = myICM.resetDMP(); // Reset the DMP
+//       if (retval != ICM_20948_Stat_Ok)
+//       {
+//         SerialPrintln(F("Error: Could not reset the DMP!"));
+//         success = false;
+//       }
+//       retval = myICM.resetFIFO(); // Reset the FIFO
+//       if (retval != ICM_20948_Stat_Ok)
+//       {
+//         SerialPrintln(F("Error: Could not reset the FIFO!"));
+//         success = false;
+//       }
+//     }
+
+//     if (success)
+//     {
+//       online.IMU = true;
+//       delay(50); // Give the IMU time to get its first measurement ready
+//     }
+//     else
+//     {
+//       //Power down IMU
+//       imuPowerOff();
+//       online.IMU = false;
+//     }
+//   }
+//   else
+//   {
+//     //Power down IMU
+//     imuPowerOff();
+//     online.IMU = false;
+//   }
+// }
+
+void beginDataLogging()
+{
+  if (online.microSD == true && settings.logData == true)
+  {
+    //If we don't have a file yet, create one. Otherwise, re-open the last used file
+    if (strlen(sensorDataFileName) == 0)
+      strcpy(sensorDataFileName, findNextAvailableLog(settings.nextDataLogNumber, "dataLog"));
+
+    // O_CREAT - create the file if it does not exist
+    // O_APPEND - seek to the end of the file prior to each write
+    // O_WRITE - open for write
+    if (sensorDataFile.open(sensorDataFileName, O_CREAT | O_APPEND | O_WRITE) == false)
+    {
+      SerialPrintln(F("Failed to create sensor data file"));
+      online.dataLogging = false;
+      return;
+    }
+
+    updateDataFileCreate(&sensorDataFile); // Update the file create time & date
+    sensorDataFile.sync();
+
+    online.dataLogging = true;
+  }
+  else
+    online.dataLogging = false;
+}
+
+void beginSerialLogging()
+{
+  if (online.microSD == true && settings.logSerial == true)
+  {
+    //If we don't have a file yet, create one. Otherwise, re-open the last used file
+    if (strlen(serialDataFileName) == 0)
+      strcpy(serialDataFileName, findNextAvailableLog(settings.nextSerialLogNumber, "serialLog"));
+
+    if (serialDataFile.open(serialDataFileName, O_CREAT | O_APPEND | O_WRITE) == false)
+    {
+      SerialPrintln(F("Failed to create serial log file"));
+      //systemError(ERROR_FILE_OPEN);
+      online.serialLogging = false;
+      return;
+    }
+
+    updateDataFileCreate(&serialDataFile); // Update the file create time & date
+    serialDataFile.sync();
+
+    //We need to manually restore the Serial1 TX and RX pins
+    configureSerial1TxRx(); 
+
+    Serial1.begin(settings.serialLogBaudRate);
+
+    online.serialLogging = true;
+  }
+  else
+    online.serialLogging = false;
+}
+
+void beginSerialOutput()
+{
+  if (settings.outputSerial == true)
+  {
+    //We need to manually restore the Serial1 TX and RX pins
+    // configureSerial1TxRx(); // Commented out by Nathan to do external synchronisation test using Rx pin as drumbeat line
+
+    Serial1.begin(settings.serialLogBaudRate); // (Re)start the serial port
+    online.serialOutput = true;
+  }
+  else
+    online.serialOutput = false;
+}
+
+#if SD_FAT_TYPE == 1
+void updateDataFileCreate(File32 *dataFile)
+#elif SD_FAT_TYPE == 2
+void updateDataFileCreate(ExFile *dataFile)
+#elif SD_FAT_TYPE == 3
+void updateDataFileCreate(FsFile *dataFile)
+#else // SD_FAT_TYPE == 0
+void updateDataFileCreate(File *dataFile)
+#endif  // SD_FAT_TYPE
+{
+  myRTC.getTime(); //Get the RTC time so we can use it to update the create time
+  //Update the file create time
+  dataFile->timestamp(T_CREATE, (myRTC.year + 2000), myRTC.month, myRTC.dayOfMonth, myRTC.hour, myRTC.minute, myRTC.seconds);
+}
+
+#if SD_FAT_TYPE == 1
+void updateDataFileAccess(File32 *dataFile)
+#elif SD_FAT_TYPE == 2
+void updateDataFileAccess(ExFile *dataFile)
+#elif SD_FAT_TYPE == 3
+void updateDataFileAccess(FsFile *dataFile)
+#else // SD_FAT_TYPE == 0
+void updateDataFileAccess(File *dataFile)
+#endif  // SD_FAT_TYPE
+{
+  myRTC.getTime(); //Get the RTC time so we can use it to update the last modified time
+  //Update the file access time
+  dataFile->timestamp(T_ACCESS, (myRTC.year + 2000), myRTC.month, myRTC.dayOfMonth, myRTC.hour, myRTC.minute, myRTC.seconds);
+  //Update the file write time
+  dataFile->timestamp(T_WRITE, (myRTC.year + 2000), myRTC.month, myRTC.dayOfMonth, myRTC.hour, myRTC.minute, myRTC.seconds);
+}
+
+//Called once number of milliseconds has passed
+extern "C" void am_stimer_cmpr6_isr(void)
+{
+  uint32_t ui32Status = am_hal_stimer_int_status_get(false);
+  if (ui32Status & AM_HAL_STIMER_INT_COMPAREG)
+  {
+    am_hal_stimer_int_clear(AM_HAL_STIMER_INT_COMPAREG);
+  }
+}
+
+//Power Loss ISR
+void powerLossISR(void)
+{
+  powerLossSeen = true;
+}
+
+//Stop Logging ISR
+void stopLoggingISR(void)
+{
+  stopLoggingSeen = true;
+}
+
+// //Trigger Pin ISR // Commented out by Nathan
+// void triggerPinISR(void)
+// {
+//   triggerEdgeSeen = true;
+// }
+
+void SerialFlush(void)
+{
+  Serial.flush();
+  if (settings.useTxRxPinsForTerminal == true)
+  {
+    Serial1.flush();
+  }
+}
+
+
+//----------------------------------------------------------------------------
+// WMORE
+// Clear received serial characters. 
+void serialClearBuffer(uint8_t port)
+{
+  uint8_t data;
+  
+  switch(port)
+  {
+    case 0:
+      while(Serial.available() > 0) 
+      {
+        data = Serial.read();         
+      }
+      break;
+    case 1:
+      while(Serial1.available() > 0) 
+      {
+        data = Serial1.read();         
+      }
+      break; 
+    default:
+      break;       
+  }
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Binary SD file format to reduce file size and increase write speed.
+
+void writeSDBin(void) {
+
+  if (online.microSD)
+  {
+    // Write binary data
+    uint32_t recordLength = sensorDataFile.write(sdOutputData, SD_RECORD_LENGTH); // WMORE TODO add error checking and resolve hard-coded length        
+
+  // Force sync every 500ms
+  // WMORE - forced sync does not appear to be needed, and may cause write delays
+//  if (rtcMillis() - lastDataLogSyncTime > 500)
+//  {
+//    lastDataLogSyncTime = rtcMillis();
+//    sensorDataFile.sync();
+//    if (settings.frequentFileAccessTimestamps == true)
+//      updateDataFileAccess(&sensorDataFile); // Update the file access time & date
+//  }
+
+    //Check if it is time to open a new log file
+    uint64_t secsSinceLastFileNameChange = rtcMillis() - lastSDFileNameChangeTime; // Calculate how long we have been logging for
+    secsSinceLastFileNameChange /= 1000ULL; // Convert to secs
+    if ((settings.openNewLogFilesAfter > 0) && (((unsigned long)secsSinceLastFileNameChange) >= settings.openNewLogFilesAfter))
+    {
+      //Close existing files
+      if (online.dataLogging == true)
+      {
+        sensorDataFile.sync();
+        updateDataFileAccess(&sensorDataFile); // Update the file access time & date
+        sensorDataFile.close();
+        strcpy(sensorDataFileName, generateFileName()); // Create file name   
+        beginDataLogging(); //180ms
+      }
+      lastSDFileNameChangeTime = rtcMillis(); // Record the time of the file name change
+    }
+  }
+}  
+//----------------------------------------------------------------------------
+
+// WMORE
+// Overrides EEPROM settings where conflicts with new functionality may occur.
+// The settings struct is defined in settings.h
+void overrideSettings(void) {
+
+//settings.sizeOfSettings = 168;
+//settings.sizeOfSettings = sizeof(settings);
+//settings.olaIdentifier = 291; // Depends on Sparkfun OLA base version
+//settings.nextSerialLogNumber = 1; // Not used
+//settings.nextDataLogNumber = 13; // Not used
+  settings.usBetweenReadings = 10000;
+  settings.logMaxRate = 0;
+  settings.enableRTC = 1; // Alternative implementation
+  settings.enableIMU = 1; 
+  settings.enableTerminalOutput = 0;
+  settings.logDate = 1; // Alternative implementation
+  settings.logTime = 1; // Alternative implementation
+  settings.logData = 1;
+  settings.logSerial = 0;
+  settings.logIMUAccel = 1; // Alternative implementation
+  settings.logIMUGyro = 1; // Alternative implementation
+  settings.logIMUMag = 1; // Alternative implementation
+  settings.logIMUTemp = 1; // Alternative implementation
+  settings.logRTC = 1; // Alternative implementation
+  settings.logHertz = 0; // Alternative implementation
+  settings.correctForDST = 0;
+  settings.dateStyle = 1; // dd/mm/yy
+  settings.hour24Style = 1; // 24 hour
+//settings.serialTerminalBaudRate = 115200; // User set
+  // Changing this setting to 115200 | Nathan
+  // settings.serialLogBaudRate = 9600; // Disabled 
+  settings.serialLogBaudRate = 115200; // Disabled 
+  settings.showHelperText = 0; // Disabled
+  settings.logA11 = 0; // Disabled
+  settings.logA12 = 0; // Disabled
+  settings.logA13 = 0; // Disabled
+  settings.logA32 = 0; // Disabled
+  settings.logAnalogVoltages = 0; // Disabled
+  settings.localUTCOffset = 0.00;
+  settings.printDebugMessages = 0; // Disabled
+  settings.powerDownQwiicBusBetweenReads = 0; // Disabled
+  settings.qwiicBusMaxSpeed = 100000; // Disabled
+  settings.qwiicBusPowerUpDelayMs = 250; // Disabled
+  settings.printMeasurementCount = 0; // Disabled
+  settings.enablePwrLedDuringSleep = 0; // Enabled
+  settings.logVIN = 0; // Disabled
+//settings.openNewLogFilesAfter = 0; // User set
+//settings.vinCorrectionFactor = 1.47; // User set
+  settings.useGPIO32ForStopLogging = 1;
+  settings.qwiicBusPullUps = 1; // Disabled
+  settings.outputSerial = 0; // Disabled
+//settings.zmodemStartDelay = 20; // User set
+  settings.enableLowBatteryDetection = 1; // User set 
+  settings.lowBatteryThreshold = 3.40; // User set
+  settings.frequentFileAccessTimestamps = 0; // Disabled
+  settings.useGPIO11ForTrigger = 0; // GPIO11 used for synchronisation instead
+  settings.fallingEdgeTrigger = 1; // Falling edge synchronisation
+//settings.imuAccDLPF = 1; // User set
+//settings.imuGyroDLPF = 1; // User set
+//settings.imuAccFSS = 1; // User set
+//settings.imuAccDLPFBW = 4; // User set
+//settings.imuGyroFSS = 2; // User set
+//settings.imuGyroDLPFBW = 4; // User set
+  settings.logMicroseconds = 0; // Disabled
+  settings.useTxRxPinsForTerminal = 0; // Disabled
+  settings.timestampSerial = 0; // Disabled
+  settings.timeStampToken = 10; // Disabled
+  settings.useGPIO11ForFastSlowLogging = 0; // Disabled
+  settings.slowLoggingWhenPin11Is = 0; // Disabled
+  settings.useRTCForFastSlowLogging = 0; // Disabled
+  settings.slowLoggingIntervalSeconds = 300; // Disabled
+  settings.slowLoggingStartMOD = 1260; // Disabled
+  settings.slowLoggingStopMOD = 420; // Disabled
+  settings.resetOnZeroDeviceCount = 0; // Disabled
+  settings.imuUseDMP = 0; // Disabled
+  settings.imuLogDMPQuat6 = 0; // Disabled
+  settings.imuLogDMPQuat9 = 0; // Disabled
+  settings.imuLogDMPAccel = 0; // Disabled
+  settings.imuLogDMPGyro = 0; // Disabled
+  settings.imuLogDMPCpass = 0; // Disabled
+  settings.minimumAwakeTimeMillis = 0; // Disabled
+  settings.identifyBioSensorHubs = 0; // Disabled
+  settings.serialTxRxDuringSleep = 0; // Disabled
+  settings.printGNSSDebugMessages = 0; // Disabled
+//settings.serialNumber = 0; // User set
+
+ //------------------- Nathan
+ settings.useGPIO11ForTrigger = false; // Drumbeat line os must be set to false
+ settings.useTxRxPinsForTerminal = false; // set to false by Nathan to do external synchronisation test using Rx pin as drumbeat line
+ settings.timestampSerial = true;
+//  settings.enableLowBatteryDetection = true;
+//  settings.lowBatteryThreshold = 3.4;
+}
+
+//----------------------------------------------------------------------------
+
+// WMORE
+// Sends RTC value via Serial1. If this unit is a Coordinator, this is broadcast
+// to all Sensors.
+
+void sendRTC(void) {
+  
+  uint8_t rtcBuf[7];
+  uint8_t i;
+
+  // Fill buffer with current RTC value.
+  rtcBuf[0] = (uint8_t)myRTC.year;
+  rtcBuf[1] = (uint8_t)myRTC.month;
+  rtcBuf[2] = (uint8_t)myRTC.dayOfMonth;
+  rtcBuf[3] = (uint8_t)myRTC.hour;
+  rtcBuf[4] = (uint8_t)myRTC.minute;
+  rtcBuf[5] = (uint8_t)myRTC.seconds;
+  rtcBuf[6] = (uint8_t)myRTC.hundredths;
+
+  // Send RTC value to ESB transmitter.
+  Serial1.write(rtcBuf,7); // Fast - 7 bytes in 150 us @ 460800 bps
+  
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Waits for trigger to start logging
+
+void waitToLog(void) {
+  
+  powerLEDOn(); // Turn on the red LED
+  while (digitalRead(PIN_TRIGGER) == 1) { // Wait for sync falling edge  
+    if (Serial.available()) {
+      menuMain(); //Present user menu if serial character received
+    }; 
+    checkBattery(); // Check for low battery and shutdown if low
+  }
+  powerLEDOff(); // Turn off the red LED  
+    
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Stops logging without going into low power stop
+
+void stopLoggingStayAwake(void)
+{
+
+  //Save current log file
+  if (online.dataLogging == true)
+  {
+    sensorDataFile.sync();
+    updateDataFileAccess(&sensorDataFile); // Update the file access time & date
+    sensorDataFile.close(); //No need to close files. https://forum.arduino.cc/index.php?topic=149504.msg1125098#msg1125098
+  }
+   
+}
+
+
+// gfvalvo's flash string helper code: https://forum.arduino.cc/index.php?topic=533118.msg3634809#msg3634809
+
+void SerialPrint(const char *line)
+{
+  DoSerialPrint([](const char *ptr) {return *ptr;}, line);
+}
+
+void SerialPrint(const __FlashStringHelper *line)
+{
+  DoSerialPrint([](const char *ptr) {return (char) pgm_read_byte_near(ptr);}, (const char*) line);
+}
+
+void SerialPrintln(const char *line)
+{
+  DoSerialPrint([](const char *ptr) {return *ptr;}, line, true);
+}
+
+void SerialPrintln(const __FlashStringHelper *line)
+{
+  DoSerialPrint([](const char *ptr) {return (char) pgm_read_byte_near(ptr);}, (const char*) line, true);
+}
+
+void DoSerialPrint(char (*funct)(const char *), const char *string, bool newLine)
+{
+  char ch;
+
+  while ((ch = funct(string++)))
+  {
+    Serial.print(ch);
+    if (settings.useTxRxPinsForTerminal == true)
+      Serial1.print(ch);
+  }
+
+  if (newLine)
+  {
+    Serial.println();
+    if (settings.useTxRxPinsForTerminal == true)
+      Serial1.println();
+  }
+}
+
+
+//----------------------------------------------------------------------------
+// WMORE
+// Modified and simplified original setup()
+
+void setup() {
+  // Ensure clocks are in a known state
+  clockState();
+  // Set up synchronisation inputs, timers, and ISRs
+  setupSync();
+  
+  //If 3.3V rail drops below 3V, system will power down and maintain RTC
+  pinMode(PIN_POWER_LOSS, INPUT); // BD49K30G-TL has CMOS output and does not need a pull-up
+
+  delay(1); // Let PIN_POWER_LOSS stabilize
+
+  if (digitalRead(PIN_POWER_LOSS) == LOW) powerDownOLA(); //Check PIN_POWER_LOSS just in case we missed the falling edge
+  //attachInterrupt(PIN_POWER_LOSS, powerDownOLA, FALLING); // We can't do this with v2.1.0 as attachInterrupt causes a spontaneous interrupt
+  attachInterrupt(PIN_POWER_LOSS, powerLossISR, FALLING);
+  powerLossSeen = false; // Make sure the flag is clear
+
+  pinMode(PIN_STAT_LED, OUTPUT);
+  digitalWrite(PIN_STAT_LED, HIGH); // Turn the blue LED on while we configure everything
+
+  SPI.begin(); //Needed if SD is disabled
+
+  configureSerial1TxRx(); // Configure Serial1 // Commented out by Nathan to do external synchronisation test using Rx pin as drumbeat line
+
+  Serial.begin(115200); //Default for initial debug messages if necessary
+
+  // Changing the baud rate of Serial1 to be 115200 | Nathan
+  Serial1.begin(460800); // Set up to transmit/receive global timestamps
+
+  EEPROM.init();
+
+  beginSD(); //285 - 293ms
+
+  enableCIPOpullUp(); // Enable CIPO pull-up _after_ beginSD
+
+  loadSettings(); //50 - 250ms
+
+  overrideSettings(); // Hard-code some critical settings to avoid accidents
+
+  Serial.flush(); //Complete any previous prints
+  Serial.begin(settings.serialTerminalBaudRate); // TODO settings
+
+  Serial.println(WMORE_VERSION);
+
+  // Setup the stop logging pin
+  pinMode(PIN_STOP_LOGGING, INPUT_PULLUP);
+  delay(1); // Let the pin stabilize
+  attachInterrupt(PIN_STOP_LOGGING, stopLoggingISR, FALLING); // Enable the interrupt
+  am_hal_gpio_pincfg_t intPinConfig = g_AM_HAL_GPIO_INPUT_PULLUP;
+  intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
+  pin_config(PinName(PIN_STOP_LOGGING), intPinConfig); // Make sure the pull-up does actually stay enabled
+  stopLoggingSeen = false; // Make sure the flag is clear
+
+
+  // Modified by Sami -- set pin 12 to output and low
+  // pinMode(BREAKOUT_PIN_TX, OUTPUT);
+  // digitalWrite(BREAKOUT_PIN_TX, LOW);
+  // end of modification
+ 
+  analogReadResolution(14); //Increase from default of 10
+
+  beginDataLogging(); //180ms
+  lastSDFileNameChangeTime = rtcMillis(); // Record the time of the file name change
+
+  beginIMU(); //61ms
+
+  if (online.microSD == true) SerialPrintln(F("SD card online"));
+  else SerialPrintln(F("SD card offline"));
+
+  if (online.dataLogging == true) SerialPrintln(F("Data logging online"));
+  else SerialPrintln(F("Datalogging offline"));
+
+  if (online.IMU == true) SerialPrintln(F("IMU online"));
+  else SerialPrintln(F("IMU offline - or not present"));
+
+  digitalWrite(PIN_STAT_LED, LOW); // Turn the blue LED off
+
+  // Nathan: We are waiting here until PIN_TRIGGER is low. Once that happens we enter the main loop
+  waitToLog(); // Wait for sync falling edge to start logging
+
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Modified and simplified original loop()
+
+void loop() {
+
+  if (timerIntFlag == true) { // Act if sampling timer has interrupted
+
+    // Commented out by Nathan
+    // added by Sami -- set pin 12 to toggle between low and high
+    // digitalWrite(BREAKOUT_PIN_TX, HIGH);
+    extTimerValue2 = am_hal_stimer_counter_get();// added by Sami
+    timerIntFlag = false; // Reset sampling timer flag
+    myRTC.getTime(); // Get the local time from the RTC
+    lastSamplingPeriod = samplingPeriod; // added by Sami // the previous sampling period to write to SD card
+    
+    // Must use the new version of 'getData' | Nathan
+    // getData(); // Get data from IMU and global time from Coordinator 
+    getData(sdOutputData, sizeof(sdOutputData)); //Query all enabled sensors for data
+    // Serial.println(3000000 / period); // Nathan
+   
+    Serial1.print(sdOutputData); // Added in | Nathan
+    // SerialPrintf1(sdOutputData); // Added in | Nathan // Commented out to do synchronisation test
+    
+    // Serial1.print(sdOutputData); // Added in | Nathan
+    // SerialPrintln(F("Please ensure the SD card is formatted correctly using https://www.sdcard.org/downloads/formatter/"));
+
+    
+    writeSDBin(); // Store IMU and time data     
+    if (stopLoggingSeen == true) { // Stop logging if directed by Coordinator
+      stopLoggingSeen = false; // Reset the flag
+      resetArtemis(); // Reset the system
+      stopLoggingStayAwake(); // Close file and prepare for next start command
+      beginDataLogging(); // Open file in preparation for next logging run
+      waitToLog(); // Wait until directed to start logging again
+    } 
+    // added by Sami -- set pin 12 to toggle between low and high
+    // digitalWrite(BREAKOUT_PIN_TX, LOW); 
+    // end of modification
+    samplingPeriod = am_hal_stimer_counter_get() - extTimerValue2; // added by Sami
+  }  
+
+  if (Serial.available()) {
+    menuMain(); //Present user menu if serial character received
+  }  
+  
+  checkBattery(); // Check for low battery and shutdown if low
+  
+  // Debug: output time difference for performance evaluation
+  //if (triggerPinFlag == true) {
+  //  triggerPinFlag = false;
+  //  Serial.println(timeDifference);
+  //}
+
+}
+
+//----------------------------------------------------------------------------
+
+void beginSD()
+{
+  pinMode(PIN_MICROSD_POWER, OUTPUT);
+  pin_config(PinName(PIN_MICROSD_POWER), g_AM_HAL_GPIO_OUTPUT); // Make sure the pin does actually get re-configured
+  pinMode(PIN_MICROSD_CHIP_SELECT, OUTPUT);
+  pin_config(PinName(PIN_MICROSD_CHIP_SELECT), g_AM_HAL_GPIO_OUTPUT); // Make sure the pin does actually get re-configured
+  digitalWrite(PIN_MICROSD_CHIP_SELECT, HIGH); //Be sure SD is deselected
+
+  // If the microSD card is present, it needs to be powered on otherwise the IMU will fail to start
+  // (The microSD card will pull the SPI pins low, preventing communication with the IMU)
+
+  // For reasons I don't understand, we seem to have to wait for at least 1ms after SPI.begin before we call microSDPowerOn.
+  // If you comment the next line, the Artemis resets at microSDPowerOn when beginSD is called from wakeFromSleep...
+  // But only on one of my V10 red boards. The second one I have doesn't seem to need the delay!?
+  delay(5);
+
+  microSDPowerOn();
+
+  //Max power up time is 250ms: https://www.kingston.com/datasheets/SDCIT-specsheet-64gb_en.pdf
+  //Max current is 200mA average across 1s, peak 300mA
+  for (int i = 0; i < 10; i++) //Wait
+  {
+    checkBattery();
+    delay(1);
+  }
+
+  if (sd.begin(SD_CONFIG) == false) // Try to begin the SD card using the correct chip select
+  {
+    printDebug(F("SD init failed (first attempt). Trying again...\r\n"));
+    for (int i = 0; i < 250; i++) //Give SD more time to power up, then try again
+    {
+      checkBattery();
+      delay(1);
+    }
+    if (sd.begin(SD_CONFIG) == false) // Try to begin the SD card using the correct chip select
+    {
+      SerialPrintln(F("SD init failed (second attempt). Is card present? Formatted?"));
+      SerialPrintln(F("Please ensure the SD card is formatted correctly using https://www.sdcard.org/downloads/formatter/"));
+      digitalWrite(PIN_MICROSD_CHIP_SELECT, HIGH); //Be sure SD is deselected
+      online.microSD = false;
+      return;
+    }
+  }
+
+  //Change to root directory. All new file creation will be in root.
+  if (sd.chdir() == false)
+  {
+    SerialPrintln(F("SD change directory failed"));
+    online.microSD = false;
+    return;
+  }
+
+  online.microSD = true;
+}
+
+void enableCIPOpullUp() // updated for v2.1.0 of the Apollo3 core
+{
+  //Add 1K5 pull-up on CIPO
+  am_hal_gpio_pincfg_t cipoPinCfg = g_AM_BSP_GPIO_IOM0_MISO;
+  cipoPinCfg.ePullup = AM_HAL_GPIO_PIN_PULLUP_1_5K;
+  pin_config(PinName(PIN_SPI_CIPO), cipoPinCfg);
+}
+
+void disableCIPOpullUp() // updated for v2.1.0 of the Apollo3 core
+{
+  am_hal_gpio_pincfg_t cipoPinCfg = g_AM_BSP_GPIO_IOM0_MISO;
+  pin_config(PinName(PIN_SPI_CIPO), cipoPinCfg);
+}
+
+void configureSerial1TxRx(void) // Configure pins 12 and 13 for UART1 TX and RX
+{
+  // Commented out by Sami ---------------------------------------------
+  am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX; // Commented back in by Nathan
+  pinConfigTx.uFuncSel = AM_HAL_PIN_12_UART1TX;
+  pin_config(PinName(BREAKOUT_PIN_TX), pinConfigTx);
+  am_hal_gpio_pincfg_t pinConfigRx = g_AM_BSP_GPIO_COM_UART_RX;
+  pinConfigRx.uFuncSel = AM_HAL_PIN_13_UART1RX;
+  pinConfigRx.ePullup = AM_HAL_GPIO_PIN_PULLUP_WEAK; // Put a weak pull-up on the Rx pin
+  pin_config(PinName(BREAKOUT_PIN_RX), pinConfigRx);
+}
