@@ -33,6 +33,7 @@ This document provide information on the components needed to build the WMOREs, 
   - [**WMORE Settings**](#wmore-settings)
   - [**WMORE LED Colour Code**](#wmore-led-colour-code)
 - [To Do](#to-do)
+- [License](#license)
 
 # **Set Up**
 Required/useful skills to have:
@@ -370,3 +371,5 @@ When turning off the sensors all the LEDs should turn off if they don't reset th
   * connect nano gpio to reset pin on openlog on boot
 * "enable" streaming mode
 
+# License
+This project is licensed under the GNU General Public License. You may redistribute and/or modify it under the terms of the GPL version 3 (or any later version) as published by the Free Software Foundation. For more details, see the LICENSE file.
