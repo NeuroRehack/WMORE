@@ -32,7 +32,10 @@ This document provide information on the components needed to build the WMOREs, 
   - [**Recording**](#recording)
   - [**WMORE Settings**](#wmore-settings)
   - [**WMORE LED Colour Code**](#wmore-led-colour-code)
-- [To Do](#to-do)
+- [TODO](#todo)
+  - [Bugfixes](#bugfixes)
+  - [Features](#features)
+  - [Clean ups](#clean-ups)
 - [License](#license)
 
 # **Set Up**
@@ -365,11 +368,18 @@ When turning off the sensors all the LEDs should turn off if they don't reset th
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
-# To Do 
-* investigate way to keep RTC on when the sensor is turned off
-  * add capacitor in parallel to the battery
-  * connect nano gpio to reset pin on openlog on boot
-* "enable" streaming mode
-
+# TODO
+## Bugfixes
+- [ ] RTC is lost during powerdown, and has to be set on the coordinator before each recording session. This is not ideal, and should be fixed. (-> something to do with sync interrupt?)
+## Features
+- [ ] Investigate ESB protocol on openlog to remove need for arduino nano
+- [ ] Investigate faster file transfer from openlog to computer (current UART transfer is very slow)
+- [ ] Modify coordinator openlog firmware to allow logging
+- [ ] Implement real time data streaming to a computer (via bluetooth?)
+- [ ] Investigate frequency selection for the coordinator ESB protocol to allow more than 2 simulatenous coordinators and improve SNR
+- [ ] Investigate improvements to synchronisation algorithm
+## Clean ups
+- [ ] Remove dead code from the OLA firmware (e.g. unused sensors, libraries, etc.) to improve compilation time and reduce the size of the firmware
+  
 # License
 This project is licensed under the GNU General Public License. You may redistribute and/or modify it under the terms of the GPL version 3 (or any later version) as published by the Free Software Foundation. For more details, see the LICENSE file.
