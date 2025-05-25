@@ -370,7 +370,7 @@ When turning off the sensors all the LEDs should turn off if they don't reset th
 
 # TODO
 ## Bugfixes
-- [ ] RTC is lost during powerdown, and has to be set on the coordinator before each recording session. This is not ideal, and should be fixed. (-> something to do with sync interrupt?)
+- [ ] RTC is lost during powerdown, and has to be set on the coordinator before each recording session. This is not ideal, and should be fixed. (-> something to do with sync interrupt?) **(in progress)**
 ## Features
 - [ ] Investigate ESB protocol on openlog to remove need for arduino nano
 - [ ] Investigate faster file transfer from openlog to computer (current UART transfer is very slow)
