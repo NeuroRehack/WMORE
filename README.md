@@ -16,11 +16,12 @@ This document provide information on the components needed to build the WMOREs, 
 ---
 - [**WMORE: an open-source wearable system for synchronous movement recording**](#wmore-an-open-source-wearable-system-for-synchronous-movement-recording)
 - [**Set Up**](#set-up)
+  - [**Development Container Setup**](#development-container-setup)
   - [**Required Components**](#required-components)
   - [**Firmware**](#firmware)
     - [**Openlog Artemis (OLA)**](#openlog-artemis-ola)
       - [**Setting up the Arduino environment**](#setting-up-the-arduino-environment)
-      - [**Uploading Firmware Onto The OLA**](#uploading-firmware-onto-the-ola)
+      - [**Building and Uploading Firmware**](#building-and-uploading-firmware)
     - [**Nano**](#nano)
       - [**Building the Zephyr Project** (for developpers)](#building-the-zephyr-project-for-developpers)
       - [**Uploading Firmware to Nano**](#uploading-firmware-to-nano)
@@ -42,6 +43,28 @@ Required/useful skills to have:
 * Soldering
 * SMD soldering
 * Programming experience in C,C++, Arduino, and/or Python (only if planning on modifying firmware or software components of the project)
+
+## **Development Container Setup**
+---
+This project uses a development container to provide a consistent development environment. The container includes all necessary tools and dependencies for building and uploading firmware.
+
+### Prerequisites
+- [Docker](https://www.docker.com/products/docker-desktop/)
+- [Visual Studio Code](https://code.visualstudio.com/)
+- [VS Code Remote - Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+
+### Setup Steps
+1. Clone this repository
+2. Open the project in VS Code
+3. When prompted, click "Reopen in Container" or use the command palette (F1) and select "Remote-Containers: Reopen in Container"
+4. Wait for the container to build and start
+
+The container includes:
+- Arduino CLI
+- All required Arduino libraries
+- SparkFun Apollo3 board support
+- BOSSA for flashing Arduino Nano
+- All necessary build tools
 
 ## **Required Components**
 The WMOREs were designed using the list of components below. Only the Arduino Nano and Artemis Openlog are required to run the firmware, the battery and switches can be swapped for different models. However the CAD models for the case will need to be modified or redesigned accordingly if you choose to do so. At least 2 WMOREs must be assembled:
@@ -121,12 +144,49 @@ Before flashing the arduino program to the OpenLogs, the Arduino IDE must be set
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-#### **Uploading Firmware Onto The OLA**
+#### **Building and Uploading Firmware**
 ---
-Once the Arduino IDE has been set up, open the [WMORE_Openlog_Coordinator.ino](/Firmware/WMORE_Openlog_Coordinator/WMORE_Openlog_Coordinator.ino) file or the [WMORE_Openlog_Logger.ino](/Firmware/WMORE_Openlog_Logger/WMORE_Openlog_Logger.ino). 
+Using the development container, you can build and upload firmware using the Arduino CLI. Here are the commands:
 
+1. To build the Logger firmware:
+```bash
+arduino-cli compile -v --fqbn SparkFun:apollo3:sfe_artemis_atp --output-dir ./Firmware/WMORE_Openlog_Logger/build Firmware/WMORE_Openlog_Logger/WMORE_Openlog_Logger.ino
+```
 
-Connect the OLA to your computer, select the correct com port and press the upload button. The project may take a while to compile
+2. To build the Coordinator firmware:
+```bash
+arduino-cli compile -v --fqbn SparkFun:apollo3:sfe_artemis_atp --output-dir ./Firmware/WMORE_Openlog_Coordinator/build Firmware/WMORE_Openlog_Coordinator/WMORE_Openlog_Coordinator.ino
+```
+
+3. To upload the firmware (replace COM_PORT with your device's port):
+```bash
+# For Logger
+arduino-cli upload -v -p COM_PORT --fqbn SparkFun:apollo3:sfe_artemis_atp Firmware/WMORE_Openlog_Logger/WMORE_Openlog_Logger.ino
+
+# For Coordinator
+arduino-cli upload -v -p COM_PORT --fqbn SparkFun:apollo3:sfe_artemis_atp Firmware/WMORE_Openlog_Coordinator/WMORE_Openlog_Coordinator.ino
+```
+
+To find your device's port:
+```bash
+arduino-cli board list
+```
+
+### Uploading Pre-compiled Binaries
+If you have already compiled the firmware and have the `.bin` files, you can upload them directly using BOSSA:
+
+1. For Logger:
+```bash
+bossac -d --port=COM_PORT -U -i -e -w ./Firmware/WMORE_Openlog_Logger/build/WMORE_Openlog_Logger.ino.bin -R
+```
+
+2. For Coordinator:
+```bash
+bossac -d --port=COM_PORT -U -i -e -w ./Firmware/WMORE_Openlog_Coordinator/build/WMORE_Openlog_Coordinator.ino.bin -R
+```
+
+Replace `COM_PORT` with your device's port (e.g., COM3 on Windows or /dev/ttyACM0 on Linux).
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### **Nano**
