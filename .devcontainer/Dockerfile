@@ -71,9 +71,13 @@ WORKDIR /
 RUN mkdir -p /workspace
 WORKDIR /workspace
 
+# Create a non-root user and add to dialout group
+RUN groupadd -f dialout && \
+    useradd -m -s /bin/bash -G dialout vscode
+
 # Add UART access permissions
-RUN echo 'KERNEL=="ttyACM[0-9]*", GROUP="dialout", MODE="0666"' > /etc/udev/rules.d/99-serial.rules
-RUN echo 'KERNEL=="ttyUSB[0-9]*", GROUP="dialout", MODE="0666"' >> /etc/udev/rules.d/99-serial.rules
+RUN echo 'KERNEL=="ttyACM[0-9]*", GROUP="dialout", MODE="0666"' > /etc/udev/rules.d/99-serial.rules && \
+    echo 'KERNEL=="ttyUSB[0-9]*", GROUP="dialout", MODE="0666"' >> /etc/udev/rules.d/99-serial.rules
 
 # Clean up
 RUN apt-get clean && \
