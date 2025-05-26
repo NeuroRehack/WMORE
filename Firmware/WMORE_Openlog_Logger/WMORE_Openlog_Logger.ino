@@ -16,99 +16,6 @@
   v1.0 Power Consumption:
    Sleep between reads, RTC fully charged, no Qwiic, SD, no USB, no Power LED: 260uA
    10Hz logging IMU, no Qwiic, SD, no USB, no Power LED: 9-27mA
-
-  TODO:
-  (done) Create settings file for sensor. Load after qwiic bus is scanned.
-  (done on larger Strings) Remove String dependencies.
-  (done) Bubble sort list of devices.
-  (done) Remove listing for muxes.
-  (done) Verify the printing of all sensors is %f, %d correct
-  (done) Add begin function seperate from everything, call after wakeup instead of detect
-  (done) Add counter to output to look for memory leaks on long runs
-  (done) Add AHT20 support
-  (done) Add SHTC3 support
-  (done) Change settings extension to txt
-  (done) Fix max I2C speed to use linked list
-  Currently device settings are not recorded to EEPROM, only deviceSettings.txt
-  Is there a better way to dynamically create size of outputData array so we don't ever get larger than X sensors outputting?
-  Find way to store device configs into EEPROM
-  Log four pressure sensors and graph them on plotter
-  (checked) Test GPS - not sure about %d with int32s. Does lat, long, and alt look correct?
-  (done) Test NAU7802s
-  (done) Test SCD30s (Add an extended delay for the SCD30. (Issue #5))
-  (won't do?) Add a 'does not like to be powered cycled' setting for each device type. I think this has been superceded by "Add individual power-on delays for each sensor type?.
-  (done) Add support for logging VIN
-  (done) Investigate error in time between logs (https://github.com/sparkfun/OpenLog_Artemis/issues/13)
-  (done) Invesigate RTC reset issue (https://github.com/sparkfun/OpenLog_Artemis/issues/13 + https://forum.sparkfun.com/viewtopic.php?f=123&t=53157)
-    The solution is to make sure that the OLA goes into deep sleep as soon as the voltage monitor detects that the power has failed.
-    The user will need to press the reset button once power has been restored. Using the WDT to check the monitor and do a POR wasn't reliable.
-  (done) Investigate requires-reset issue on battery power (") (X04 + CCS811/BME280 enviro combo)
-  (done) Add a fix so that the MS8607 does not also appear as an MS5637
-  (done) Add "set RTC from GPS" functionality
-  (done) Add UTCoffset functionality (including support for negative numbers)
-  (done) Figure out how to give the u-blox time to establish a fix if it has been powered down between log intervals. The user can specify up to 60s for the Qwiic power-on delay.
-  Add support for VREG_ENABLE
-  (done) Add support for PWR_LED
-  (done) Use the WDT to reset the Artemis when power is reconnected (previously the Artemis would have stayed in deep sleep)
-  Add a callback function to the u-blox library so we can abort waiting for UBX data if the power goes low
-  (done) Add support for the ADS122C04 ADC (Qwiic PT100)
-  (done) Investigate why usBetweenReadings appears to be longer than expected. We needed to read millis _before_ enabling the lower power clock!
-  (done) Correct u-blox pull-ups
-  (done) Add an olaIdentifier to prevent problems when using two code variants that have the same sizeOfSettings
-  (done) Add a fix for the IMU wake-up issue identified in https://github.com/sparkfun/OpenLog_Artemis/issues/18
-  (done) Add a "stop logging" feature on GPIO 32: allow the pin to be used to read a stop logging button instead of being an analog input
-  (done) Allow the user to set the default qwiic bus pull-up resistance (u-blox will still use 'none')
-  (done) Add support for low battery monitoring using VIN
-  (done) Output sensor data via the serial TX pin (Issue #32)
-  (done) Add support for SD card file transfer (ZMODEM) and delete. (Issue #33) With thanks to: ecm-bitflipper (https://github.com/ecm-bitflipper/Arduino_ZModem)
-  (done) Add file creation and access timestamps
-  (done) Add the ability to trigger data collection via Pin 11 (Issue #36)
-  (done) Correct the measurement count misbehaviour (Issue #31)
-  (done) Use the corrected IMU temperature calculation (Issue #28)
-  (done) Add individual power-on delays for each sensor type. Add an extended delay for the SCD30. (Issue #5)
-  (done) v1.7: Fix readVin after sleep bug: https://github.com/sparkfun/OpenLog_Artemis/issues/39
-  (done) Change detectQwiicDevices so that the MCP9600 (Qwiic Thermocouple) is detected correctly
-  (done) Add support for the MPRLS0025PA micro pressure sensor
-  (done) Add support for the SN-GCJA5 particle sensor
-  (done) Add IMU accelerometer and gyro full scale and digital low pass filter settings to menuIMU
-  (done) Add a fix to make sure the MS8607 is detected correctly: https://github.com/sparkfun/OpenLog_Artemis/issues/54
-  (done) Add logMicroseconds: https://github.com/sparkfun/OpenLog_Artemis/issues/49
-  (done) Add an option to use autoPVT when logging GNSS data: https://github.com/sparkfun/OpenLog_Artemis/issues/50
-  (done) Corrected an issue when using multiple MS8607's: https://github.com/sparkfun/OpenLog_Artemis/issues/62
-  (done) Add a feature to use the TX and RX pins as a duplicate Terminal
-  (done) Add serial log timestamps with a token (as suggested by @DennisMelamed in PR https://github.com/sparkfun/OpenLog_Artemis/pull/70 and Issue https://github.com/sparkfun/OpenLog_Artemis/issues/63)
-  (done) Add "sleep on pin" functionality based @ryanneve's PR https://github.com/sparkfun/OpenLog_Artemis/pull/64 and Issue https://github.com/sparkfun/OpenLog_Artemis/issues/46
-  (done) Add "wake at specified times" functionality based on Issue https://github.com/sparkfun/OpenLog_Artemis/issues/46
-  (done) Add corrections for the SCD30 based on Forum post by paulvha: https://forum.sparkfun.com/viewtopic.php?p=222455#p222455
-  (done) Add support for the SGP40 VOC Index sensor
-  (done) Add support for the SDP3X Differential Pressure sensor
-  (done) Add support for the MS5837 - as used in the BlueRobotics BAR02 and BAR30 water pressure sensors
-  (done) Correct an issue which was causing the OLA to crash when waking from sleep and outputting serial data https://github.com/sparkfun/OpenLog_Artemis/issues/79
-  (done) Correct low-power code as per https://github.com/sparkfun/OpenLog_Artemis/issues/78
-  (done) Correct a bug in menuAttachedDevices when useTxRxPinsForTerminal is enabled https://github.com/sparkfun/OpenLog_Artemis/issues/82
-  (done) Add ICM-20948 DMP support. Requires v1.2.6 of the ICM-20948 library. DMP logging is limited to: Quat6 or Quat9, plus raw accel, gyro and compass. https://github.com/sparkfun/OpenLog_Artemis/issues/47
-  (done) Add support for exFAT. Requires v2.0.6 of Bill Greiman's SdFat library. https://github.com/sparkfun/OpenLog_Artemis/issues/34
-  (done) Add minimum awake time: https://github.com/sparkfun/OpenLog_Artemis/issues/83
-  (done) Add support for the Pulse Oximeter: https://github.com/sparkfun/OpenLog_Artemis/issues/81
-  (done - but does not work) Add support for the Qwiic Button. The QB uses clock-stretching and the Artemis really doesn't enjoy that...
-  (done) Increase DMP data resolution to five decimal places https://github.com/sparkfun/OpenLog_Artemis/issues/90
-
-  (in progress) Update to Apollo3 v2.1.0 - FIRMWARE_VERSION_MAJOR = 2.
-  (done) Implement printf float (OLA uses printf float in _so_ many places...): https://github.com/sparkfun/Arduino_Apollo3/issues/278
-  (worked around) attachInterrupt(PIN_POWER_LOSS, powerDownOLA, FALLING); triggers an immediate interrupt - https://github.com/sparkfun/Arduino_Apollo3/issues/416
-  (done) Add a setQwiicPullups function
-  (done) Check if we need ap3_set_pin_to_analog when coming out of sleep
-  (done) Investigate why code does not wake from deep sleep correctly
-  (worked around) Correct SerialLog RX: https://github.com/sparkfun/Arduino_Apollo3/issues/401
-    The work-around is to use Serial1 in place of serialLog and then to manually force UART1 to use pins 12 and 13
-    We need a work-around anyway because if pins 12 or 13 have been used as analog inputs, Serial1.begin does not re-configure them for UART TX and RX
-  (in progress) Reduce sleep current as much as possible. v1.2.1 achieved ~110uA. With v2.1.0 the draw is more like 260uA...
-
-  (in progress) Update to Apollo3 v2.2.0 - FIRMWARE_VERSION_MAJOR = 2; FIRMWARE_VERSION_MINOR = 1.
-  (done) Add a fix for issue #109 - check if a BME280 is connected before calling multiplexerBegin: https://github.com/sparkfun/OpenLog_Artemis/issues/109
-  (done) Correct issue #104. enableSD was redundant. The microSD power always needs to be on if there is a card inserted, otherwise the card pulls
-         the SPI lines low, preventing communication with the IMU:  https://github.com/sparkfun/OpenLog_Artemis/issues/104
-
   v2.2:
     Use Apollo3 v2.2.1 with changes by paulvha to fix Issue 117 (Thank you Paul!)
       https://github.com/sparkfun/OpenLog_Artemis/issues/117#issuecomment-1085881142
@@ -422,38 +329,6 @@ const int MAX_IDLE_TIME_MSEC = 500;
 #include "ICM_20948.h"  // Click here to get the library: http://librarymanager/All#SparkFun_ICM_20948_IMU
 ICM_20948_SPI myICM;
 icm_20948_DMP_data_t dmpData; // Global storage for the DMP data - extracted from the FIFO
-//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-//Header files for all compatible Qwiic sensors
-//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-#include "SparkFun_I2C_Mux_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_I2C_Mux
-#include "SparkFunCCS811.h" //Click here to get the library: http://librarymanager/All#SparkFun_CCS811
-#include "SparkFun_VL53L1X.h" //Click here to get the library: http://librarymanager/All#SparkFun_VL53L1X
-#include "SparkFunBME280.h" //Click here to get the library: http://librarymanager/All#SparkFun_BME280
-#include "SparkFun_LPS25HB_Arduino_Library.h"  //Click here to get the library: http://librarymanager/All#SparkFun_LPS25HB
-#include "SparkFun_VEML6075_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_VEML6075
-#include "SparkFun_PHT_MS8607_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_PHT_MS8607
-#include "SparkFun_MCP9600.h" //Click here to get the library: http://librarymanager/All#SparkFun_MCP9600
-#include "SparkFun_SGP30_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_SGP30
-#include "SparkFun_VCNL4040_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_VCNL4040
-#include "SparkFun_MS5637_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_MS5637
-#include "SparkFun_TMP117.h" //Click here to get the library: http://librarymanager/All#SparkFun_TMP117
-#include "SparkFun_u-blox_GNSS_Arduino_Library.h" //http://librarymanager/All#SparkFun_u-blox_GNSS
-#include "SparkFun_Qwiic_Scale_NAU7802_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_NAU7802
-#include "SparkFun_SCD30_Arduino_Library.h" //Click here to get the library: http://librarymanager/All#SparkFun_SCD30
-#include "SparkFun_Qwiic_Humidity_AHT20.h" //Click here to get the library: http://librarymanager/All#Qwiic_Humidity_AHT20 by SparkFun
-#include "SparkFun_SHTC3.h" // Click here to get the library: http://librarymanager/All#SparkFun_SHTC3
-#include "SparkFun_ADS122C04_ADC_Arduino_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_ADS122C04
-#include "SparkFun_MicroPressure.h" // Click here to get the library: http://librarymanager/All#SparkFun_MicroPressure
-#include "SparkFun_Particle_Sensor_SN-GCJA5_Arduino_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_Particle_Sensor_SN-GCJA5
-#include "SparkFun_SGP40_Arduino_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_SGP40
-#include "SparkFun_SDP3x_Arduino_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_SDP3x
-// WMORE MS5837 disabled due to compile errors
-//#include "MS5837.h" // Click here to download the library: https://github.com/sparkfunX/BlueRobotics_MS5837_Library
-#include "SparkFun_Qwiic_Button.h" // Click here to get the library: http://librarymanager/All#SparkFun_Qwiic_Button_Switch
-#include "SparkFun_Bio_Sensor_Hub_Library.h" // Click here to get the library: http://librarymanager/All#SparkFun_Bio_Sensor
-
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 //Global variables

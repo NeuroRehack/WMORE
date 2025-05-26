@@ -28,9 +28,9 @@ RUN apt-get update && apt-get install -y \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY .devcontainer/requirements.txt /tmp/requirements.txt
-RUN pip3 install -r /tmp/requirements.txt
+# # Install Python dependencies
+# COPY .devcontainer/requirements.txt /tmp/requirements.txt
+# RUN pip3 install -r /tmp/requirements.txt
 
 # Set up Arduino CLI
 RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
@@ -50,34 +50,9 @@ RUN arduino-cli core install SparkFun:apollo3@2.2.1 --additional-urls https://ra
 # Install AmbiqSuiteSDK (required for Apollo3)
 RUN git clone https://github.com/sparkfun/AmbiqSuiteSDK.git /root/Arduino/libraries/AmbiqSuiteSDK
 
-# Install only essential Arduino libraries for WMORE - Exact names from README
+# Install Arduino libraries for WMORE
 RUN arduino-cli lib install "SparkFun 9DoF IMU Breakout - ICM 20948 - Arduino Library@1.2.12"
 RUN arduino-cli lib install "SdFat@2.2.3"
-RUN arduino-cli lib install "SparkFun I2C Mux Arduino Library@1.0.3"
-RUN arduino-cli lib install "SparkFun CCS811 Arduino Library@2.0.3"
-RUN arduino-cli lib install "SparkFun VL53L1X 4m Laser Distance Sensor@1.2.12"
-RUN arduino-cli lib install "SparkFun BME280@2.0.9"
-RUN arduino-cli lib install "SparkFun LPS25HB Pressure Sensor Library@1.1.1"
-RUN arduino-cli lib install "SparkFun VEML6075 Arduino Library@1.1.5"
-RUN arduino-cli lib install "SparkFun PHT MS8607 Arduino Library@1.0.5"
-RUN arduino-cli lib install "SparkFun MCP9600 Thermocouple Library@1.0.5"
-RUN arduino-cli lib install "SparkFun SGP30 Arduino Library@1.0.5"
-RUN arduino-cli lib install "SparkFun VCNL4040 Proximity Sensor Library@1.0.4"
-RUN arduino-cli lib install "SparkFun MS5637 Barometric Pressure Library@1.0.2"
-RUN arduino-cli lib install "SparkFun High Precision Temperature Sensor TMP117 Qwiic@1.2.5"
-RUN arduino-cli lib install "SparkFun u-blox GNSS Arduino Library@2.2.26"
-RUN arduino-cli lib install "SparkFun Qwiic Scale NAU7802 Arduino Library@1.0.6"
-RUN arduino-cli lib install "SparkFun SCD30 Arduino Library@1.0.20"
-RUN arduino-cli lib install "SparkFun Qwiic Humidity AHT20@1.0.3"
-RUN arduino-cli lib install "SparkFun SHTC3 Humidity and Temperature Sensor Library@1.1.4"
-RUN arduino-cli lib install "SparkFun ADS122C04 ADC Arduino Library@1.0.4"
-RUN arduino-cli lib install "SparkFun MicroPressure Library@1.0.1"
-RUN arduino-cli lib install "SparkFun Particle Sensor Panasonic SN-GCJA5@1.0.1"
-RUN arduino-cli lib install "SparkFun SGP40 Arduino Library@1.0.4"
-RUN arduino-cli lib install "SparkFun SDP3x Arduino Library@1.0.4"
-RUN arduino-cli lib install "BlueRobotics MS5837 Library@1.1.1"
-RUN arduino-cli lib install "SparkFun Qwiic Button and Qwiic Switch Library@2.0.6"
-RUN arduino-cli lib install "SparkFun Bio Sensor Hub Library@1.0.1"
 
 # Verify SparkFun Apollo3 Artemis board is installed
 RUN arduino-cli board listall | grep 'SparkFun:apollo3:sfe_artemis_atp'|| (echo 'SparkFun Artemis board not found!' && exit 1)
