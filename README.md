@@ -161,31 +161,24 @@ arduino-cli compile -v --fqbn SparkFun:apollo3:sfe_artemis_atp --output-dir ./Fi
 3. To upload the firmware (replace COM_PORT with your device's port):
 ```bash
 # For Logger
+# This will both recompile and upload the firmware
 arduino-cli upload -v -p COM_PORT --fqbn SparkFun:apollo3:sfe_artemis_atp Firmware/WMORE_Openlog_Logger/WMORE_Openlog_Logger.ino
+
+# To upload without recompiling, use the .bin file directly:
+arduino-cli upload -v -p COM_PORT --fqbn SparkFun:apollo3:sfe_artemis_atp --input-file ./Firmware/WMORE_Openlog_Logger/build/WMORE_Openlog_Logger.ino.bin
 
 # For Coordinator
 arduino-cli upload -v -p COM_PORT --fqbn SparkFun:apollo3:sfe_artemis_atp Firmware/WMORE_Openlog_Coordinator/WMORE_Openlog_Coordinator.ino
+
+# To upload without recompiling, use the .bin file directly:
+arduino-cli upload -v -p COM_PORT --fqbn SparkFun:apollo3:sfe_artemis_atp --input-file ./Firmware/WMORE_Openlog_Coordinator/build/WMORE_Openlog_Coordinator.ino.bin
+
 ```
 
 To find your device's port:
 ```bash
 arduino-cli board list
 ```
-
-### Uploading Pre-compiled Binaries
-If you have already compiled the firmware and have the `.bin` files, you can upload them directly using BOSSA:
-
-1. For Logger:
-```bash
-bossac -d --port=COM_PORT -U -i -e -w ./Firmware/WMORE_Openlog_Logger/build/WMORE_Openlog_Logger.ino.bin -R
-```
-
-2. For Coordinator:
-```bash
-bossac -d --port=COM_PORT -U -i -e -w ./Firmware/WMORE_Openlog_Coordinator/build/WMORE_Openlog_Coordinator.ino.bin -R
-```
-
-Replace `COM_PORT` with your device's port (e.g., COM3 on Windows or /dev/ttyACM0 on Linux).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
