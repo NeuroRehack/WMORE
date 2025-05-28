@@ -377,7 +377,7 @@ When turning off the sensors all the LEDs should turn off if they don't reset th
 - [ ] Modify coordinator openlog firmware to allow logging
 - [ ] Implement real time data streaming to a computer (via bluetooth?)
 - [ ] Investigate frequency selection for the coordinator ESB protocol to allow more than 2 simulatenous coordinators and improve SNR
-- [ ] Investigate improvements to synchronisation algorithm
+- [ ] Allow for sampling frequency selection
 ## Clean ups
 - [ ] Remove dead code from the OLA firmware (e.g. unused sensors, libraries, etc.) to improve compilation time and reduce the size of the firmware
   
