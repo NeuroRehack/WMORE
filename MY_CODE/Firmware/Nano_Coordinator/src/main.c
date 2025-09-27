@@ -21,14 +21,15 @@
 //LOG_MODULE_REGISTER(esb_ptx, CONFIG_ESB_PTX_APP_LOG_LEVEL);
 
 #define TX_PAYLOAD_LEN 8 // Command byte plus seven RTC bytes 
-#define TX_CMD_SYNC 0 // Sample synchronisation
-#define TX_CMD_STOP 1 // Stop sampling
-#define TX_CMD_SLEEP 2 // Put OLA to sleep
+#define TX_CMD_SYNC   0 // Sample synchronisation
+#define TX_CMD_STOP   1 // Stop sampling
+#define TX_CMD_SLEEP 2 // Put artemis to deep sleep
 #define SAMPLE_INTERVAL_MS 10
 #define RTC_FIRST_BYTE 1 // First RTC byte index in tx_payload.data[]
 #define RTC_LAST_BYTE 7 // Last RTC byte index in tx_payload.data[]
 #define DEBOUNCE 50000 // Button debounce delay in us
-#define HOLD_TIME_MS 1000
+#define SLEEP_HOLD_MS 5000 
+#define SLEEP_PULSE_MS 300    
 // Define supported boards
 #define NANO
 
@@ -60,6 +61,7 @@ struct k_timer periodic_timer;
 bool stop_flag = false; // Stop input asserted.
 volatile bool timer_event = false; // Timer flag.
 volatile bool uart_event = false; // UART has received 7 bytes
+volatile bool sleep_request = false;
 //static struct esb_payload rx_payload;
 static struct esb_payload tx_payload = ESB_CREATE_PAYLOAD(0,
 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00);
@@ -87,32 +89,32 @@ void esb_cb(struct esb_evt const *event)
 static void uart_cb(const struct device *dev, struct uart_event *evt, void *user_data)
 {
 	switch (evt->type) {
-      case UART_TX_DONE:
-         // do something
-         break;
-      case UART_TX_ABORTED:
-         // do something
-         break;
-      case UART_RX_RDY:
-         // Should trigger when uart_rx_buf is full
-         uart_event = true;
-         break;
-      case UART_RX_BUF_REQUEST:
-         // do something
-         break;
-      case UART_RX_BUF_RELEASED:
-         // do something
-         break;
-      case UART_RX_DISABLED:
-         // Must re-enable after buffer full
-         // 22.12.22 moved this to main loop due to serial sync problem
-         //uart_rx_enable(uart, uart_rx_buf, sizeof uart_rx_buf, SYS_FOREVER_US);
-         break;
-      case UART_RX_STOPPED:
-         // do something
-         break;
-      default:
-         break;
+	case UART_TX_DONE:
+		// do something
+		break;
+	case UART_TX_ABORTED:
+		// do something
+		break;
+	case UART_RX_RDY:
+		// Should trigger when uart_rx_buf is full
+		uart_event = true;
+		break;
+	case UART_RX_BUF_REQUEST:
+		// do something
+		break;
+	case UART_RX_BUF_RELEASED:
+		// do something
+		break;
+	case UART_RX_DISABLED:
+	    // Must re-enable after buffer full
+		// 22.12.22 moved this to main loop due to serial sync problem
+	    //uart_rx_enable(uart, uart_rx_buf, sizeof uart_rx_buf, SYS_FOREVER_US);
+		break;
+	case UART_RX_STOPPED:
+		// do something
+		break;
+	default:
+		break;
 	}
 }
 
@@ -167,8 +169,8 @@ int esb_initialize(void)
 	 */
 	//uint8_t base_addr_0[4] = {0xE7, 0xE7, 0xE7, 0xE7};
 	//uint8_t base_addr_1[4] = {0xC2, 0xC2, 0xC2, 0xC2};
-    uint8_t base_addr_0[2] = {0xE7, 0xE7};
-	uint8_t base_addr_1[2] = {0xC2, 0xC2};
+    uint8_t base_addr_0[2] = {0xE8, 0xE7};
+	uint8_t base_addr_1[2] = {0xC3, 0xC2};
 	uint8_t addr_prefix[8] = {0xE7, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8};
 
 	struct esb_config config = ESB_DEFAULT_CONFIG;
@@ -216,7 +218,7 @@ int esb_initialize(void)
 		return err;
 	}
 
-    err = esb_set_rf_channel(0);
+    err = esb_set_rf_channel(40);
 	if (err) {
 		return err;
 	}
@@ -247,7 +249,7 @@ int uart_init(void)
 {
 	int err = 0;
 
-   uart_callback_set(uart, uart_cb, NULL);
+    uart_callback_set(uart, uart_cb, NULL);
 	uart_rx_enable(uart, uart_rx_buf, sizeof uart_rx_buf, SYS_FOREVER_US);
 
 	return 0;
@@ -258,7 +260,7 @@ int uart_init(void)
 void main(void)
 {
 	int err;
-   uint8_t i; // Counter for Tx payload bytes
+    uint8_t i; // Counter for Tx payload bytes
 
 	err = clocks_start();
 	if (err) {
@@ -294,76 +296,77 @@ void main(void)
 		tx_payload.data[i] = 0;
 	}
 
-      // while (gpio_pin_get_dt(&stop_input) == false); // Wait for button press
-      // k_busy_wait(DEBOUNCE); // Wait for button to stabilise
-      // // uint32_t hold_start = k_uptime_get_32();
-      // while (gpio_pin_get_dt(&stop_input) == false); // Wait for press
-      // k_busy_wait(DEBOUNCE);  
-
 	while (true) {
       stop_flag = false;
-
-      while (gpio_pin_get_dt(&start_input) == false || gpio_pin_get_dt(&stop_input) == false); // Wait for button press
+      // gpio_pin_set_dt(&led, true); // Turn on LED
+	//while (stop_flag == false) 
+	//{
+      while (gpio_pin_get_dt(&start_input) == false);
+      int64_t currentTime = k_uptime_get();
+      // Wait for button press
       k_busy_wait(DEBOUNCE); // Wait for button to stabilise
-      // uint32_t hold_start = k_uptime_get_32();
-      while (gpio_pin_get_dt(&start_input) == false || gpio_pin_get_dt(&stop_input) == false); // Wait for press
-      k_busy_wait(DEBOUNCE);
-
-    
-      while (gpio_pin_get_dt(&stop_input) == false) // While holding
-      {
-         // User is holding the button: send SLEEP command
-         tx_payload.data[0] = TX_CMD_SLEEP;
-         for (i = RTC_FIRST_BYTE; i <= RTC_LAST_BYTE; i++) {
-               tx_payload.data[i] = 0x00; // Sleep command doesn't need RTC data
+      while (gpio_pin_get_dt(&start_input) == true) {
+         int64_t holdTime = k_uptime_get();
+         if ((holdTime - currentTime) >= SLEEP_HOLD_MS) {
+            sleep_request = true; // mark that we should ask OLA to sleep
          }
-         esb_flush_tx();
-         err = esb_write_payload(&tx_payload);
-         err = esb_start_tx();
-         gpio_pin_set_dt(&led, true);  // Indicate sleep sent
-         k_msleep(100);
-         gpio_pin_set_dt(&led, false);
-         break; // Exit wait and return to main loop
-         
-      }
+         // sleep_request = false;
+      } // Wait for button release
+      k_busy_wait(DEBOUNCE); // Wait for button to stabilise
+      
       while (stop_flag == false) {
-         if (timer_event) {
+         if (sleep_request) {
+            gpio_pin_set_dt(&led, true); // Turn on LED
+            esb_flush_tx();                      
+            gpio_pin_set_dt(&sync_output, true); // Assert local sync
+            // 22.12.22 uart_rx_enable moved here from UART callback due to serial sync problem
+            uart_rx_enable(uart, uart_rx_buf, sizeof uart_rx_buf, SYS_FOREVER_US);
+            tx_payload.data[0] = TX_CMD_SLEEP; // Stop remote logging
+            gpio_pin_set_dt(&stop_output, true); // Assert local stop
+            err = esb_write_payload(&tx_payload);
+            err = esb_start_tx(); // required for manual tx mode
+            gpio_pin_set_dt(&sync_output, false); // De-assert sync when transmission complete
+            sleep_request = false;
+            break;
+         }
+         
+         if (timer_event & !sleep_request) {
             timer_event = false;														
             esb_flush_tx();                      
-               gpio_pin_set_dt(&sync_output, true); // Assert local sync
-         // 22.12.22 uart_rx_enable moved here from UART callback due to serial sync problem
+            gpio_pin_set_dt(&sync_output, true); // Assert local sync
+      // 22.12.22 uart_rx_enable moved here from UART callback due to serial sync problem
             uart_rx_enable(uart, uart_rx_buf, sizeof uart_rx_buf, SYS_FOREVER_US);
-               if (gpio_pin_get_dt(&start_input) == false) { // select appropriate Tx command
-                  tx_payload.data[0] = TX_CMD_SYNC; // Assert remote sync
-               } else {
-                  tx_payload.data[0] = TX_CMD_STOP; // Stop remote logging
-            gpio_pin_set_dt(&stop_output, true); // Assert local stop
-                  stop_flag = true; // Last transmission before end of logging
-               }
+            if (gpio_pin_get_dt(&start_input) == false) { // select appropriate Tx command
+               tx_payload.data[0] = TX_CMD_SYNC; // Assert remote sync
+            } else {
+               tx_payload.data[0] = TX_CMD_STOP; // Stop remote logging
+               gpio_pin_set_dt(&stop_output, true); // Assert local stop
+               stop_flag = true; // Last transmission before end of logging
+            }
             err = esb_write_payload(&tx_payload);
-               if (err) {
-                  //LOG_ERR("esb_write_payload() failed, err %d", err);
-               }
-               err = esb_start_tx(); // required for manual tx mode
-               gpio_pin_set_dt(&sync_output, false); // De-assert sync when transmission complete
-               if (err) {
-               //LOG_ERR("esb_tx_start() failed, err %d", err);
-               }
+            if (err) {
+               //LOG_ERR("esb_write_payload() failed, err %d", err);
+            }
+            err = esb_start_tx(); // required for manual tx mode
+            gpio_pin_set_dt(&sync_output, false); // De-assert sync when transmission complete
+            if (err) {
+            //LOG_ERR("esb_tx_start() failed, err %d", err);
+            }
             while (uart_event != true); // Wait for UART to receive 7 bytes
             uart_event = false;
-               gpio_pin_set_dt(&led, true); // Turn on LED
-         // Read the RTC value from the OLA via the UART
+            gpio_pin_set_dt(&led, true); // Turn on LED
+            // Read the RTC value from the OLA via the UART
             for (i = RTC_FIRST_BYTE; i <= RTC_LAST_BYTE; i++) {
                tx_payload.data[i] = uart_rx_buf[i - 1];
             }
-         gpio_pin_set_dt(&led, false); // Turn off LED
-         }
+            gpio_pin_set_dt(&led, false); // Turn off LED
       }
-		k_busy_wait(DEBOUNCE); // Wait for button to stabilise
-      while (gpio_pin_get_dt(&start_input) == true); // Wait for button release
-		k_busy_wait(DEBOUNCE); // Wait for button to stabilise			
-		gpio_pin_set_dt(&stop_output, false); // De-assert local stop
-    }
+   }
+   k_busy_wait(DEBOUNCE); // Wait for button to stabilise
+   while (gpio_pin_get_dt(&start_input) == true); // Wait for button release
+   k_busy_wait(DEBOUNCE); // Wait for button to stabilise			
+   gpio_pin_set_dt(&stop_output, false); // De-assert local stop
+   }
 	// Power saving
 	//k_timer_stop(&periodic_timer); // Stop the timer
 	// ToDo: Turn off ESB and UART
