@@ -1,24 +1,21 @@
-volatile bool woke_on_usb = false;
-void onUsbPresentISR() { woke_on_usb = true; }
+// volatile bool woke_on_usb = false;
+// void onUsbPresentISR() { woke_on_usb = true; }
 
-// Call this right before you go to sleep:
-void armUsbWake()
-{
-  // Configure the supervisor/VBUS pin
-  pinMode(PIN_POWER_LOSS, INPUT);          // CMOS output; no pull required
-  attachInterrupt(PIN_POWER_LOSS, onUsbPresentISR, RISING);
+// Call this right before going to sleep:
+// void armUsbWake()
+// {
+//   // Configure the supervisor/VBUS pin
+//   pinMode(PIN_POWER_LOSS, INPUT);          // CMOS output; no pull required
+//   attachInterrupt(PIN_POWER_LOSS, onUsbPresentISR, RISING);
 
-  // Build a mask for this GPIO
-  const uint64_t mask = (1ULL << PIN_POWER_LOSS);
+//   const uint64_t mask = (1ULL << PIN_POWER_LOSS);
 
-  // Clear any stale pending interrupt and (re)enable it
-  am_hal_gpio_interrupt_clear(mask);
-  am_hal_gpio_interrupt_enable(mask);
+//   am_hal_gpio_interrupt_clear(mask);
+//   am_hal_gpio_interrupt_enable(mask);
 
-  // Make sure the GPIO IRQ is unmasked at the NVIC and globally
-  NVIC_EnableIRQ(GPIO_IRQn);
-  am_hal_interrupt_master_enable();
-}
+//   NVIC_EnableIRQ(GPIO_IRQn);
+//   am_hal_interrupt_master_enable();
+// }
 
 
 // Read the battery voltage
@@ -123,7 +120,7 @@ void powerDownOLA(void)
   SPI.end(); //Power down SPI
 
   powerControlADC(false); // power_adc_disable(); //Power down ADC. It it started by default before setup().
-
+  while (Serial1.available()) Serial1.read();
   Serial.end(); //Power down UART
   Serial1.end();
 
@@ -175,17 +172,17 @@ void powerDownOLA(void)
   am_hal_pwrctrl_memory_deepsleep_retain(AM_HAL_PWRCTRL_MEM_SRAM_384K); // Retain all SRAM
 
   //Keep the 32kHz clock running for RTC
-  am_hal_stimer_config(AM_HAL_STIMER_CFG_CLEAR | AM_HAL_STIMER_CFG_FREEZE);
-  am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ);
+  am_hal_stimer_config(AM_HAL_STIMER_CFG_CLEAR | AM_HAL_STIMER_CFG_FREEZE | AM_HAL_STIMER_XTAL_32KHZ);
+//   am_hal_stimer_config();
 
-  armUsbWake();
+//   armUsbWake();
 
   while (1) // Stay in deep sleep until we get reset
   {
    //  am_hal_interrupt_master_enable();
-    armUsbWake();
+   //  armUsbWake();
     am_hal_sysctrl_sleep(AM_HAL_SYSCTRL_SLEEP_DEEP); //Sleep
-    if (woke_on_usb) break;
+   //  if (woke_on_usb) break;
   }
 }
 

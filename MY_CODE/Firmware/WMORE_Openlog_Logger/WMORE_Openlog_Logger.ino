@@ -340,7 +340,6 @@ const byte PIN_SPI_CIPO = 6;
 const byte PIN_SPI_COPI = 7;
 
 const byte SD_RECORD_LENGTH = 40; // WMORE Record length for binary file
-
 // Include this many extra bytes when starting a mux - to try and avoid the slippery mux bug
 // This should be 0 but 3 or 7 seem to work better depending on which way the wind is blowing.
 const byte EXTRA_MUX_STARTUP_BYTES = 3;
@@ -479,7 +478,8 @@ const int lowBatteryReadingsLimit = 10; // Don't declare the battery voltage low
 volatile static bool triggerEdgeSeen = false; //Flag to indicate if a trigger interrupt has been seen
 char serialTimestamp[40]; //Buffer to store serial timestamp, if needed
 volatile static bool powerLossSeen = false; //Flag to indicate if a power loss event has been seen
-
+const uint8_t CMD_SLEEP = 2;
+const uint8_t FRAME_LEN = 8;
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 uint8_t getByteChoice(int numberOfSeconds, bool updateDZSERIAL = false); // Header
@@ -755,12 +755,41 @@ void setup() {
 
 }
 
+
+bool readCommand(uint8_t& cmd) {
+  if (Serial1.available() >= FRAME_LEN) {
+    uint8_t inbuf[FRAME_LEN];
+    size_t n = Serial1.readBytes(inbuf, FRAME_LEN);
+    if (n == FRAME_LEN) {
+      cmd = inbuf[0];
+      return true;
+    } else {
+      // partial read; flush any stragglers so we realign on next frame
+      while (Serial1.available()) Serial1.read();
+    }
+  }
+  return false;
+}
 //----------------------------------------------------------------------------
 // WMORE
 // Modified and simplified original loop()
 
 void loop() {
-   uint8_t inbuf[8];
+
+  uint8_t inbuf[8] = {0};
+  if (Serial1.available() == 8) {
+   Serial1.readBytes(inbuf, 8);
+  }
+  
+  if (inbuf[0] == 2) {
+    digitalWrite(PIN_PWR_LED, LOW);
+    am_hal_stimer_int_disable(0xFFFFFFFF);
+    am_hal_stimer_int_clear(0xFFFFFFFF);
+    // while (Serial1.available()) Serial1.read();
+    serialClearBuffer(1);
+    powerDownOLA();   
+  }
+
   if (timerIntFlag == true) { // Act if sampling timer has interrupted
     // added by Sami -- set pin 12 to toggle between low and high
     digitalWrite(BREAKOUT_PIN_TX, HIGH);
@@ -768,25 +797,20 @@ void loop() {
     timerIntFlag = false; // Reset sampling timer flag
     myRTC.getTime(); // Get the local time from the RTC
     lastSamplingPeriod = samplingPeriod; // added by Sami // the previous sampling period to write to SD card
-    if (Serial1.available() >= 8) {
-      digitalWrite(PIN_STAT_LED, HIGH);
-    }
-    
-    Serial1.readBytes(inbuf, 8);
-    if (inbuf[0] == 2) {
-      // Serial1Print("SLEEP COMMAND RECEIVED\r\n");
-      // Serial1Print(F(" "));
-      // digitalWrite(PIN_PWR_LED, HIGH);
-      digitalWrite(PIN_STAT_LED, LOW); // Turn on blue LED
-      powerDownOLA();
-   }
+
+    // if (Serial1.available() >= 8) {
+    //   digitalWrite(PIN_PWR_LED, HIGH);
+    //   // digitalWrite(PIN_STAT_LED, HIGH);
+      
+    // }
+
    //  getData(); // Get data from IMU and global time from Coordinator 
-    writeSDBin(); // Store IMU and time data     
+    writeSDBin(); // Store IMU and time data   
     if (stopLoggingSeen == true) { // Stop logging if directed by Coordinator
-      digitalWrite(PIN_STAT_LED, LOW); // Turn on blue LED
+      digitalWrite(PIN_STAT_LED, LOW); // Turn off blue LED
       stopLoggingSeen = false; // Reset the flag
       // powerDownOLA(); // 
-   //    resetArtemis(); // Reset the system
+      resetArtemis(); // Reset the system
    //   stopLoggingStayAwake(); // Close file and prepare for next start command
 //      beginDataLogging(); // Open file in preparation for next logging run
 //      waitToLog(); // Wait until directed to start logging again
