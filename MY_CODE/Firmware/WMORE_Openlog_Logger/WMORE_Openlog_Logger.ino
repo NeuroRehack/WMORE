@@ -777,18 +777,6 @@ bool readCommand(uint8_t& cmd) {
 void loop() {
 
   uint8_t inbuf[8] = {0};
-  if (Serial1.available() == 8) {
-   Serial1.readBytes(inbuf, 8);
-  }
-  
-  if (inbuf[0] == 2) {
-    digitalWrite(PIN_PWR_LED, LOW);
-    am_hal_stimer_int_disable(0xFFFFFFFF);
-    am_hal_stimer_int_clear(0xFFFFFFFF);
-    // while (Serial1.available()) Serial1.read();
-    serialClearBuffer(1);
-    powerDownOLA();   
-  }
 
   if (timerIntFlag == true) { // Act if sampling timer has interrupted
     // added by Sami -- set pin 12 to toggle between low and high
@@ -803,8 +791,25 @@ void loop() {
     //   // digitalWrite(PIN_STAT_LED, HIGH);
       
     // }
+    if (Serial1.available() >= 8) {
+      uint8_t checkCMD = Serial1.peek();
 
-   //  getData(); // Get data from IMU and global time from Coordinator 
+      if (checkCMD == 2) {
+        digitalWrite(PIN_STAT_LED, HIGH);
+        Serial1.readBytes(inbuf, 8);
+      }
+    }
+    
+    if (inbuf[0] == 2) {
+      digitalWrite(PIN_PWR_LED, LOW);
+      am_hal_stimer_int_disable(0xFFFFFFFF);
+      am_hal_stimer_int_clear(0xFFFFFFFF);
+      // while (Serial1.available()) Serial1.read();
+      serialClearBuffer(1);
+      powerDownOLA();   
+    }
+    
+    getData(); // Get data from IMU and global time from Coordinator 
     writeSDBin(); // Store IMU and time data   
     if (stopLoggingSeen == true) { // Stop logging if directed by Coordinator
       digitalWrite(PIN_STAT_LED, LOW); // Turn off blue LED

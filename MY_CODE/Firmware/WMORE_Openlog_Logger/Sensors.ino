@@ -37,7 +37,7 @@ void getData()
     syncPacket.seconds = 0;
     syncPacket.hundredths = 0;
   }
-  serialClearBuffer(1); // Get rid of any spurious characters
+  // serialClearBuffer(1); // Get rid of any spurious characters
 
   // Read battery voltage and get top 8 bits
   batteryVoltage = (uint8_t)(analogRead(PIN_VIN_MONITOR) >> 6); 
