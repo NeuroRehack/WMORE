@@ -1,0 +1,29 @@
+{
+    "name": "WMORE Development",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "wmore-dev",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "vsciot-vscode.vscode-arduino",
+                "ms-azuretools.vscode-docker"
+            ],
+            "settings": {
+                "arduino.path": "/usr/local/bin",
+                "arduino.logLevel": "info",
+                "arduino.enableUSBDetection": true,
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "terminal.integrated.profiles.linux": {
+                    "bash": {
+                        "path": "/bin/bash"
+                    }
+                }
+            }
+        }
+    },
+    "workspaceFolder": "/workspace",
+    "remoteUser": "root",
+    "shutdownAction": "stopCompose",
+    "postCreateCommand": "echo 'Development container is ready!'"
+} 

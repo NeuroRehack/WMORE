@@ -1,0 +1,12 @@
+services:
+  wmore-dev:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      - /dev:/dev
+    privileged: true
+    network_mode: host
+    command: sleep infinity
+    # Don't use user field, let the Dockerfile handle it properly 

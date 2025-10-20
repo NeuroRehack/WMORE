@@ -45,21 +45,9 @@ void menuMain()
       menuTimeStamp();
     else if ((incoming == '3') && (online.IMU))
       restartIMU = menuIMU();
-    //else if ((incoming == '4') && (settings.useTxRxPinsForTerminal == false))
-      //menuSerialLogging();
-    //else if (incoming == '5')
-      //menuAnalogLogging();
-    //else if (incoming == '6')
-      //menuAttachedDevices();
+
     else if (incoming == '7')
       menuPower();
-    //else if (incoming == 'h')
-    //{
-      //printHelperText(true); //printHelperText to terminal only
-      //break; //return to logging
-    //}
-    //else if (incoming == 'd')
-      //menuDebug();
     else if (incoming == 's')
     {
       if (online.microSD)
