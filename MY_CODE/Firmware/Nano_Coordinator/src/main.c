@@ -17,12 +17,12 @@
 #include <zephyr/kernel.h>
 #include <zephyr/types.h>
 #include <zephyr/drivers/uart.h>
-
+#include <string.h>
 //LOG_MODULE_REGISTER(esb_ptx, CONFIG_ESB_PTX_APP_LOG_LEVEL);
 
 #define TX_PAYLOAD_LEN 8 // Command byte plus seven RTC bytes 
-#define TX_CMD_SYNC   0 // Sample synchronisation
-#define TX_CMD_STOP   1 // Stop sampling
+#define TX_CMD_SYNC 0 // Sample synchronisation
+#define TX_CMD_STOP 1 // Stop sampling
 #define TX_CMD_SLEEP 2 // Put artemis to deep sleep
 #define SAMPLE_INTERVAL_MS 10
 #define RTC_FIRST_BYTE 1 // First RTC byte index in tx_payload.data[]
@@ -30,6 +30,7 @@
 #define DEBOUNCE 50000 // Button debounce delay in us
 #define SLEEP_HOLD_MS 5000 
 #define SLEEP_PULSE_MS 300    
+
 // Define supported boards
 #define NANO
 
@@ -66,7 +67,11 @@ volatile bool sleep_request = false;
 static struct esb_payload tx_payload = ESB_CREATE_PAYLOAD(0,
 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00);
 static uint8_t uart_rx_buf[7] = {0};
-
+static uint8_t uart_tx_buf[7] = {0};
+static int64_t currentTime = 0;
+static uint8_t rx_buf2[sizeof uart_rx_buf];
+volatile size_t rx_have; 
+static bool need_rx_rearm = false;  
 // Callbacks ------------------------------------------------------------------
 
 // ESB callback
@@ -126,6 +131,12 @@ void periodic_timer_cb(struct k_timer *dummy)
 
 // Functions ------------------------------------------------------------------
 
+static void uart_rx_rearm_once(void)
+{
+    uart_rx_disable(uart);
+    uart_rx_enable(uart, uart_rx_buf, sizeof uart_rx_buf, SYS_FOREVER_US);
+}
+
 // Initialise clocks
 int clocks_start(void)
 {
@@ -169,7 +180,7 @@ int esb_initialize(void)
 	 */
 	//uint8_t base_addr_0[4] = {0xE7, 0xE7, 0xE7, 0xE7};
 	//uint8_t base_addr_1[4] = {0xC2, 0xC2, 0xC2, 0xC2};
-    uint8_t base_addr_0[2] = {0xE8, 0xE7};
+   uint8_t base_addr_0[2] = {0xE8, 0xE7};
 	uint8_t base_addr_1[2] = {0xC3, 0xC2};
 	uint8_t addr_prefix[8] = {0xE7, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8};
 
@@ -218,7 +229,7 @@ int esb_initialize(void)
 		return err;
 	}
 
-    err = esb_set_rf_channel(40);
+    err = esb_set_rf_channel(0);
 	if (err) {
 		return err;
 	}
@@ -297,12 +308,11 @@ void main(void)
 	}
 
 	while (true) {
-      stop_flag = false;
-      // gpio_pin_set_dt(&led, true); // Turn on LED
+	    stop_flag = false;
 	//while (stop_flag == false) 
 	//{
       while (gpio_pin_get_dt(&start_input) == false);
-      int64_t currentTime = k_uptime_get();
+      currentTime = k_uptime_get();
       // Wait for button press
       k_busy_wait(DEBOUNCE); // Wait for button to stabilise
       while (gpio_pin_get_dt(&start_input) == true) {
@@ -312,29 +322,73 @@ void main(void)
          }
          // sleep_request = false;
       } // Wait for button release
-      k_busy_wait(DEBOUNCE); // Wait for button to stabilise
-      
-      while (stop_flag == false) {
+      //   while (gpio_pin_get_dt(&start_input) == false); // Wait for button press
+      //   currentTime = k_uptime_get();
+		// k_busy_wait(DEBOUNCE); // Wait for button to stabilise
+      //   while (gpio_pin_get_dt(&start_input) == true); // Wait for button release
+        
+		k_busy_wait(DEBOUNCE); // Wait for button to stabilise		
+        while (stop_flag == false) {
          if (sleep_request) {
-            gpio_pin_set_dt(&led, true); // Turn on LED
+            sleep_request = false;
+            // gpio_pin_set_dt(&led, true); // Turn on LED
             esb_flush_tx();                      
             gpio_pin_set_dt(&sync_output, true); // Assert local sync
             // 22.12.22 uart_rx_enable moved here from UART callback due to serial sync problem
-            uart_rx_enable(uart, uart_rx_buf, sizeof uart_rx_buf, SYS_FOREVER_US);
+            // uart_rx_enable(uart, uart_rx_buf, sizeof uart_rx_buf, SYS_FOREVER_US);
             tx_payload.data[0] = TX_CMD_SLEEP; // Stop remote logging
             gpio_pin_set_dt(&stop_output, true); // Assert local stop
             err = esb_write_payload(&tx_payload);
             err = esb_start_tx(); // required for manual tx mode
+            // const char *msg = "SLEEP\n";
+            // for (size_t i = 0; i < strlen(msg); i++) {
+            //    uart_poll_out(uart, msg[i]);
+            // }
+            // while (uart_event != true); // Wait for UART to receive 7 bytes
+            // uart_event = false;
+            // gpio_pin_set_dt(&led, true); // Turn on LED
+            // Read the RTC value from the OLA via the UART
+            for (i = RTC_FIRST_BYTE; i <= RTC_LAST_BYTE; i++) {
+               // gpio_pin_set_dt(&led, true); // Turn on LED
+               tx_payload.data[i] = TX_CMD_SLEEP;
+               gpio_pin_set_dt(&led, false); // Turn on LED
+            }
+            // sleep the coordinator
+            static const uint8_t msg[] = "SLEEP\n";
+            for (i = 0; i <= strlen(msg); i++) {
+               gpio_pin_set_dt(&led, true); // Turn on LED
+               uart_poll_out(uart, msg[i]);
+               gpio_pin_set_dt(&led, false); // Turn on LED
+            }
+            // /* start TX (timeout may be SYS_FOREVER_US; the wait below has a cap) */
+            // int ret = uart_tx(uart, msg, sizeof(msg) - 1, SYS_FOREVER_US);
+            // if (ret == 0) {
+            //    /* wait up to 200 ms for TX to complete */
+            //    (void)k_sem_take(&uart_tx_done, K_MSEC(200));
+            // }
+            // uart_rx_disable(uart);
+            // const char *msg = "SLEEP\n";
+            // for (size_t i = 0; i < strlen(msg); i++) {
+            //    uart_poll_out(uart, msg[i]);
+            // }     
             gpio_pin_set_dt(&sync_output, false); // De-assert sync when transmission complete
-            sleep_request = false;
+            need_rx_rearm = true;
+       
+
+
             break;
          }
          
-         if (timer_event & !sleep_request) {
-            timer_event = false;														
+         if (timer_event && !sleep_request) {
+            timer_event = false;
+            if (need_rx_rearm) {
+               uart_rx_rearm_once();
+               need_rx_rearm = false;
+               rx_have = 0;
+            }														
             esb_flush_tx();                      
             gpio_pin_set_dt(&sync_output, true); // Assert local sync
-      // 22.12.22 uart_rx_enable moved here from UART callback due to serial sync problem
+            // 22.12.22 uart_rx_enable moved here from UART callback due to serial sync problem
             uart_rx_enable(uart, uart_rx_buf, sizeof uart_rx_buf, SYS_FOREVER_US);
             if (gpio_pin_get_dt(&start_input) == false) { // select appropriate Tx command
                tx_payload.data[0] = TX_CMD_SYNC; // Assert remote sync
@@ -352,21 +406,33 @@ void main(void)
             if (err) {
             //LOG_ERR("esb_tx_start() failed, err %d", err);
             }
-            while (uart_event != true); // Wait for UART to receive 7 bytes
+
+            if (rx_have >= sizeof uart_rx_buf) {
+               for (i = RTC_FIRST_BYTE; i <= RTC_LAST_BYTE; i++) {
+                     tx_payload.data[i] = uart_rx_buf[i - 1];
+               }
+               rx_have = 0; // mark consumed
+            }
+            // while (uart_event != true); // Wait for UART to receive 7 bytes
             uart_event = false;
             gpio_pin_set_dt(&led, true); // Turn on LED
             // Read the RTC value from the OLA via the UART
             for (i = RTC_FIRST_BYTE; i <= RTC_LAST_BYTE; i++) {
                tx_payload.data[i] = uart_rx_buf[i - 1];
             }
+            // if (k_sem_take(&uart_7b_ready, K_MSEC(50)) == 0) {
+            //    for (i = RTC_FIRST_BYTE; i <= RTC_LAST_BYTE; i++) {
+            //          tx_payload.data[i] = uart_rx_buf[i - 1];
+            //    }
+            // }
             gpio_pin_set_dt(&led, false); // Turn off LED
+         }
       }
-   }
-   k_busy_wait(DEBOUNCE); // Wait for button to stabilise
-   while (gpio_pin_get_dt(&start_input) == true); // Wait for button release
-   k_busy_wait(DEBOUNCE); // Wait for button to stabilise			
-   gpio_pin_set_dt(&stop_output, false); // De-assert local stop
-   }
+		k_busy_wait(DEBOUNCE); // Wait for button to stabilise
+        while (gpio_pin_get_dt(&start_input) == true); // Wait for button release
+		k_busy_wait(DEBOUNCE); // Wait for button to stabilise			
+		gpio_pin_set_dt(&stop_output, false); // De-assert local stop
+    }
 	// Power saving
 	//k_timer_stop(&periodic_timer); // Stop the timer
 	// ToDo: Turn off ESB and UART
