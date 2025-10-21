@@ -1,2 +1,0 @@
-this file is a test to confirm whether the current branch has been checked out
-this line is to test whether using an external text editor triggers git to recognise changes
