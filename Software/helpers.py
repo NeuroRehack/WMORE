@@ -11,6 +11,10 @@ import configparser
 import os
 from multiprocessing import Pool
 
+# Added by Lucas Cardoso
+import platform
+from pathlib import Path
+
 
 from constants import *
 
@@ -105,7 +109,8 @@ def set_config(iniFilePath,section,var,val):
     config.set(section,var,val)
     with open(iniFilePath, 'w') as config_file:
         config.write(config_file)
-        
+
+# Lucas Cardoso: the below code should be commented to run TeraTerm with Wine, for Ubuntu compatibility      
 def search_directory(root):
     """search computer for location  of Tera term exe file
 
@@ -201,4 +206,93 @@ def check_tera_term_automate():
                 return teratermPath
     
     return teratermPath
+# ******************************************************************************************************
+
+# Lucas Cardoso: the below code should be uncommented to run TeraTerm with Wine, for Ubuntu compatibility  
+# def to_wine_path(unix_path: str) -> str:
+#     """
+#     Convert '/home/user/folder' -> 'Z:\\home\\user\\folder' for Wine/Tera Term/TTL.
+#     Safe to pass into your change_output_path_in_ttl().
+#     """
+#     p = Path(unix_path).resolve()
+#     return "Z:" + str(p).replace("/", "\\")
+
+# def _wine_teraterm_candidates():
+#     home = Path.home()
+#     return [
+#         home / ".wine" / "drive_c" / "Program Files (x86)" / "teraterm5" / "ttermpro.exe",
+#         home / ".wine" / "drive_c" / "Program Files"       / "teraterm5" / "ttermpro.exe",
+#     ]
+
+# def _windows_teraterm_candidates():
+#     pf86 = os.environ.get('ProgramFiles(x86)', r"C:\Program Files (x86)")
+#     pf   = os.environ.get('ProgramFiles',       r"C:\Program Files")
+#     return [
+#         Path(pf86) / "teraterm5" / "ttermpro.exe",
+#         Path(pf)   / "teraterm5" / "ttermpro.exe",
+#     ]
+
+# def check_tera_term_automate():
+#     """
+#     Returns the full path to ttermpro.exe if found, otherwise None.
+#     - Uses config if valid
+#     - Searches Wine locations (Linux) / Program Files (Windows)
+#     - Never scans invalid roots (avoids '\\' issue)
+#     """
+#     # Env override (optional convenience)
+#     env_override = os.environ.get("TERA_TERM_EXE")
+#     if env_override and os.path.exists(env_override):
+#         set_config(CONFIG_PATH,'paths','teraterm_location', env_override)
+#         return env_override
+
+#     # Config path valid?
+#     teratermPath = get_config(CONFIG_PATH,'paths', 'teraterm_location')
+#     if teratermPath and os.path.exists(teratermPath) and os.path.basename(teratermPath).lower() == "ttermpro.exe":
+#         return teratermPath
+
+#     # Known install locations
+#     candidates = _windows_teraterm_candidates() if platform.system() == "Windows" else _wine_teraterm_candidates()
+#     for c in candidates:
+#         if c.exists():
+#             tt = str(c)
+#             set_config(CONFIG_PATH,'paths','teraterm_location', tt)
+#             return tt
+
+#     return None  # caller can fall back to your GUI picker
+
+# def map_linux_serial_to_wine_com(port_name: str, com_name: str = "com1") -> str:
+#     """
+#     Map a Linux serial device (e.g., 'ttyUSB0' or '/dev/ttyUSB0') to Wine's COM port symlink (~/.wine/dosdevices/com1).
+#     Returns the absolute Linux device path it mapped to, or raises if not found.
+#     """
+#     # Normalize to absolute /dev path
+#     if port_name.startswith("/dev/"):
+#         dev = port_name
+#     else:
+#         dev = f"/dev/{port_name}"
+
+#     if not os.path.exists(dev):
+#         raise FileNotFoundError(f"Serial device not found: {dev}")
+
+#     dosdevices = Path.home() / ".wine" / "dosdevices"
+#     dosdevices.mkdir(parents=True, exist_ok=True)
+#     link = dosdevices / com_name.lower()
+#     # Create/replace symlink
+#     if link.exists() or link.is_symlink():
+#         link.unlink()
+#     link.symlink_to(dev)
+#     return dev
+
+# def run_teraterm(exe_path: str, args=None):
+#     """
+#     Launch Tera Term. On Linux, runs through 'wine'.
+#     Returns subprocess.Popen.
+#     """
+#     import subprocess
+#     args = args or []
+#     if platform.system() == "Windows":
+#         return subprocess.Popen([exe_path] + args)
+#     else:
+#         return subprocess.Popen(["wine", exe_path] + args)
+
         

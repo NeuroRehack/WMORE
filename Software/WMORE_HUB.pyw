@@ -224,6 +224,94 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             QtWidgets.QMessageBox.critical(self,"No Device", "No selected device found.\nPlease select a device first.")
 
+    # # Lucas Cardoso: the def download() below can be used to run TeraTerm with Wine, for Ubuntu compatibility
+    # def download(self):
+    #     """Start a Tera Term macro download on the selected serial port."""
+    #     if not self.serial.isOpen():
+    #         QtWidgets.QMessageBox.critical(self, "No Device",
+    #                                     "No selected device found.\nPlease select a device first.")
+    #         return
+
+    #     items = self.list_widget.selectedItems()
+    #     if not items:
+    #         QtWidgets.QMessageBox.critical(self, "Selection Required",
+    #                                     "Select a device in the list first.")
+    #         return
+
+    #     item_text = items[0].text()  # e.g. "COM3\t 12 WMORE Logger ..." or "ttyUSB0\t 12 WMORE Logger ..."
+    #     # Determine the COM number Tera Term wants
+    #     com_num = None
+
+    #     # Case 1: Windows-style COMn present in the text
+    #     m = re.search(r'\bCOM(\d+)\b', item_text, re.IGNORECASE)
+    #     if m:
+    #         com_num = m.group(1)
+    #     else:
+    #         # Case 2: Linux device name (list shows "ttyUSB0" or "/dev/ttyUSB0")
+    #         mtty = re.search(r'(/dev/tty\S+|tty\w+\d+)', item_text)
+    #         if not mtty:
+    #             QtWidgets.QMessageBox.critical(
+    #                 self, "Port Error",
+    #                 f"Could not infer a serial device from:\n{item_text}\n"
+    #                 "Tip: list items should include COMn or ttyUSB*/ttyACM*."
+    #             )
+    #             return
+
+    #         tty = mtty.group(1)
+    #         if not tty.startswith("/dev/"):
+    #             tty = f"/dev/{tty}"
+
+    #         try:
+    #             # map to a Wine COM (pick any stable name you like, e.g., com3)
+    #             helpers.map_linux_serial_to_wine_com(tty, com_name="com3")
+    #             com_num = "3"
+    #         except Exception as e:
+    #             QtWidgets.QMessageBox.critical(self, "Wine COM Mapping Error", str(e))
+    #             return
+
+    #     # Disconnect serial/UI before launching Tera Term
+    #     self.disconnect_serial()
+    #     self.list_widget.clearSelection()
+    #     QtCore.QCoreApplication.processEvents()
+
+    #     # TTL macro path
+    #     macro_full_path = os.path.abspath(TERATERM_MACRO)
+
+    #     # Choose output folder
+    #     base_dir = QtWidgets.QFileDialog.getExistingDirectory(self, 'Choose output folder')
+    #     if not base_dir:
+    #         return  # user cancelled
+
+    #     # Create dated subfolder: YYMMDD_HHMMSS_FW_ID
+    #     fw = (self.selected_device.firmware or "").split(" ")[0]
+    #     dev_id = getattr(self.selected_device, "id", "UNKNOWN")
+    #     dated = f"{datetime.now():%y%m%d_%H%M%S}_{fw}_{dev_id}"
+    #     out_dir = os.path.join(base_dir, dated)
+    #     os.makedirs(out_dir, exist_ok=True)
+
+    #     # IMPORTANT: Tera Term/TTL under Wine wants a Windows-style path (e.g., Z:\home\user\...)
+    #     try:
+    #         wine_out_dir = helpers.to_wine_path(out_dir)
+    #         helpers.change_output_path_in_ttl(macro_full_path, wine_out_dir)
+    #     except Exception as e:
+    #         QtWidgets.QMessageBox.critical(self, "Macro Error",
+    #                                     f"Could not update Tera Term macro output path:\n{e}")
+    #         return
+
+    #     if not self.teratermPath:
+    #         QtWidgets.QMessageBox.critical(self, "Tera Term Error",
+    #                                     "Path to Tera Term is not configured.")
+    #         return
+
+    #     # Launch Tera Term (helpers.run_teraterm uses Wine on Linux for you)
+    #     try:
+    #         args = [f"/C={com_num}", "/BAUD=115200", f'/M="{macro_full_path}"']
+    #         helpers.run_teraterm(self.teratermPath, args)
+    #     except Exception as e:
+    #         QtWidgets.QMessageBox.critical(self, "Tera Term Error",
+    #                                     f"An error occurred when trying to run Tera Term:\n{e}")
+
+
     def send_commands(self,commands):
         """Send a list of commands to the serial device
 
