@@ -1166,28 +1166,67 @@ void overrideSettings(void) {
 }
 
 //----------------------------------------------------------------------------
-
 // WMORE
 // Sends RTC value via Serial1. If this unit is a Coordinator, this is broadcast
 // to all Sensors.
-
+// Lucas Cardoso [28/10/2025]: Updated to send UNIX time + hundredths 
 void sendRTC(void) {
-  
-  uint8_t rtcBuf[7];
-  uint8_t i;
 
-  // Fill buffer with current RTC value.
-  rtcBuf[0] = (uint8_t)myRTC.year;
-  rtcBuf[1] = (uint8_t)myRTC.month;
-  rtcBuf[2] = (uint8_t)myRTC.dayOfMonth;
-  rtcBuf[3] = (uint8_t)myRTC.hour;
-  rtcBuf[4] = (uint8_t)myRTC.minute;
-  rtcBuf[5] = (uint8_t)myRTC.seconds;
-  rtcBuf[6] = (uint8_t)myRTC.hundredths;
+  uint8_t rtcBuf[7]; 
 
-  // Send RTC value to ESB transmitter.
+  // Fill buffer with current RTC value. 
+  rtcBuf[0] = (uint8_t)myRTC.year; 
+  rtcBuf[1] = (uint8_t)myRTC.month; 
+  rtcBuf[2] = (uint8_t)myRTC.dayOfMonth; 
+  rtcBuf[3] = (uint8_t)myRTC.hour; 
+  rtcBuf[4] = (uint8_t)myRTC.minute; 
+  rtcBuf[5] = (uint8_t)myRTC.seconds; 
+  rtcBuf[6] = (uint8_t)myRTC.hundredths; 
+
+  // Send RTC value to ESB transmitter. 
   Serial1.write(rtcBuf,7); // Fast - 7 bytes in 150 us @ 460800 bps
+
   
+  // uint8_t rtcBuf[5];
+  uint32_t unixTime;
+  uint8_t hundredths;
+
+  // Get current UNIX time 
+  unixTime = getUnixTimeFromRTC();
+  hundredths = (uint8_t)myRTC.hundredths;
+
+  // Pack UNIX time (4 bytes) into buffer (little endian)
+  // rtcBuf[0] = (uint8_t)(unixTime & 0xFF);
+  // rtcBuf[1] = (uint8_t)((unixTime >> 8) & 0xFF);
+  // rtcBuf[2] = (uint8_t)((unixTime >> 16) & 0xFF);
+  // rtcBuf[3] = (uint8_t)((unixTime >> 24) & 0xFF);
+  // rtcBuf[4] = hundredths;
+
+  // Send to transmitter
+  // Serial1.write(rtcBuf, 5);  // 5 bytes: 4 for UNIX time, 1 for hundredths
+  // To debug:
+  // Serial.print(F("UNIX time: "));
+  // Serial.print(unixTime);
+  // Serial.print(F(", hundredths: "));
+  // Serial.println(hundredths);
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Get RTC and convert to UNIX time using the local UTC offset
+uint32_t getUnixTimeFromRTC(void) {
+  struct tm t = {0};                // ensure all fields start at 0
+  t.tm_year = myRTC.year + 100;     // years since 1900 (e.g. 2025 → 125)
+  t.tm_mon  = myRTC.month - 1;      // months since January (0–11)
+  t.tm_mday = myRTC.dayOfMonth;
+  t.tm_hour = myRTC.hour;
+  t.tm_min  = myRTC.minute;
+  t.tm_sec  = myRTC.seconds;
+  t.tm_isdst = -1;
+
+  // Convert from local time to UTC
+  time_t local = mktime(&t);        // converts local time → epoch (local)
+  return (uint32_t)local;
 }
 
 //----------------------------------------------------------------------------
