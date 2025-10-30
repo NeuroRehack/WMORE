@@ -31,8 +31,18 @@
 #define TX_CMD_SYNC 0 // Sample synchronisation
 #define TX_CMD_STOP 1 // Stop sampling
 #define SAMPLE_INTERVAL_MS 10
-#define RTC_FIRST_BYTE 1 // First RTC byte index in tx_payload.data[]
-#define RTC_LAST_BYTE 7 // Last RTC byte index in tx_payload.data[]
+// Lucas Cardoso [30/10/2025] (modification to UNIX time):
+// The first and last bytes are not necessary anymore, because we now use the DATA_LEN. I also added SOF.
+// The RTC package to send via ESB is now:
+// [SOF] [Command byte] [t3] [t2] [t1] [t0] [hh] [CHK]
+// in which, 
+// [SOF] -> start of message
+// [Command byte] -> same as before
+// [t3] to [t0] -> UNIX time in uint32_t, from the MSB to the LSB
+// [hh] -> hundredths
+// [CHK] -> checksum
+#define SOF 0xAA // Start-of-frame marker
+#define DATA_LEN 5 // [t3] [t2] [t1] [t0] [hh]
 #define DEBOUNCE 50000 // Button debounce delay in us
 
 // Define supported boards
@@ -65,13 +75,28 @@ static const struct device *uart = DEVICE_DT_GET(DT_NODELABEL(uart0));
 struct k_timer periodic_timer;
 bool stop_flag = false; // Stop input asserted.
 volatile bool timer_event = false; // Timer flag.
-volatile bool uart_event = false; // UART has received 7 bytes
+volatile bool uart_event = false; // UART has received 5 bytes (Lucas Cardoso [30/10/2025] (modification to UNIX time): changed comment from "7 bytes" to "5 bytes")
 //static struct esb_payload rx_payload;
 static struct esb_payload tx_payload = ESB_CREATE_PAYLOAD(0,
 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00);
-static uint8_t uart_rx_buf[7] = {0};
+
+// Lucas Cardoso [30/10/2025] (modification to UNIX time):
+// Changed the size of the UART buffer. It should expect 5 bytes now
+static uint8_t uart_rx_buf[5] = {0};
 
 // Callbacks ------------------------------------------------------------------
+
+// Lucas Cardoso [30/10/2025]: Add function for CRC-8 (Cyclic Redundancy Check)
+static inline uint8_t crc8_0x07(const uint8_t *buf, uint8_t len) {
+    uint8_t crc = 0x00;
+    while (len--) {
+        crc ^= *buf++;
+        for (uint8_t i = 0; i < 8; i++) {
+            crc = (crc & 0x80) ? ((crc << 1) ^ 0x07) : (crc << 1);
+        }
+    }
+    return crc;
+}
 
 // ESB callback
 void esb_cb(struct esb_evt const *event)
@@ -295,9 +320,11 @@ void main(void)
 
 	tx_payload.noack = true;
 
+	// Lucas Cardoso [30/10/2025] (modification to UNIX time):
+	// Modified the way we initialise tx_payload.data[]
     // Initialise tx_payload.data[]
-	for (i = RTC_FIRST_BYTE; i <= RTC_LAST_BYTE; i++) {
-		tx_payload.data[i] = 0;
+	for (i = 0; i < DATA_LEN; i++) {
+		tx_payload.data[2 + i] = 0;
 	}
 
 	while (true) {
@@ -315,29 +342,52 @@ void main(void)
                 gpio_pin_set_dt(&sync_output, true); // Assert local sync
 				// 22.12.22 uart_rx_enable moved here from UART callback due to serial sync problem
 				uart_rx_enable(uart, uart_rx_buf, sizeof uart_rx_buf, SYS_FOREVER_US);
+
+				// Lucas Cardoso [30/10/2025] (modification to UNIX time):
+				// The below code was modified to change to UNIX time and to include SOF and CHK to the messages
+
+				// Pos 0) SOF
+				tx_payload.data[0] = SOF;
+
+				// Pos 1) Command byte
                 if (gpio_pin_get_dt(&start_input) == false) { // select appropriate Tx command
-                    tx_payload.data[0] = TX_CMD_SYNC; // Assert remote sync
+                    tx_payload.data[1] = TX_CMD_SYNC; // Assert remote sync
                 } else {
-                    tx_payload.data[0] = TX_CMD_STOP; // Stop remote logging
+                    tx_payload.data[1] = TX_CMD_STOP; // Stop remote logging
 					gpio_pin_set_dt(&stop_output, true); // Assert local stop
                     stop_flag = true; // Last transmission before end of logging
                 }
+
+				// Lucas Cardoso [30/10/2025]: Pos 2 to 6 are filled bellow, after writing the payload
+				// I am not sure why, but I will keep the order used in the original code
+				// In the first time it runs, the DATA packaged was already initialized with 0's
+
+				// Pos 7) CHK = XOR(SOF + DATA)
+				tx_payload.data[TX_PAYLOAD_LEN - 1] = crc8_0x07(tx_payload.data, TX_PAYLOAD_LEN - 1);
+
 	            err = esb_write_payload(&tx_payload);
                 if (err) {
 	                //LOG_ERR("esb_write_payload() failed, err %d", err);
                 }
+
                 err = esb_start_tx(); // required for manual tx mode
+
                 gpio_pin_set_dt(&sync_output, false); // De-assert sync when transmission complete
                 if (err) {
 		            //LOG_ERR("esb_tx_start() failed, err %d", err);
                 }
-				while (uart_event != true); // Wait for UART to receive 7 bytes
+
+				while (uart_event != true); // Wait for UART to receive 5 bytes
 				uart_event = false;
-                gpio_pin_set_dt(&led, true); // Turn on LED
+                
+				gpio_pin_set_dt(&led, true); // Turn on LED
+
+				// Pos 2 to 6) DATA bytes
 				// Read the RTC value from the OLA via the UART
-			    for (i = RTC_FIRST_BYTE; i <= RTC_LAST_BYTE; i++) {
-				    tx_payload.data[i] = uart_rx_buf[i - 1];
-			    }
+				for (i = 0; i < DATA_LEN; i++) {
+					tx_payload.data[2 + i] = uart_rx_buf[i];
+				}
+
 				gpio_pin_set_dt(&led, false); // Turn off LED
             }
 	    }
