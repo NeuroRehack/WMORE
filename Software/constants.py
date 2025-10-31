@@ -47,11 +47,11 @@ CONFIG_PATH = "config.ini"
 # USED IN BinToCSV.py
 # set the fprintf format of the 215 human-readable variables per line
 LINE_FORMAT = (
-    "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%.2f,%.2f,%d,%d\n"
+    "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%.2f,%.2f,%d\n"
 )
 
 # Create headings for the output file
-LINE_HEADING = "ax,ay,az,gx,gy,gz,mx,my,mz,temp,valid,g_unix,l_unix,battery,period"
+LINE_HEADING = "ax,ay,az,gx,gy,gz,mx,my,mz,valid,g_unix,l_unix,battery"
 
-NUM_IMU_VARS = 10  # 10 x int16 variables from IMU
-NUM_UNIT8_LINE = 36  # 36 x uint8 per line encoding 15 human-readable variables
+NUM_IMU_VARS = 9  # 9 x int16 variables from IMU
+NUM_UNIT8_LINE = 30  # 30 x uint8 per line encoding 13 human-readable variables

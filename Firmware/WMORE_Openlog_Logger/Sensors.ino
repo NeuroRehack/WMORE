@@ -151,8 +151,8 @@ void getData()
   outputData[outputDataCount++] = (uint8_t)((myICM.agmt.mag.axes.y >> 8) & 0xFF); 
   outputData[outputDataCount++] = (uint8_t)(myICM.agmt.mag.axes.z & 0xFF); 
   outputData[outputDataCount++] = (uint8_t)((myICM.agmt.mag.axes.z >> 8) & 0xFF);
-  outputData[outputDataCount++] = (uint8_t)(myICM.agmt.tmp.val & 0xFF); 
-  outputData[outputDataCount++] = (uint8_t)((myICM.agmt.tmp.val >> 8) & 0xFF);                  
+  // outputData[outputDataCount++] = (uint8_t)(myICM.agmt.tmp.val & 0xFF); 
+  // outputData[outputDataCount++] = (uint8_t)((myICM.agmt.tmp.val >> 8) & 0xFF);                  
   outputData[outputDataCount++] = (uint8_t)(syncPacket.valid);
 
   // 4 bytes for global UNIX time (LSB first)
@@ -172,10 +172,10 @@ void getData()
   outputData[outputDataCount++] = (uint8_t)(local_unixTime.hundredths); // LSB
 
   outputData[outputDataCount++] = (uint8_t)(batteryVoltage); // MSB
-  outputData[outputDataCount++] = (uint8_t)(intPeriod.part[0]); // LSB
-  outputData[outputDataCount++] = (uint8_t)(intPeriod.part[1]); // 
-  outputData[outputDataCount++] = (uint8_t)(intPeriod.part[2]); // 
-  outputData[outputDataCount++] = (uint8_t)(intPeriod.part[3]); // MSB                    
+  // outputData[outputDataCount++] = (uint8_t)(intPeriod.part[0]); // LSB
+  // outputData[outputDataCount++] = (uint8_t)(intPeriod.part[1]); // 
+  // outputData[outputDataCount++] = (uint8_t)(intPeriod.part[2]); // 
+  // outputData[outputDataCount++] = (uint8_t)(intPeriod.part[3]); // MSB                    
   totalCharactersPrinted += outputDataCount;
   digitalWrite(PIN_STAT_LED, LOW); // Turn off the blue LED  
 }

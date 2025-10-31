@@ -8,7 +8,7 @@ sendln "sz *"
 pause 1
 sendln "\r"
 pause 1
-changedir "C:\Users\medrobotics\Documents\Lucas\RITA\Test Data\\251031_152825_Logger_3"
+changedir "C:\Users\medrobotics\Documents\Lucas\RITA\Test Data\\251031_161634_Logger_3"
 zmodemrecv
 pause 1
 sendln "x"

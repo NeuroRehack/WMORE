@@ -241,7 +241,7 @@ const byte PIN_SPI_SCK = 5;
 const byte PIN_SPI_CIPO = 6;
 const byte PIN_SPI_COPI = 7;
 
-const byte SD_RECORD_LENGTH = 36; // WMORE Record length for binary file
+const byte SD_RECORD_LENGTH = 30; // WMORE Record length for binary file
 
 // Include this many extra bytes when starting a mux - to try and avoid the slippery mux bug
 // This should be 0 but 3 or 7 seem to work better depending on which way the wind is blowing.
