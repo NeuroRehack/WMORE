@@ -1172,21 +1172,6 @@ void overrideSettings(void) {
 // Lucas Cardoso [28/10/2025]: Updated to send UNIX time + hundredths 
 void sendRTC(void) {
 
-  // uint8_t rtcBuf[7]; 
-
-  // Fill buffer with current RTC value. 
-  // rtcBuf[0] = (uint8_t)myRTC.year; 
-  // rtcBuf[1] = (uint8_t)myRTC.month; 
-  // rtcBuf[2] = (uint8_t)myRTC.dayOfMonth; 
-  // rtcBuf[3] = (uint8_t)myRTC.hour; 
-  // rtcBuf[4] = (uint8_t)myRTC.minute; 
-  // rtcBuf[5] = (uint8_t)myRTC.seconds; 
-  // rtcBuf[6] = (uint8_t)myRTC.hundredths; 
-
-  // // Send RTC value to ESB transmitter. 
-  // Serial1.write(rtcBuf,7); // Fast - 7 bytes in 150 us @ 460800 bps
-
-  
   uint8_t rtcBuf[5];
   uint32_t unixTime;
   uint8_t hundredths;
@@ -1204,11 +1189,12 @@ void sendRTC(void) {
 
   // Send to transmitter
   Serial1.write(rtcBuf, 5);  // 5 bytes: 4 for UNIX time, 1 for hundredths
-  // To debug:
-  Serial.print(F("UNIX time: "));
-  Serial.print(unixTime);
-  Serial.print(F(", hundredths: "));
-  Serial.println(hundredths);
+  
+  // Debug lines:
+  // Serial.print(F("UNIX time: "));
+  // Serial.print(unixTime);
+  // Serial.print(F(", hundredths: "));
+  // Serial.println(hundredths);
 }
 
 //----------------------------------------------------------------------------

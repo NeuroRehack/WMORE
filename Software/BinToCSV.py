@@ -38,7 +38,7 @@ def binToCSV(file_path):
     max_index = int(len(raw_data) / NUM_UNIT8_LINE)
 
     # Create a row vector for extracted variables
-    formatted_data = [0] * 21  # 22 human-readable variables per line
+    formatted_data = [0] * 15  # 15 human-readable variables per line
     
     # Create and open output csv file
     with open(out_file, 'w') as file_id:
@@ -70,16 +70,24 @@ def binToCSV(file_path):
             temp += int(uint8_line[25]) / 100.0
             formatted_data[11] = round(temp, 2)
                 
-            # Extract 8 x uint8 from line
-            for j in range(NUM_UNIT8_VARS):
-                formatted_data[j + 12] = int(uint8_line[j + 26])
+            # Extract local unix time
+            temp  = uint8_line[26]
+            temp += uint8_line[27] * 2**8
+            temp += uint8_line[28] * 2**16
+            temp += uint8_line[29] * 2**24
+            # Add hundredths
+            temp += int(uint8_line[30]) / 100.0
+            formatted_data[12] = round(temp, 2)
+
+            # Extract battery byte
+            formatted_data[13] = int(uint8_line[31])
                 
             # Extract 1 x uint32 from line
-            temp = uint8_line[34]
-            temp += uint8_line[35] * 2**8
-            temp += uint8_line[36] * 2**16
-            temp += uint8_line[37] * 2**24
-            formatted_data[20] = temp
+            temp = uint8_line[32]
+            temp += uint8_line[33] * 2**8
+            temp += uint8_line[34] * 2**16
+            temp += uint8_line[35] * 2**24
+            formatted_data[14] = temp
             
             # print the data to the output text file
             file_id.write(LINE_FORMAT % tuple(formatted_data))

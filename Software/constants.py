@@ -45,14 +45,13 @@ SPLASH_PATH = "images\\WMORE.png"
 CONFIG_PATH = "config.ini"
 
 # USED IN BinToCSV.py
-# set the fprintf format of the 21 human-readable variables per line
+# set the fprintf format of the 215 human-readable variables per line
 LINE_FORMAT = (
-    "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%.2f,%d,%d,%d,%d,%d,%d,%d,%d,%d\n"
+    "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%.2f,%.2f,%d,%d\n"
 )
 
 # Create headings for the output file
-LINE_HEADING = "ax,ay,az,gx,gy,gz,mx,my,mz,temp,valid,g_unix,l_year,l_month,l_day,l_hour,l_minute,l_second,l_hund,battery,period"
+LINE_HEADING = "ax,ay,az,gx,gy,gz,mx,my,mz,temp,valid,g_unix,l_unix,battery,period"
 
 NUM_IMU_VARS = 10  # 10 x int16 variables from IMU
-NUM_UNIT8_VARS = 8  # 8 x various uint8 variables
-NUM_UNIT8_LINE = 38  # 37 x uint8 per line encoding 21 human-readable variables
+NUM_UNIT8_LINE = 36  # 36 x uint8 per line encoding 15 human-readable variables

@@ -1,3 +1,8 @@
+typedef struct {
+  uint32_t unix;
+  uint8_t hundredths;
+} UnixTimeWithHunds;
+
 typedef enum
 {
   DEVICE_MULTIPLEXER = 0,

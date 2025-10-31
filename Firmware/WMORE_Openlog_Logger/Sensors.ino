@@ -2,6 +2,27 @@ static uint8_t  rxbuf[5];
 static uint8_t  rxidx = 0;
 bool newPacket = false;
 
+UnixTimeWithHunds local_unixTime;
+
+// Get local RTC and convert to UNIX time
+UnixTimeWithHunds getUnixTimeFromRTC(void) {
+  UnixTimeWithHunds result;
+  struct tm t = {0};
+
+  t.tm_year = myRTC.year + 100;
+  t.tm_mon  = myRTC.month - 1;
+  t.tm_mday = myRTC.dayOfMonth;
+  t.tm_hour = myRTC.hour;
+  t.tm_min  = myRTC.minute;
+  t.tm_sec  = myRTC.seconds;
+  t.tm_isdst = -1;
+
+  result.unix = (uint32_t)mktime(&t);
+  result.hundredths = myRTC.hundredths;
+  return result;
+}
+
+// Process Unix time package
 void pollUnixPacket() {
 
   newPacket = false;
@@ -64,7 +85,12 @@ void getData()
   }
 
   delayMicroseconds(1000); // Wait until syncPacket data is available (delay may not be optimal)
+
+  // Get global UNIX time
   pollUnixPacket();
+
+  // Get local UNIX time
+  local_unixTime = getUnixTimeFromRTC();
 
   // // Update RTC from master if more than RTC_UPDATE_INTERVAL_US has elapsed. 
   // if ((syncPacket.valid == true) && (elapsedMinutes(myRTC.minute, lastRTCSetMinutes) > RTC_UPDATE_INTERVAL_MINS)) {
@@ -129,20 +155,22 @@ void getData()
   outputData[outputDataCount++] = (uint8_t)((myICM.agmt.tmp.val >> 8) & 0xFF);                  
   outputData[outputDataCount++] = (uint8_t)(syncPacket.valid);
 
-  // 4 bytes for UNIX time (LSB first)
+  // 4 bytes for global UNIX time (LSB first)
   outputData[outputDataCount++] = (uint8_t)(syncPacket.unix & 0xFF);
   outputData[outputDataCount++] = (uint8_t)((syncPacket.unix >> 8) & 0xFF);
   outputData[outputDataCount++] = (uint8_t)((syncPacket.unix >> 16) & 0xFF);
   outputData[outputDataCount++] = (uint8_t)((syncPacket.unix >> 24) & 0xFF);
 
   outputData[outputDataCount++] = (uint8_t)(syncPacket.hundredths); 
-  outputData[outputDataCount++] = (uint8_t)(myRTC.year); // LSB
-  outputData[outputDataCount++] = (uint8_t)(myRTC.month); // MSB
-  outputData[outputDataCount++] = (uint8_t)(myRTC.dayOfMonth); // LSB 
-  outputData[outputDataCount++] = (uint8_t)(myRTC.hour); // MSB
-  outputData[outputDataCount++] = (uint8_t)(myRTC.minute); // LSB
-  outputData[outputDataCount++] = (uint8_t)(myRTC.seconds); // MSB
-  outputData[outputDataCount++] = (uint8_t)(myRTC.hundredths); // LSB
+
+  // 4 bytes for local UNIX time (LSB first)
+  outputData[outputDataCount++] = (uint8_t)(local_unixTime.unix & 0xFF);
+  outputData[outputDataCount++] = (uint8_t)((local_unixTime.unix >> 8) & 0xFF);
+  outputData[outputDataCount++] = (uint8_t)((local_unixTime.unix >> 16) & 0xFF);
+  outputData[outputDataCount++] = (uint8_t)((local_unixTime.unix >> 24) & 0xFF);
+
+  outputData[outputDataCount++] = (uint8_t)(local_unixTime.hundredths); // LSB
+
   outputData[outputDataCount++] = (uint8_t)(batteryVoltage); // MSB
   outputData[outputDataCount++] = (uint8_t)(intPeriod.part[0]); // LSB
   outputData[outputDataCount++] = (uint8_t)(intPeriod.part[1]); // 
