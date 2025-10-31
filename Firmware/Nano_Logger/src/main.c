@@ -33,6 +33,7 @@
 #define RX_PAYLOAD_LEN 8 // Command byte plus 7-byte RTC value. 
 #define RX_CMD_SYNC 0
 #define RX_CMD_STOP 1
+#define SOF 0xAA
 
 // Nodelabels are defined in .dts and .overlay files
 #define SYNC DT_NODELABEL(sync_out)
@@ -84,12 +85,13 @@ void esb_cb(struct esb_evt const *event)
 		//LOG_DBG("TX FAILED EVENT");
 		break;
 	case ESB_EVENT_RX_RECEIVED:
-		if (esb_read_rx_payload(&rx_payload) == 0) { // 0 = normal return	
-			gpio_pin_set_dt(&sync, true); // Assert the sync output
-            received = true; // Signal that a packet has been received
-		} else {
-			//LOG_ERR("Error while reading rx packet");
-		}
+		received = true; // Signal that a packet has been received
+		// if (esb_read_rx_payload(&rx_payload) == 0) { // 0 = normal return	
+		// 	gpio_pin_set_dt(&sync, true); // Assert the sync output
+        //     received = true; // Signal that a packet has been received
+		// } else {
+		// 	//LOG_ERR("Error while reading rx packet");
+		// }
 		break;
 	}
 }
@@ -190,6 +192,46 @@ int esb_initialise(void)
 	return 0;
 }
 
+static inline uint8_t crc8_0x07(const uint8_t *buf, uint8_t len) {
+  uint8_t crc = 0x00;
+  while (len--) {
+    crc ^= *buf++;
+    for (uint8_t i = 0; i < 8; i++)
+      crc = (crc & 0x80) ? ((crc << 1) ^ 0x07) : (crc << 1);
+  }
+  return crc;
+}
+
+
+void handle_esb_payload(const struct esb_payload *p) {
+
+	// Basic checks
+  	if (p->length != RX_PAYLOAD_LEN) return;
+  	if (p->data[0] != SOF) return;
+
+  	uint8_t calc = crc8_0x07(p->data, RX_PAYLOAD_LEN - 1);
+  	if (calc != p->data[RX_PAYLOAD_LEN - 1]) return;
+
+  	// Valid frame → assert sync only now
+  	gpio_pin_set_dt(&sync, true);
+  	gpio_pin_set_dt(&led, true);
+
+  	// Command
+  	if (p->data[1] == RX_CMD_STOP) gpio_pin_set_dt(&stop, true);
+
+  	// Forward [t3 t2 t1 t0 hh] = indices 2..6
+	for (uint8_t i = 2; i <= 6; i++) {
+		uart_poll_out(uart, p->data[i]);
+		k_usleep(50);
+	}
+
+	// De-assert
+	gpio_pin_set_dt(&sync, false);
+	gpio_pin_set_dt(&stop, false);
+	gpio_pin_set_dt(&led, false);
+}
+
+
 void main(void)
 {
 	int err;
@@ -228,22 +270,57 @@ void main(void)
 		return;
 	}
 
-    while (true) {
-        if (received == true) {           
-            received = false; // De-assert ESB flag
-			gpio_pin_set_dt(&led, true); // Turn on the LED
-            if (rx_payload.data[0] == RX_CMD_STOP) {
-				gpio_pin_set_dt(&stop, true); // Assert the stop output
-            }
-            for (i = 1; i <= (RX_PAYLOAD_LEN - 1); i++) {
-                uart_poll_out(uart, rx_payload.data[i]); // Send RTC to OLA in receive order
-                k_usleep(50); // Give the OLA time to keep up
-            }
-			gpio_pin_set_dt(&sync, false); // De-assert the sync output
-			gpio_pin_set_dt(&stop, false); // De-assert the stop output
-			gpio_pin_set_dt(&led, false); // Turn off the LED
-        }
-    }
+	while (true) {
+
+		if (!received) {
+			k_yield();
+			continue;
+		}
+		received = false;
+
+		// Drain the RX FIFO completely
+		while (esb_read_rx_payload(&rx_payload) == 0) {
+			handle_esb_payload(&rx_payload);
+		}
+	}
+	
+    // while (true) {
+    //     if (received == true) {           
+    //         received = false; // De-assert ESB flag
+
+	// 		// Wait for start of frame
+	// 		if (rx_payload.data[0] == SOF) {
+
+	// 			uint8_t rxLength = rx_payload.length;
+
+	// 			if (rxLength == RX_PAYLOAD_LEN) {
+
+	// 				// Full frame received
+	// 				uint8_t calcCrc = crc8_0x07(rx_payload.data, RX_PAYLOAD_LEN - 1);
+	// 				uint8_t recvCrc = rx_payload.data[RX_PAYLOAD_LEN - 1];
+
+	// 				if (calcCrc == recvCrc) {
+					
+	// 					gpio_pin_set_dt(&led, true); // Turn on the LED
+
+	// 					if (rx_payload.data[1] == RX_CMD_STOP) {
+	// 						gpio_pin_set_dt(&stop, true); // Assert the stop output
+	// 					}
+	// 					for (i = 2; i < (RX_PAYLOAD_LEN - 1); i++) {
+	// 						uart_poll_out(uart, rx_payload.data[i]); // Send RTC to OLA in receive order
+	// 						k_usleep(50); // Give the OLA time to keep up
+	// 					}
+
+	// 					gpio_pin_set_dt(&sync, false); // De-assert the sync output
+	// 					gpio_pin_set_dt(&stop, false); // De-assert the stop output
+
+	// 					gpio_pin_set_dt(&led, false); // Turn off the LED
+
+	// 				} 
+	// 			}
+	// 		}
+    //     }
+    // }
 	/* return to idle thread */
 	return;
 }
