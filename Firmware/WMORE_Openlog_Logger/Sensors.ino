@@ -1,3 +1,48 @@
+static uint8_t  rxbuf[5];
+static uint8_t  rxidx = 0;
+bool newPacket = false;
+
+void pollUnixPacket() {
+
+  newPacket = false;
+
+  // Non-blocking: read whatever bytes are in the buffer
+  while (Serial1.available() > 0) {
+    int b = Serial1.read();
+    if (b < 0) break;
+
+    rxbuf[rxidx++] = (uint8_t)b;
+
+    if (rxidx == 5) {
+      // --- A complete packet has arrived ---
+      uint32_t unixTime =  (uint32_t)rxbuf[0]
+                         | ((uint32_t)rxbuf[1] << 8)
+                         | ((uint32_t)rxbuf[2] << 16)
+                         | ((uint32_t)rxbuf[3] << 24);
+      uint8_t hundredths = rxbuf[4];
+
+      syncPacket.unix = unixTime;
+      syncPacket.hundredths = hundredths;
+      syncPacket.valid = true;
+      newPacket = true;
+
+      rxidx = 0; // reset for next packet
+      break; // stop after one packet
+    }
+  }
+
+  // Debug lines
+  // Serial.print("UNIX time: ");
+  // Serial.print(syncPacket.unix);
+  // Serial.print(" | Hundredths: ");
+  // Serial.println(syncPacket.hundredths);
+
+  // If no new complete packet this cycle
+  if (!newPacket) {
+    syncPacket.valid = false;
+  }
+}
+
 //Query each enabled sensor for its most recent data
 void getData()
 {
@@ -19,38 +64,18 @@ void getData()
   }
 
   delayMicroseconds(1000); // Wait until syncPacket data is available (delay may not be optimal)
-  
-  if (Serial1.available() == 7) { // A timestamp is available
-    syncPacket.valid = true;
-    syncPacket.years = Serial1.read();
-    syncPacket.months = Serial1.read();
-    syncPacket.days = Serial1.read();
-    syncPacket.hours = Serial1.read(); 
-    syncPacket.minutes = Serial1.read();
-    syncPacket.seconds = Serial1.read();
-    syncPacket.hundredths = Serial1.read();
-  } else {  // Timestamp not available
-    syncPacket.valid = false;
-    syncPacket.years = 0;
-    syncPacket.months = 0;
-    syncPacket.days = 0;
-    syncPacket.hours = 0; 
-    syncPacket.minutes = 0;
-    syncPacket.seconds = 0;
-    syncPacket.hundredths = 0;
-  }
-  serialClearBuffer(1); // Get rid of any spurious characters
+  pollUnixPacket();
 
-  // Update RTC from master if more than RTC_UPDATE_INTERVAL_US has elapsed. 
-  if ((syncPacket.valid == true) && (elapsedMinutes(myRTC.minute, lastRTCSetMinutes) > RTC_UPDATE_INTERVAL_MINS)) {
-    myRTC.setTime(syncPacket.hundredths, syncPacket.seconds, syncPacket.minutes, syncPacket.hours, syncPacket.days, syncPacket.months, syncPacket.years); 
-    lastRTCSetMinutes = myRTC.minute;   
-  }
+  // // Update RTC from master if more than RTC_UPDATE_INTERVAL_US has elapsed. 
+  // if ((syncPacket.valid == true) && (elapsedMinutes(myRTC.minute, lastRTCSetMinutes) > RTC_UPDATE_INTERVAL_MINS)) {
+  //   myRTC.setTime(syncPacket.hundredths, syncPacket.seconds, syncPacket.minutes, syncPacket.hours, syncPacket.days, syncPacket.months, syncPacket.years); 
+  //   lastRTCSetMinutes = myRTC.minute;   
+  // }
 
   // Read battery voltage and get top 8 bits
   batteryVoltage = (uint8_t)(analogRead(PIN_VIN_MONITOR) >> 6); 
   
-    // Debug lines
+//    Debug lines
 //    Serial.print(syncPacket.years);
 //    Serial.print(" ");
 //    Serial.print(syncPacket.months);
@@ -102,14 +127,15 @@ void getData()
   outputData[outputDataCount++] = (uint8_t)((myICM.agmt.mag.axes.z >> 8) & 0xFF);
   outputData[outputDataCount++] = (uint8_t)(myICM.agmt.tmp.val & 0xFF); 
   outputData[outputDataCount++] = (uint8_t)((myICM.agmt.tmp.val >> 8) & 0xFF);                  
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.valid); // LSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.years); // MSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.months); // LSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.days); // MSB 
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.hours); // LSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.minutes); // MSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.seconds); // LSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.hundredths); // MSB   
+  outputData[outputDataCount++] = (uint8_t)(syncPacket.valid);
+
+  // 4 bytes for UNIX time (LSB first)
+  outputData[outputDataCount++] = (uint8_t)(syncPacket.unix & 0xFF);
+  outputData[outputDataCount++] = (uint8_t)((syncPacket.unix >> 8) & 0xFF);
+  outputData[outputDataCount++] = (uint8_t)((syncPacket.unix >> 16) & 0xFF);
+  outputData[outputDataCount++] = (uint8_t)((syncPacket.unix >> 24) & 0xFF);
+
+  outputData[outputDataCount++] = (uint8_t)(syncPacket.hundredths); 
   outputData[outputDataCount++] = (uint8_t)(myRTC.year); // LSB
   outputData[outputDataCount++] = (uint8_t)(myRTC.month); // MSB
   outputData[outputDataCount++] = (uint8_t)(myRTC.dayOfMonth); // LSB 

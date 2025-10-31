@@ -78,17 +78,12 @@ union periodUnion {
   uint32_t full; // 32-bit word
 };
 
-// Struct for synchronisation packets
-struct {
-  uint8_t valid;
-  uint8_t years;
-  uint8_t months;
-  uint8_t days;
-  uint8_t hours;
-  uint8_t minutes;
-  uint8_t seconds;
-  uint8_t hundredths; 
+struct { //__attribute__((packed)) 
+  uint8_t  valid;
+  uint32_t unix;
+  uint8_t  hundredths;
 } syncPacket;
+
 
 //----------------------------------------------------------------------------
 // WMORE measures of time for logging
@@ -246,7 +241,7 @@ const byte PIN_SPI_SCK = 5;
 const byte PIN_SPI_CIPO = 6;
 const byte PIN_SPI_COPI = 7;
 
-const byte SD_RECORD_LENGTH = 40; // WMORE Record length for binary file
+const byte SD_RECORD_LENGTH = 38; // WMORE Record length for binary file
 
 // Include this many extra bytes when starting a mux - to try and avoid the slippery mux bug
 // This should be 0 but 3 or 7 seem to work better depending on which way the wind is blowing.
@@ -610,8 +605,12 @@ void setup() {
  
   analogReadResolution(14); //Increase from default of 10
 
+  myRTC.getTime();
+
   beginDataLogging(); //180ms
   lastSDFileNameChangeTime = rtcMillis(); // Record the time of the file name change
+
+
 
   beginIMU(); //61ms
 
@@ -643,6 +642,17 @@ void loop() {
     myRTC.getTime(); // Get the local time from the RTC
     lastSamplingPeriod = samplingPeriod; // added by Sami // the previous sampling period to write to SD card
     getData(); // Get data from IMU and global time from Coordinator 
+
+    uint32_t unixFromBuffer =  (uint32_t)(uint8_t)outputData[21]
+                         | ((uint32_t)(uint8_t)outputData[22] << 8)
+                         | ((uint32_t)(uint8_t)outputData[23] << 16)
+                         | ((uint32_t)(uint8_t)outputData[24] << 24);
+
+    Serial.print("UNIX time: ");
+    Serial.print(unixFromBuffer);
+    Serial.print(" | Hundredths: ");
+    Serial.println((uint8_t)outputData[25]);
+
     writeSDBin(); // Store IMU and time data     
     if (stopLoggingSeen == true) { // Stop logging if directed by Coordinator
       stopLoggingSeen = false; // Reset the flag
@@ -1026,6 +1036,7 @@ void writeSDBin(void) {
     // Write binary data
     uint32_t recordLength = sensorDataFile.write(outputData, SD_RECORD_LENGTH); // WMORE TODO add error checking and resolve hard-coded length        
 
+    // Serial.println(recordLength);
   // Force sync every 500ms
   // WMORE - forced sync does not appear to be needed, and may cause write delays
 //  if (rtcMillis() - lastDataLogSyncTime > 500)

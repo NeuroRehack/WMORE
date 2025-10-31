@@ -38,7 +38,7 @@ def binToCSV(file_path):
     max_index = int(len(raw_data) / NUM_UNIT8_LINE)
 
     # Create a row vector for extracted variables
-    formatted_data = [0] * 27  # 27 human-readable variables per line
+    formatted_data = [0] * 21  # 22 human-readable variables per line
     
     # Create and open output csv file
     with open(out_file, 'w') as file_id:
@@ -57,17 +57,29 @@ def binToCSV(file_path):
             for j in range(NUM_IMU_VARS):
                 temp = uint8_line[(2 * j)] + (uint8_line[2 * j + 1] * 256)
                 formatted_data[j] =  np.int16(temp)
+
+            # Extract validity byte
+            formatted_data[10] = int(uint8_line[20])
+
+            # Extract global unix time
+            temp  = uint8_line[21]
+            temp += uint8_line[22] * 2**8
+            temp += uint8_line[23] * 2**16
+            temp += uint8_line[24] * 2**24
+            # Add hundredths
+            temp += int(uint8_line[25]) / 100.0
+            formatted_data[11] = round(temp, 2)
                 
-            # Extract 16 x uint8 from line
+            # Extract 8 x uint8 from line
             for j in range(NUM_UNIT8_VARS):
-                formatted_data[j + 10] = int(uint8_line[j + 20])
+                formatted_data[j + 12] = int(uint8_line[j + 26])
                 
             # Extract 1 x uint32 from line
-            temp = uint8_line[36]
-            temp += uint8_line[37] * 2**8
-            temp += uint8_line[38] * 2**16
-            temp += uint8_line[39] * 2**24
-            formatted_data[26] = temp
+            temp = uint8_line[34]
+            temp += uint8_line[35] * 2**8
+            temp += uint8_line[36] * 2**16
+            temp += uint8_line[37] * 2**24
+            formatted_data[20] = temp
             
             # print the data to the output text file
             file_id.write(LINE_FORMAT % tuple(formatted_data))
