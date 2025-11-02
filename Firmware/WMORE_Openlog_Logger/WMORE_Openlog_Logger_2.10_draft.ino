@@ -320,6 +320,8 @@ volatile uint32_t periodSum = period * PERIOD_AVG_BUFFER_SIZE; // initialise run
 #define SerialPrintf4( var1, var2, var3, var4 ) {Serial.printf( var1, var2, var3, var4 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3, var4 );}
 #define SerialPrintf5( var1, var2, var3, var4, var5 ) {Serial.printf( var1, var2, var3, var4, var5 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3, var4, var5 );}
 
+//----------------------------------------------------------------------------
+
 const int FIRMWARE_VERSION_MAJOR = 2;
 const int FIRMWARE_VERSION_MINOR = 10;
 
