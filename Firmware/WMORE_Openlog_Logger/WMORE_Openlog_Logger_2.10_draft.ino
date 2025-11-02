@@ -471,7 +471,7 @@ uint64_t lastSDFileNameChangeTime; //Used to calculate the interval since the la
 unsigned long measurementCount = 0; //Used to calc the actual update rate.
 unsigned long measurementTotal = 0; //The total number of recorded measurements. (Doesn't get reset when the menu is opened)
 char sdOutputData[512 * 2]; //Factor of 512 for easier recording to SD in 512 chunks
-unsigned long lastReadTime = 0; //Used to delay until user wants to record a new reading
+// unsigned long lastReadTime = 0; //Used to delay until user wants to record a new reading
 unsigned long lastDataLogSyncTime = 0; //Used to record to SD every half second
 unsigned int totalCharactersPrinted = 0; //Limit output rate based on baud rate and number of characters to print
 bool takeReading = true; //Goes true when enough time has passed between readings or we've woken from sleep
@@ -488,20 +488,6 @@ volatile static bool triggerEdgeSeen = false; //Flag to indicate if a trigger in
 char serialTimestamp[50]; //Buffer to store serial timestamp, if needed
 volatile static bool powerLossSeen = false; //Flag to indicate if a power loss event has been seen
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-// gfvalvo's flash string helper code: https://forum.arduino.cc/index.php?topic=533118.msg3634809#msg3634809
-void SerialPrint(const char *);
-void SerialPrint(const __FlashStringHelper *);
-void SerialPrintln(const char *);
-void SerialPrintln(const __FlashStringHelper *);
-void DoSerialPrint(char (*)(const char *), const char *, bool newLine = false);
-
-#define DUMP( varname ) {Serial.printf("%s: %d\r\n", #varname, varname); if (settings.useTxRxPinsForTerminal == true) Serial1.printf("%s: %d\r\n", #varname, varname);}
-#define SerialPrintf1( var ) {Serial.printf( var ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var );}
-#define SerialPrintf2( var1, var2 ) {Serial.printf( var1, var2 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2 );}
-#define SerialPrintf3( var1, var2, var3 ) {Serial.printf( var1, var2, var3 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3 );}
-#define SerialPrintf4( var1, var2, var3, var4 ) {Serial.printf( var1, var2, var3, var4 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3, var4 );}
-#define SerialPrintf5( var1, var2, var3, var4, var5 ) {Serial.printf( var1, var2, var3, var4, var5 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3, var4, var5 );}
 
 // The Serial port for the Zmodem connection
 // must not be the same as DSERIAL unless all
