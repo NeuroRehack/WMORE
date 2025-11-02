@@ -169,6 +169,157 @@
     Where possible, write residual serial data to file before closing
 */
 
+//----------------------------------------------------------------------------
+// WMORE defines
+
+// WMORE version number, which is different to the Openlog Artemis version number it's based on
+#define WMORE_VERSION "WMORE Logger v0.1" 
+
+// WMORE defines for synchronised sampling clock
+#define TIMERB_PERIOD 65535U // Free-running timer period
+#define SYNC_TIMER_PERIOD 4294967295U // Free-running timer period
+#define STIMER_PERIOD 4294967295U // Free-running timer period
+//#define NOMINAL_PERIOD 328U // initial estimate for 100 Hz timer XT @ 32768 Hz 
+//#define NOMINAL_PERIOD 1875U // initial estimate for 100 Hz timer HFRC @ 187500 Hz
+#define NOMINAL_PERIOD 29700U // initial estimate for 100 Hz timer HFRC @ 3 MHz 
+#define MAX_TIME_DIFF (NOMINAL_PERIOD * 1.2)  // bounds check
+#define MIN_TIME_DIFF (NOMINAL_PERIOD * 0.8) // bounds check
+#define MAX_SYNC (NOMINAL_PERIOD * 100) // too far out of sync?
+#define PERIOD_AVG_BUFFER_SIZE 256U
+//#define TIMER_CLOCK AM_HAL_CTIMER_XT_32_768KHZ
+//#define TIMER_CLOCK AM_HAL_CTIMER_HFRC_187_5KHZ
+#define TIMER_CLOCK AM_HAL_CTIMER_HFRC_3MHZ
+#define RTC_UPDATE_INTERVAL_MINS 1U
+#define LEDS_WAIT 0U // LEDS indicate waiting to start logging
+#define LEDS_LOG 1U // LEDS indicate logging 
+
+//----------------------------------------------------------------------------
+// WMORE timestamp structure
+
+// Union to allow individual uint8_t access into uint32_t
+union periodUnion {
+  uint8_t part[4]; // individual bytes
+  uint32_t full; // 32-bit word
+};
+
+// Struct for synchronisation packets
+struct {
+  uint8_t valid;
+  uint8_t years;
+  uint8_t months;
+  uint8_t days;
+  uint8_t hours;
+  uint8_t minutes;
+  uint8_t seconds;
+  uint8_t hundredths; 
+} syncPacket;
+
+//----------------------------------------------------------------------------
+// WMORE measures of time for logging
+
+periodUnion intPeriod; // internal 
+
+uint8_t lastRTCSetMinutes = 0; // WMORE minutes of last time RTC was updated by Coordinator
+uint8_t outputDataCount; // WMORE counter for binary writes to outputData
+uint8_t batteryVoltage; // WMORE battery voltage 
+
+//----------------------------------------------------------------------------
+// WMORE synchronisation constants and variables, and ISRs
+
+const int sampleTimer = 2;
+//const int syncTimer = 3;
+volatile uint32_t period = NOMINAL_PERIOD; // Initial estimate for timer period
+volatile uint32_t extTimerValue;
+volatile uint32_t extTimerValue2; // created by Sami
+volatile uint32_t samplingPeriod; // created by Sami // WMORE sampling
+volatile uint32_t lastSamplingPeriod; // created by Sami // last WMORE sampling
+volatile uint32_t intTimerValue;
+volatile uint32_t timerValue; 
+volatile uint32_t extTimerValueLast = 0;
+volatile int32_t timerAdj = 0;
+//volatile int adjust;
+volatile bool triggerPinFlag = false;
+volatile bool timerIntFlag = false;
+volatile uint8_t periodAvgPtr = 0; // pointer into circular buffer
+volatile uint32_t timeDifference;
+//volatile uint32_t lastSync = 0;
+//volatile uint32_t thisSync = 0;
+uint32_t periodAvgBuffer[PERIOD_AVG_BUFFER_SIZE] = 
+                           {NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,
+                            NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD,NOMINAL_PERIOD}; // circular buffer
+
+//----------------------------------------------------------------------------
+
+volatile uint32_t periodSum = period * PERIOD_AVG_BUFFER_SIZE; // initialise running sum
+#define DUMP( varname ) {Serial.printf("%s: %d\r\n", #varname, varname); if (settings.useTxRxPinsForTerminal == true) Serial1.printf("%s: %d\r\n", #varname, varname);}
+#define SerialPrintf1( var ) {Serial.printf( var ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var );}
+#define SerialPrintf2( var1, var2 ) {Serial.printf( var1, var2 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2 );}
+#define SerialPrintf3( var1, var2, var3 ) {Serial.printf( var1, var2, var3 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3 );}
+#define SerialPrintf4( var1, var2, var3, var4 ) {Serial.printf( var1, var2, var3, var4 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3, var4 );}
+#define SerialPrintf5( var1, var2, var3, var4, var5 ) {Serial.printf( var1, var2, var3, var4, var5 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3, var4, var5 );}
+
 const int FIRMWARE_VERSION_MAJOR = 2;
 const int FIRMWARE_VERSION_MINOR = 10;
 
