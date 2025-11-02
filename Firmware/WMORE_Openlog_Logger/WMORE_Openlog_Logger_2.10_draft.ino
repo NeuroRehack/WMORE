@@ -529,6 +529,190 @@ void stopWatchdog()
 }
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+//----------------------------------------------------------------------------
+// WMORE
+// Sample timer ISR
+
+#ifdef __cplusplus
+  extern "C" {
+#endif
+// C++ compilations must declare the ISR as a "C" routine or else its name will get mangled
+// and the linker will not use this routine to replace the default ISR
+void timerISR();
+
+#ifdef __cplusplus
+  }
+#endif
+
+extern "C" void timerISR()
+{
+  am_hal_ctimer_period_set(sampleTimer, AM_HAL_CTIMER_TIMERA, period + timerAdj, 1); // adjust period once
+  am_hal_ctimer_int_clear(AM_HAL_CTIMER_INT_TIMERA2); // clear the timer interrupt
+  timerIntFlag = true; // trigger IMU sampling
+  timerAdj = 0; // DON'T FORGET TO DO THIS, EITHER IN ISR OR MAIN LOOP!!!
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Synchronisation input ISR
+
+#ifdef __cplusplus
+  extern "C" {
+#endif
+// C++ compilations must declare the ISR as a "C" routine or else its name will get mangled
+// and the linker will not use this routine to replace the default ISR
+void triggerPinISR();
+
+#ifdef __cplusplus
+  }
+#endif
+
+extern "C" void triggerPinISR() {
+
+  // Process external sync interrupt and calculate adjustment
+  // Get interrupt flags
+  uint64_t gpio_int_mask = 0x00;
+  am_hal_gpio_interrupt_status_get(true, &gpio_int_mask);
+  // read the current internal timer (sampling timer) value
+  intTimerValue = am_hal_ctimer_read(sampleTimer, AM_HAL_CTIMER_TIMERA);
+  // read the current external event timer (sync timer) value
+  extTimerValue = am_hal_stimer_counter_get(); // Now using STIMER instead of timer 3 
+  am_hal_gpio_interrupt_clear(AM_HAL_GPIO_BIT(gpio_int_mask)); // clear GPIO interrupt
+  adjustTime(); // Adjust the sampling timer
+  // store previous timer value
+  extTimerValueLast = extTimerValue;   
+  //triggerPinFlag = true; // Currently used for debugging 
+}
+
+//----------------------------------------------------------------------------
+// WMORE 
+// Engage burst mode
+// Based on Ambiq burst mode example
+
+void burstMode(void) {
+  
+  am_hal_burst_avail_e          eBurstModeAvailable;
+  am_hal_burst_mode_e           eBurstMode;
+  
+  am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_SYSCLK_MAX, 0);
+  //am_hal_cachectrl_config(&am_hal_cachectrl_defaults);
+  //am_hal_cachectrl_enable();
+  //am_bsp_low_power_init();
+  am_hal_burst_mode_initialize(&eBurstModeAvailable);
+  am_hal_burst_mode_enable(&eBurstMode);
+}
+//----------------------------------------------------------------------------
+// WMORE 
+// Set clock state
+
+void clockState(void) {
+
+  burstMode(); // Engage burst mode
+
+  //am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ);
+  //
+  // Enable the XT for the RTC.
+  //
+  am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_XTAL_START, 0);
+
+  //
+  // Select XT for RTC clock source
+  //
+  am_hal_rtc_osc_select(AM_HAL_RTC_OSC_XT);
+
+  //
+  // Enable the RTC.
+  //
+  am_hal_rtc_osc_enable();  
+  
+  delay(1); // wait for clock to settle
+  
+  // Enable HFADJ 
+  // TODO: confirm this is working
+  am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_HFADJ_ENABLE, 0);  
+}
+
+//----------------------------------------------------------------------------
+// WMORE 
+// Configure sample timer
+
+void setupSampleTimer(int timerNum, uint32_t periodTicks)
+{
+  //  Refer to Ambiq Micro Apollo3 Blue MCU datasheet section 13.2.2
+  //  and am_hal_ctimer.c line 710 of 2210.
+  //
+   am_hal_ctimer_config_single(timerNum, AM_HAL_CTIMER_TIMERA,
+                              TIMER_CLOCK |
+                              AM_HAL_CTIMER_FN_REPEAT |
+                              AM_HAL_CTIMER_INT_ENABLE);
+  //
+  //  Repeated Count: Periodic 1-clock-cycle wide pulses with optional interrupts.
+  //  The last parameter to am_hal_ctimer_period_set() has no effect in this mode.
+  //
+  am_hal_ctimer_period_set(timerNum, AM_HAL_CTIMER_TIMERA, periodTicks, 1);
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Adjust timer A period based on valid period information
+// from the external sync interrupt.
+
+void adjustTime(void) {
+  if (extTimerValue >= extTimerValueLast) { 
+    // calculate period between most recent sync events
+    timeDifference = extTimerValue - extTimerValueLast; 
+  } else { // Sync timer rollover case
+    timeDifference = STIMER_PERIOD - extTimerValueLast + extTimerValue;
+  }  
+  // update the external sync period moving average
+  // bounds check
+  if ((timeDifference <= MAX_TIME_DIFF) && (timeDifference >= MIN_TIME_DIFF)) { 
+    // Add the newest sample and subtract the oldest from the running sum
+    periodSum = periodSum + timeDifference - periodAvgBuffer[periodAvgPtr]; 
+    // Overwrite the oldest sample with the newest sample
+    periodAvgBuffer[periodAvgPtr] = timeDifference; 
+    // Calculate the average
+    period = periodSum / PERIOD_AVG_BUFFER_SIZE;
+    // Increment the buffer pointer, modulo the buffer size
+    periodAvgPtr++ % PERIOD_AVG_BUFFER_SIZE;
+  }
+  // Calculate a period adjustment value to be applied once
+  // When did the sync event happen relative to the local timer  
+  if (intTimerValue < (period / 2)) { 
+    timerAdj = (intTimerValue / 1); // try proportional to distance to desired timeout (/4, /2, /1 tried) 
+  } else {
+    timerAdj = -1 * (((period - intTimerValue) / 1)); // try proportional to distance to desired timeout (/4, /2, /1 tried)
+  } 
+}
+
+//----------------------------------------------------------------------------
+// WMORE 
+// Set up synchronisation resources
+
+void setupSync(void) {
+
+  // Set up synchronisation trigger pin
+  pinMode(PIN_TRIGGER, INPUT_PULLUP);
+  delay(1); // Settling delay
+  attachInterrupt(PIN_TRIGGER, triggerPinISR, FALLING); // Enable the interrupt
+  am_hal_gpio_pincfg_t intPinConfig = g_AM_HAL_GPIO_INPUT_PULLUP;
+  intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
+  pin_config(PinName(PIN_TRIGGER), intPinConfig); // Make sure the pull-up does actually stay enabled
+  //triggerPinFlag = false; // Make sure the flag is clear
+
+  // Setup sample interval timer
+  setupSampleTimer(sampleTimer, period); // timerNum, period, padNum
+  am_hal_ctimer_start(sampleTimer, AM_HAL_CTIMER_TIMERA);
+  NVIC_EnableIRQ(CTIMER_IRQn);
+  am_hal_ctimer_int_clear(AM_HAL_CTIMER_INT_TIMERA2);
+  am_hal_ctimer_int_enable(AM_HAL_CTIMER_INT_TIMERA2);  
+  am_hal_ctimer_int_register(AM_HAL_CTIMER_INT_TIMERA2, timerISR);
+  am_hal_interrupt_master_enable();
+
+}
+
+//----------------------------------------------------------------------------
+
 void setup() {
   //If 3.3V rail drops below 3V, system will power down and maintain RTC
   pinMode(PIN_POWER_LOSS, INPUT); // BD49K30G-TL has CMOS output and does not need a pull-up
