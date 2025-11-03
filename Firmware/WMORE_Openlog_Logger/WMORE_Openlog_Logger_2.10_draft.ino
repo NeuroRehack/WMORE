@@ -882,6 +882,10 @@ void beginSD()
     }
     if (sd.begin(SD_CONFIG) == false) // Try to begin the SD card using the correct chip select
     {
+      // WMORE - Was in OLA v2.3 but not in OLA v2.10, feel like this callout is useful
+      SerialPrintln(F("SD init failed (second attempt). Is card present? Formatted?"));
+      SerialPrintln(F("Please ensure the SD card is formatted correctly using https://www.sdcard.org/downloads/formatter/"));
+
       digitalWrite(PIN_MICROSD_CHIP_SELECT, HIGH); //Be sure SD is deselected
       online.microSD = false;
       return;
