@@ -1090,50 +1090,6 @@ void beginDataLogging()
     online.dataLogging = false;
 }
 
-void beginSerialLogging()
-{
-  if (online.microSD == true && settings.logSerial == true)
-  {
-    //If we don't have a file yet, create one. Otherwise, re-open the last used file
-    if (strlen(serialDataFileName) == 0)
-      strcpy(serialDataFileName, findNextAvailableLog(settings.nextSerialLogNumber, "serialLog"));
-
-    if (serialDataFile.open(serialDataFileName, O_CREAT | O_APPEND | O_WRITE) == false)
-    {
-      SerialPrintln(F("Failed to create serial log file"));
-      //systemError(ERROR_FILE_OPEN);
-      online.serialLogging = false;
-      return;
-    }
-
-    updateDataFileCreate(&serialDataFile); // Update the file create time & date
-    serialDataFile.sync();
-
-    //We need to manually restore the Serial1 TX and RX pins
-    configureSerial1TxRx();
-
-    Serial1.begin(settings.serialLogBaudRate);
-
-    online.serialLogging = true;
-  }
-  else
-    online.serialLogging = false;
-}
-
-void beginSerialOutput()
-{
-  if (settings.outputSerial == true)
-  {
-    //We need to manually restore the Serial1 TX and RX pins
-    configureSerial1TxRx();
-
-    Serial1.begin(settings.serialLogBaudRate); // (Re)start the serial port
-    online.serialOutput = true;
-  }
-  else
-    online.serialOutput = false;
-}
-
 #if SD_FAT_TYPE == 1
 void updateDataFileCreate(File32 *dataFile)
 #elif SD_FAT_TYPE == 2
