@@ -846,7 +846,7 @@ void loop() {
 
 //----------------------------------------------------------------------------
 
-void beginSD(bool silent)
+void beginSD()
 {
   pinMode(PIN_MICROSD_POWER, OUTPUT);
   pin_config(PinName(PIN_MICROSD_POWER), g_AM_HAL_GPIO_OUTPUT); // Make sure the pin does actually get re-configured
@@ -882,11 +882,6 @@ void beginSD(bool silent)
     }
     if (sd.begin(SD_CONFIG) == false) // Try to begin the SD card using the correct chip select
     {
-      if (!silent)
-      {
-        SerialPrintln(F("SD init failed (second attempt). Is card present? Formatted?"));
-        SerialPrintln(F("Please ensure the SD card is formatted correctly using https://www.sdcard.org/downloads/formatter/"));
-      }
       digitalWrite(PIN_MICROSD_CHIP_SELECT, HIGH); //Be sure SD is deselected
       online.microSD = false;
       return;
@@ -896,10 +891,6 @@ void beginSD(bool silent)
   //Change to root directory. All new file creation will be in root.
   if (sd.chdir() == false)
   {
-    if (!silent)
-    {
-      SerialPrintln(F("SD change directory failed"));
-    }
     online.microSD = false;
     return;
   }
