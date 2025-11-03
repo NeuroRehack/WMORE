@@ -918,9 +918,10 @@ void disableCIPOpullUp() // updated for v2.1.0 of the Apollo3 core
 
 void configureSerial1TxRx(void) // Configure pins 12 and 13 for UART1 TX and RX
 {
-  am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
-  pinConfigTx.uFuncSel = AM_HAL_PIN_12_UART1TX;
-  pin_config(PinName(BREAKOUT_PIN_TX), pinConfigTx);
+  // Commented out by Sami ---------------------------------------------
+  // am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
+  // pinConfigTx.uFuncSel = AM_HAL_PIN_12_UART1TX;
+  // pin_config(PinName(BREAKOUT_PIN_TX), pinConfigTx);
   am_hal_gpio_pincfg_t pinConfigRx = g_AM_BSP_GPIO_COM_UART_RX;
   pinConfigRx.uFuncSel = AM_HAL_PIN_13_UART1RX;
   pinConfigRx.ePullup = AM_HAL_GPIO_PIN_PULLUP_WEAK; // Put a weak pull-up on the Rx pin
