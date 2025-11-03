@@ -160,7 +160,12 @@ void menuLogRate()
       SerialPrintf2("%dms\r\n", settings.minimumAwakeTimeMillis);
     }
 
+    // WMORE - OW -------------------------------------------------------------
+    // Add serial number entry
+    SerialPrint(F("22) Sensor ID: "));
+    SerialPrintf2("%d\r\n", settings.serialNumber);    
     SerialPrintln(F("x) Exit"));
+    // ------------------------------------------------------------------------
 
     int incoming = getNumber(menuTimeout); //Timeout after x seconds
 
@@ -549,6 +554,19 @@ void menuLogRate()
             settings.minimumAwakeTimeMillis = newAwake;
           }
         }
+      }
+    }
+    else if (incoming == 22) // WMORE - OW
+    {
+      SerialPrintln("Enter serial number: ");
+      int serialNumber = getNumber(menuTimeout);
+      if (serialNumber < 0 || serialNumber > 99)
+      {
+        SerialPrintln(F("Error: serial number out of range"));
+      }
+      else
+      {
+        settings.serialNumber = (uint8_t)serialNumber;
       }
     }
     else if (incoming == STATUS_PRESSED_X)
