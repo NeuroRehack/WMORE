@@ -1064,11 +1064,12 @@ void beginIMU()
 
 void beginDataLogging()
 {
-  if (online.microSD == true && settings.logData == true)
+  if (online.microSD == true && settings.logData == true) // WMORE - TODO settings
   {
     //If we don't have a file yet, create one. Otherwise, re-open the last used file
     if (strlen(sensorDataFileName) == 0)
-      strcpy(sensorDataFileName, findNextAvailableLog(settings.nextDataLogNumber, "dataLog"));
+      //strcpy(sensorDataFileName, findNextAvailableLog(settings.nextDataLogNumber, "dataLog"));
+      strcpy(sensorDataFileName, generateFileName()); // WMORE - Create file name
 
     // O_CREAT - create the file if it does not exist
     // O_APPEND - seek to the end of the file prior to each write
