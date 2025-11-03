@@ -1090,6 +1090,8 @@ void beginDataLogging()
     online.dataLogging = false;
 }
 
+//----------------------------------------------------------------------------
+
 #if SD_FAT_TYPE == 1
 void updateDataFileCreate(File32 *dataFile)
 #elif SD_FAT_TYPE == 2
@@ -1122,6 +1124,8 @@ void updateDataFileAccess(File *dataFile)
   dataFile->timestamp(T_WRITE, (myRTC.year + 2000), myRTC.month, myRTC.dayOfMonth, myRTC.hour, myRTC.minute, myRTC.seconds);
 }
 
+//----------------------------------------------------------------------------
+
 //Called once number of milliseconds has passed
 extern "C" void am_stimer_cmpr6_isr(void)
 {
@@ -1132,23 +1136,23 @@ extern "C" void am_stimer_cmpr6_isr(void)
   }
 }
 
-//Power Loss ISR
+//----------------------------------------------------------------------------
+
+// Power Loss ISR
 void powerLossISR(void)
 {
   powerLossSeen = true;
 }
 
-//Stop Logging ISR
+//----------------------------------------------------------------------------
+
+// Stop Logging ISR
 void stopLoggingISR(void)
 {
   stopLoggingSeen = true;
 }
 
-//Trigger Pin ISR
-void triggerPinISR(void)
-{
-  triggerEdgeSeen = true;
-}
+//----------------------------------------------------------------------------
 
 void SerialFlush(void)
 {
@@ -1158,6 +1162,8 @@ void SerialFlush(void)
     Serial1.flush();
   }
 }
+
+//----------------------------------------------------------------------------
 
 // gfvalvo's flash string helper code: https://forum.arduino.cc/index.php?topic=533118.msg3634809#msg3634809
 
