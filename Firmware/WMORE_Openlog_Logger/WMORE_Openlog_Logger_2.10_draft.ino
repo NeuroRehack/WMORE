@@ -882,7 +882,6 @@ void beginSD()
     }
     if (sd.begin(SD_CONFIG) == false) // Try to begin the SD card using the correct chip select
     {
-      // WMORE - Was in OLA v2.3 but not in OLA v2.10, feel like this callout is useful
       SerialPrintln(F("SD init failed (second attempt). Is card present? Formatted?"));
       SerialPrintln(F("Please ensure the SD card is formatted correctly using https://www.sdcard.org/downloads/formatter/"));
 
@@ -928,7 +927,7 @@ void configureSerial1TxRx(void) // Configure pins 12 and 13 for UART1 TX and RX
   pin_config(PinName(BREAKOUT_PIN_RX), pinConfigRx);
 }
 
-void beginIMU(bool silent)
+void beginIMU()
 {
   pinMode(PIN_IMU_POWER, OUTPUT);
   pin_config(PinName(PIN_IMU_POWER), g_AM_HAL_GPIO_OUTPUT); // Make sure the pin does actually get re-configured
@@ -953,7 +952,7 @@ void beginIMU(bool silent)
     }
 
     if (settings.printDebugMessages) myICM.enableDebugging();
-    myICM.begin(PIN_IMU_CHIP_SELECT, SPI, 4000000); //Set IMU SPI rate to 4MHz
+    myICM.begin(PIN_IMU_CHIP_SELECT, SPI, 7000000); // WMORE - Set IMU SPI rate to 7MHz
     if (myICM.status != ICM_20948_Stat_Ok)
     {
       printDebug("beginIMU: first attempt at myICM.begin failed. myICM.status = " + (String)myICM.status + "\r\n");
@@ -973,13 +972,12 @@ void beginIMU(bool silent)
         delay(1);
       }
 
-      myICM.begin(PIN_IMU_CHIP_SELECT, SPI, 4000000); //Set IMU SPI rate to 4MHz
+      myICM.begin(PIN_IMU_CHIP_SELECT, SPI, 7000000);  // WMORE - Set IMU SPI rate to 7MHz
       if (myICM.status != ICM_20948_Stat_Ok)
       {
         printDebug("beginIMU: second attempt at myICM.begin failed. myICM.status = " + (String)myICM.status + "\r\n");
         digitalWrite(PIN_IMU_CHIP_SELECT, HIGH); //Be sure IMU is deselected
-        if (!silent)
-          SerialPrintln(F("ICM-20948 failed to init."));
+        SerialPrintln(F("ICM-20948 failed to init."));
         imuPowerOff();
         online.IMU = false;
         return;
@@ -996,177 +994,52 @@ void beginIMU(bool silent)
 
     bool success = true;
 
-    //Check if we are using the DMP
-    if (settings.imuUseDMP == false)
+    //Perform a full startup (not minimal) for non-DMP mode
+    ICM_20948_Status_e retval = myICM.startupDefault(false);
+    if (retval != ICM_20948_Stat_Ok)
     {
-      //Perform a full startup (not minimal) for non-DMP mode
-      ICM_20948_Status_e retval = myICM.startupDefault(false);
-      if (retval != ICM_20948_Stat_Ok)
-      {
-        SerialPrintln(F("Error: Could not startup the IMU in non-DMP mode!"));
-        success = false;
-      }
-      //Update the full scale and DLPF settings
-      retval = myICM.enableDLPF(ICM_20948_Internal_Acc, settings.imuAccDLPF);
-      if (retval != ICM_20948_Stat_Ok)
-      {
-        SerialPrintln(F("Error: Could not configure the IMU Accelerometer DLPF!"));
-        success = false;
-      }
-      retval = myICM.enableDLPF(ICM_20948_Internal_Gyr, settings.imuGyroDLPF);
-      if (retval != ICM_20948_Stat_Ok)
-      {
-        SerialPrintln(F("Error: Could not configure the IMU Gyro DLPF!"));
-        success = false;
-      }
-      ICM_20948_dlpcfg_t dlpcfg;
-      dlpcfg.a = settings.imuAccDLPFBW;
-      dlpcfg.g = settings.imuGyroDLPFBW;
-      retval = myICM.setDLPFcfg((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), dlpcfg);
-      if (retval != ICM_20948_Stat_Ok)
-      {
-        SerialPrintln(F("Error: Could not configure the IMU DLPF BW!"));
-        success = false;
-      }
-      ICM_20948_fss_t FSS;
-      FSS.a = settings.imuAccFSS;
-      FSS.g = settings.imuGyroFSS;
-      retval = myICM.setFullScale((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), FSS);
-      if (retval != ICM_20948_Stat_Ok)
-      {
-        SerialPrintln(F("Error: Could not configure the IMU Full Scale!"));
-        success = false;
-      }
-    }
-    else
-    {
-      // Initialize the DMP
-      ICM_20948_Status_e retval = myICM.initializeDMP();
-      if (retval != ICM_20948_Stat_Ok)
-      {
-        SerialPrintln(F("Error: Could not startup the IMU in DMP mode!"));
-        success = false;
-      }
-
-      int ODR = 0; // Set ODR to 55Hz
-      if (settings.usBetweenReadings >= 500000ULL)
-        ODR = 3; // 17Hz ODR rate when DMP is running at 55Hz
-      if (settings.usBetweenReadings >= 1000000ULL)
-        ODR = 10; // 5Hz ODR rate when DMP is running at 55Hz
-
-      if (settings.imuLogDMPQuat6)
-      {
-        retval = myICM.enableDMPSensor(INV_ICM20948_SENSOR_GAME_ROTATION_VECTOR);
-        if (retval != ICM_20948_Stat_Ok)
-        {
-          SerialPrintln(F("Error: Could not enable the Game Rotation Vector (Quat6)!"));
-          success = false;
-        }
-        retval = myICM.setDMPODRrate(DMP_ODR_Reg_Quat6, ODR);
-        if (retval != ICM_20948_Stat_Ok)
-        {
-          SerialPrintln(F("Error: Could not set the Quat6 ODR!"));
-          success = false;
-        }
-      }
-      if (settings.imuLogDMPQuat9)
-      {
-        retval = myICM.enableDMPSensor(INV_ICM20948_SENSOR_ROTATION_VECTOR);
-        if (retval != ICM_20948_Stat_Ok)
-        {
-          SerialPrintln(F("Error: Could not enable the Rotation Vector (Quat9)!"));
-          success = false;
-        }
-        retval = myICM.setDMPODRrate(DMP_ODR_Reg_Quat9, ODR);
-        if (retval != ICM_20948_Stat_Ok)
-        {
-          SerialPrintln(F("Error: Could not set the Quat9 ODR!"));
-          success = false;
-        }
-      }
-      if (settings.imuLogDMPAccel)
-      {
-        retval = myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_ACCELEROMETER);
-        if (retval != ICM_20948_Stat_Ok)
-        {
-          SerialPrintln(F("Error: Could not enable the DMP Accelerometer!"));
-          success = false;
-        }
-        retval = myICM.setDMPODRrate(DMP_ODR_Reg_Accel, ODR);
-        if (retval != ICM_20948_Stat_Ok)
-        {
-          SerialPrintln(F("Error: Could not set the Accel ODR!"));
-          success = false;
-        }
-      }
-      if (settings.imuLogDMPGyro)
-      {
-        retval = myICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_GYROSCOPE);
-        if (retval != ICM_20948_Stat_Ok)
-        {
-          SerialPrintln(F("Error: Could not enable the DMP Gyroscope!"));
-          success = false;
-        }
-        retval = myICM.setDMPODRrate(DMP_ODR_Reg_Gyro, ODR);
-        if (retval != ICM_20948_Stat_Ok)
-        {
-          SerialPrintln(F("Error: Could not set the Gyro ODR!"));
-          success = false;
-        }
-        retval = myICM.setDMPODRrate(DMP_ODR_Reg_Gyro_Calibr, ODR);
-        if (retval != ICM_20948_Stat_Ok)
-        {
-          SerialPrintln(F("Error: Could not set the Gyro Calibr ODR!"));
-          success = false;
-        }
-      }
-      if (settings.imuLogDMPCpass)
-      {
-        retval = myICM.enableDMPSensor(INV_ICM20948_SENSOR_MAGNETIC_FIELD_UNCALIBRATED);
-        if (retval != ICM_20948_Stat_Ok)
-        {
-          SerialPrintln(F("Error: Could not enable the DMP Compass!"));
-          success = false;
-        }
-        retval = myICM.setDMPODRrate(DMP_ODR_Reg_Cpass, ODR);
-        if (retval != ICM_20948_Stat_Ok)
-        {
-          SerialPrintln(F("Error: Could not set the Compass ODR!"));
-          success = false;
-        }
-        retval = myICM.setDMPODRrate(DMP_ODR_Reg_Cpass_Calibr, ODR);
-        if (retval != ICM_20948_Stat_Ok)
-        {
-          SerialPrintln(F("Error: Could not set the Compass Calibr ODR!"));
-          success = false;
-        }
-      }
-      retval = myICM.enableFIFO(); // Enable the FIFO
-      if (retval != ICM_20948_Stat_Ok)
-      {
-        SerialPrintln(F("Error: Could not enable the FIFO!"));
-        success = false;
-      }
-      retval = myICM.enableDMP(); // Enable the DMP
-      if (retval != ICM_20948_Stat_Ok)
-      {
-        SerialPrintln(F("Error: Could not enable the DMP!"));
-        success = false;
-      }
-      retval = myICM.resetDMP(); // Reset the DMP
-      if (retval != ICM_20948_Stat_Ok)
-      {
-        SerialPrintln(F("Error: Could not reset the DMP!"));
-        success = false;
-      }
-      retval = myICM.resetFIFO(); // Reset the FIFO
-      if (retval != ICM_20948_Stat_Ok)
-      {
-        SerialPrintln(F("Error: Could not reset the FIFO!"));
-        success = false;
-      }
+      SerialPrintln(F("Error: Could not startup the IMU in non-DMP mode!"));
+      success = false;
     }
 
+    ICM_20948_smplrt_t mySmplrt;
+    mySmplrt.a = 0;  // maximum accel sample rate: see Table 19 in datasheet DS-000189-ICM-20948-v1.5.pdf
+    mySmplrt.g = 0;  // maximum gyro sample rate: see Table 17 in datasheet DS-000189-ICM-20948-v1.5.pdf 
+    myICM.setSampleRate( ICM_20948_Internal_Acc, mySmplrt );
+    myICM.setSampleRate( ICM_20948_Internal_Gyr, mySmplrt );
+  
+    //Update the full scale and DLPF settings
+    retval = myICM.enableDLPF(ICM_20948_Internal_Acc, settings.imuAccDLPF);
+    if (retval != ICM_20948_Stat_Ok)
+    {
+      SerialPrintln(F("Error: Could not configure the IMU Accelerometer DLPF!"));
+      success = false;
+    }
+    retval = myICM.enableDLPF(ICM_20948_Internal_Gyr, settings.imuGyroDLPF);
+    if (retval != ICM_20948_Stat_Ok)
+    {
+      SerialPrintln(F("Error: Could not configure the IMU Gyro DLPF!"));
+      success = false;
+    }
+    ICM_20948_dlpcfg_t dlpcfg;
+    dlpcfg.a = settings.imuAccDLPFBW;
+    dlpcfg.g = settings.imuGyroDLPFBW;
+    retval = myICM.setDLPFcfg((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), dlpcfg);
+    if (retval != ICM_20948_Stat_Ok)
+    {
+      SerialPrintln(F("Error: Could not configure the IMU DLPF BW!"));
+      success = false;
+    }
+    ICM_20948_fss_t FSS;
+    FSS.a = settings.imuAccFSS;
+    FSS.g = settings.imuGyroFSS;
+    retval = myICM.setFullScale((ICM_20948_Internal_Acc | ICM_20948_Internal_Gyr), FSS);
+    if (retval != ICM_20948_Stat_Ok)
+    {
+      SerialPrintln(F("Error: Could not configure the IMU Full Scale!"));
+      success = false;
+    }
+    
     if (success)
     {
       online.IMU = true;
@@ -1186,6 +1059,8 @@ void beginIMU(bool silent)
     online.IMU = false;
   }
 }
+
+//----------------------------------------------------------------------------
 
 void beginDataLogging()
 {
