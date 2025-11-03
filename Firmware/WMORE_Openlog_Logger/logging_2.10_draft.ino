@@ -6,21 +6,74 @@ void msg(const char * message)
     sensorDataFile.println(message);
 }
 
+//----------------------------------------------------------------------------
+// WMORE
+// OW
+// Generates file name in the form yymmdd_hhmmss_ID.bin
+// Currently no file existence checks
+
+char* generateFileName(void)
+{
+  static char newFileName[21]; // Declare storage for file name
+  
+  // Generate the filename
+  // The following line should work but the sprintf library doesn't appear to generate leading zeroes correctly
+  //sprintf(newFileName, "%02d%02d%02d_%02d%02d%02d.bin", myRTC.year, myRTC.month, myRTC.dayOfMonth, myRTC.hour, myRTC.minute, myRTC.seconds);
+  // Workaround to address apparent failure of %02d format specifier to reliably add leading zeroes
+  sprintf(newFileName, "%2s", dig2(myRTC.year));
+  sprintf(newFileName, "%2s%2s", newFileName, dig2(myRTC.month));
+  sprintf(newFileName, "%4s%2s_", newFileName, dig2(myRTC.dayOfMonth)); 
+  sprintf(newFileName, "%7s%2s", newFileName, dig2(myRTC.hour));
+  sprintf(newFileName, "%9s%2s", newFileName, dig2(myRTC.minute));  
+  sprintf(newFileName, "%11s%2s_", newFileName, dig2(myRTC.seconds)); 
+  sprintf(newFileName, "%14s%2s.bin", newFileName, dig2(settings.serialNumber));   
+  
+  // Tell the user
+  //SerialPrint(F("Logging to: "));
+  //SerialPrintln(newFileName);    
+
+  return (newFileName);
+}
+//----------------------------------------------------------------------------
+// WMORE
+// OW 
+// Workaround for apparent non-compliance of %02d format specifer in sprintf().
+// Returns two character string representation of int
+// with leading zeroes if 0 < number < 100. 
+
+char* dig2(int number)
+{
+  static char numberString[3];
+
+  if(number < 10) 
+  {
+    // add leading zero 
+    sprintf(numberString, "0%1d", number);      
+  } 
+  else 
+  {
+    if(number < 100) {
+      // print two digits
+      sprintf(numberString, "%2d", number);
+    } 
+    else 
+    {
+      // over/underflow
+      sprintf(numberString, "**"); 
+    }
+  }
+
+  return(numberString);
+}
+
+//----------------------------------------------------------------------------
+
 //Returns next available log file name
 //Checks the spots in EEPROM for the next available LOG# file name
 //Updates EEPROM and then appends to the new log file.
 char* findNextAvailableLog(int &newFileNumber, const char *fileLeader)
 {
-  //This will contain the file for SD writing
-  #if SD_FAT_TYPE == 1
-  File32 newFile;
-  #elif SD_FAT_TYPE == 2
-  ExFile newFile;
-  #elif SD_FAT_TYPE == 3
-  FsFile newFile;
-  #else // SD_FAT_TYPE == 0
-  File newFile;
-  #endif  // SD_FAT_TYPE
+  SdFile newFile; // WMORE - This will contain the file for SD writing
 
   if (newFileNumber < 2) //If the settings have been reset, let's warn the user that this could take a while!
   {
