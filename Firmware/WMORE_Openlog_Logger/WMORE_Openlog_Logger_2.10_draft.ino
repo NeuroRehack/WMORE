@@ -713,7 +713,17 @@ void setupSync(void) {
 
 //----------------------------------------------------------------------------
 
+//----------------------------------------------------------------------------
+// WMORE
+// Modified and simplified original setup()
+
 void setup() {
+
+  // Ensure clocks are in a known state
+  clockState();
+  // Set up synchronisation inputs, timers, and ISRs
+  setupSync();
+  
   //If 3.3V rail drops below 3V, system will power down and maintain RTC
   pinMode(PIN_POWER_LOSS, INPUT); // BD49K30G-TL has CMOS output and does not need a pull-up
 
@@ -730,34 +740,17 @@ void setup() {
 #endif
   powerLossSeen = false; // Make sure the flag is clear
 
-  powerLEDOn(); // Turn the power LED on - if the hardware supports it
-
   pinMode(PIN_STAT_LED, OUTPUT);
-  digitalWrite(PIN_STAT_LED, HIGH); // Turn the STAT LED on while we configure everything
+  digitalWrite(PIN_STAT_LED, HIGH); // Turn the blue LED on while we configure everything
 
   SPI.begin(); //Needed if SD is disabled
 
-  //Do not start Serial1 before productionTest() otherwise the pin configuration gets overwritten
-  //and subsequent Serial1.begin's don't restore the pins to UART mode...
-
-  productionTest(); //Check if we need to go into production test mode
-
-  //We need to manually restore the Serial1 TX and RX pins after they were changed by productionTest()
-  configureSerial1TxRx();
+  configureSerial1TxRx(); // Configure Serial1
 
   Serial.begin(115200); //Default for initial debug messages if necessary
-  Serial1.begin(115200); //Default for initial debug messages if necessary
-
-  //pinMode(PIN_LOGIC_DEBUG, OUTPUT); // Debug pin to assist tracking down slippery mux bugs
-  //digitalWrite(PIN_LOGIC_DEBUG, HIGH);
-
-  // Use the worst case power on delay for the Qwiic bus for now as we don't yet know what sensors are connected
-  // (worstCaseQwiicPowerOnDelay is defined in settings.h)
-  qwiicPowerOnDelayMillis = worstCaseQwiicPowerOnDelay;
+  Serial1.begin(460800); // Set up to transmit/receive global timestamps
 
   EEPROM.init();
-
-  beginQwiic(); // Turn the qwiic power on as early as possible
 
   beginSD(); //285 - 293ms
 
@@ -765,72 +758,33 @@ void setup() {
 
   loadSettings(); //50 - 250ms
 
-  if (settings.useTxRxPinsForTerminal == true)
-  {
-    Serial1.flush(); //Complete any previous prints at the previous baud rate
-    Serial1.begin(settings.serialTerminalBaudRate); // Restart the serial port
-  }
-  else
-  {
-    Serial1.flush(); //Complete any previous prints
-    if (settings.logSerial == false)
-      Serial1.end(); // Stop the SerialLog port - but only if not logging serial, otherwise incoming data can cause a crash!
-  }
+  overrideSettings(); // Hard-code some critical settings to avoid accidents
 
   Serial.flush(); //Complete any previous prints
-  Serial.begin(settings.serialTerminalBaudRate);
+  Serial.begin(settings.serialTerminalBaudRate); // WMORE - TODO settings
 
-  SerialPrintf3("Artemis OpenLog v%d.%d\r\n", FIRMWARE_VERSION_MAJOR, FIRMWARE_VERSION_MINOR);
+  //----------------------------------------------------------------------------
+  Serial.println(WMORE_VERSION);
 
-#ifdef noPowerLossProtection
-  SerialPrintln(F("** No Power Loss Protection **"));
-#endif
+  // Setup the stop logging pin
+  pinMode(PIN_STOP_LOGGING, INPUT_PULLUP);
+  delay(1); // Let the pin stabilize
+  attachInterrupt(PIN_STOP_LOGGING, stopLoggingISR, FALLING); // Enable the interrupt
+  am_hal_gpio_pincfg_t intPinConfig = g_AM_HAL_GPIO_INPUT_PULLUP;
+  intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
+  pin_config(PinName(PIN_STOP_LOGGING), intPinConfig); // Make sure the pull-up does actually stay enabled
+  stopLoggingSeen = false; // Make sure the flag is clear
 
-  if (settings.useGPIO32ForStopLogging == true)
-  {
-    SerialPrintln(F("Stop Logging is enabled. Pull GPIO pin 32 to GND to stop logging."));
-    pinMode(PIN_STOP_LOGGING, INPUT_PULLUP);
-    delay(1); // Let the pin stabilize
-    attachInterrupt(PIN_STOP_LOGGING, stopLoggingISR, FALLING); // Enable the interrupt
-    am_hal_gpio_pincfg_t intPinConfig = g_AM_HAL_GPIO_INPUT_PULLUP;
-    intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
-    pin_config(PinName(PIN_STOP_LOGGING), intPinConfig); // Make sure the pull-up does actually stay enabled
-    stopLoggingSeen = false; // Make sure the flag is clear
-  }
-
-  if (settings.useGPIO11ForTrigger == true)
-  {
-    pinMode(PIN_TRIGGER, INPUT_PULLUP);
-    delay(1); // Let the pin stabilize
-    am_hal_gpio_pincfg_t intPinConfig = g_AM_HAL_GPIO_INPUT_PULLUP;
-    if (settings.fallingEdgeTrigger == true)
-    {
-      SerialPrintln(F("Falling-edge triggering is enabled. Sensor data will be logged on a falling edge on GPIO pin 11."));
-      attachInterrupt(PIN_TRIGGER, triggerPinISR, FALLING); // Enable the interrupt
-      intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
-    }
-    else
-    {
-      SerialPrintln(F("Rising-edge triggering is enabled. Sensor data will be logged on a rising edge on GPIO pin 11."));
-      attachInterrupt(PIN_TRIGGER, triggerPinISR, RISING); // Enable the interrupt
-      intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_LO2HI;
-    }
-    pin_config(PinName(PIN_TRIGGER), intPinConfig); // Make sure the pull-up does actually stay enabled
-    triggerEdgeSeen = false; // Make sure the flag is clear
-  }
+  // Modified by Sami -- set pin 12 to output and low
+  pinMode(BREAKOUT_PIN_TX, OUTPUT);
+  digitalWrite(BREAKOUT_PIN_TX, LOW);
+  // end of modification
+  //----------------------------------------------------------------------------
 
   analogReadResolution(14); //Increase from default of 10
 
   beginDataLogging(); //180ms
   lastSDFileNameChangeTime = rtcMillis(); // Record the time of the file name change
-
-  serialTimestamp[0] = '\0'; // Empty the serial timestamp buffer
-
-  if (settings.useTxRxPinsForTerminal == false)
-  {
-    beginSerialLogging(); //20 - 99ms
-    beginSerialOutput(); // Begin serial data output on the TX pin
-  }
 
   beginIMU(); //61ms
 
@@ -840,58 +794,12 @@ void setup() {
   if (online.dataLogging == true) SerialPrintln(F("Data logging online"));
   else SerialPrintln(F("Datalogging offline"));
 
-  if (online.serialLogging == true) SerialPrintln(F("Serial logging online"));
-  else SerialPrintln(F("Serial logging offline"));
-
   if (online.IMU == true) SerialPrintln(F("IMU online"));
   else SerialPrintln(F("IMU offline - or not present"));
 
-  if (settings.logMaxRate == true) SerialPrintln(F("Logging analog pins at max data rate"));
+  digitalWrite(PIN_STAT_LED, LOW); // Turn the blue LED off now that everything is configured
+  waitToLog(); // WMORE - Wait for sync falling edge to start logging
 
-  if (settings.enableTerminalOutput == false && settings.logData == true) SerialPrintln(F("Logging to microSD card with no terminal output"));
-
-  if (detectQwiicDevices() == true) //159 - 865ms but varies based on number of devices attached
-  {
-    beginQwiicDevices(); //Begin() each device in the node list
-    loadDeviceSettingsFromFile(); //Load config settings into node list
-    configureQwiicDevices(); //Apply config settings to each device in the node list
-    int deviceCount = printOnlineDevice(); // Pretty-print the online devices
-
-    if ((deviceCount == 0) && (settings.resetOnZeroDeviceCount == true)) // Check for resetOnZeroDeviceCount
-    {
-      if ((Serial.available()) || ((settings.useTxRxPinsForTerminal == true) && (Serial1.available())))
-        menuMain(); //Present user menu - in case the user wants to disable resetOnZeroDeviceCount
-      else
-      {
-        SerialPrintln(F("*** Zero Qwiic Devices Found! Resetting... ***"));
-        SerialFlush();
-        resetArtemis(); //Thank you and goodnight...
-      }
-    }
-  }
-  else
-    SerialPrintln(F("No Qwiic devices detected"));
-
-  // KDB add
-  // If we are streaming to Serial, start the stream with a Mime Type marker, followed by CR
-  SerialPrintln(F("Content-Type: text/csv"));
-  SerialPrintln("");
-  
-  if (settings.showHelperText == true) 
-    printHelperText(OL_OUTPUT_SERIAL | OL_OUTPUT_SDCARD); //printHelperText to terminal and sensor file
-
-  //If we are sleeping between readings then we cannot rely on millis() as it is powered down
-  //Use RTC instead
-  measurementStartTime = rtcMillis();
-
-  digitalWrite(PIN_STAT_LED, LOW); // Turn the STAT LED off now that everything is configured
-
-  lastAwakeTimeMillis = rtcMillis();
-
-  //If we are immediately going to go to sleep after the first reading then
-  //first present the user with the config menu in case they need to change something
-  if (checkIfItIsTimeToSleep())
-    menuMain(true); // Always open the menu - even if there is nothing in the serial buffers
 }
 
 void loop() {
