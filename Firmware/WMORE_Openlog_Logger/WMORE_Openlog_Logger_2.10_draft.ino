@@ -844,6 +844,8 @@ void loop() {
 
 }
 
+//----------------------------------------------------------------------------
+
 uint32_t howLongToSleepFor(void)
 {
   //Counter/Timer 6 will use the 32kHz clock
