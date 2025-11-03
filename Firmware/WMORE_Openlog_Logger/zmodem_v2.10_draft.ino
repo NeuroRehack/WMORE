@@ -129,15 +129,7 @@ V2.00
 extern int Filesleft;
 extern long Totalleft;
 
-#if SD_FAT_TYPE == 1
-extern File32 fout;
-#elif SD_FAT_TYPE == 2
-extern ExFile fout;
-#elif SD_FAT_TYPE == 3
-extern FsFile fout;
-#else // SD_FAT_TYPE == 0
-extern File fout;
-#endif  // SD_FAT_TYPE
+extern SdFile fout;
 
 static bool oneTime = false; // Display the Tera Term Change Directory note only once (so it does not get on people's nerves!)
 
@@ -172,6 +164,7 @@ void sdCardHelp(void)
   DSERIALprintln(F("HELP     - Print this list of commands")); DSERIAL->flush();
   DSERIALprintln(F("DIR      - List files in current working directory - alternate LS")); DSERIAL->flush();
   DSERIALprintln(F("DEL file - Delete file - alternate RM (\"DEL *\" will delete all files)")); DSERIAL->flush();
+  DSERIALprintln(F("FMT      - Format SD card - WARNING - all data will be deleted from SD!!!")); DSERIAL->flush(); // OSCAR add delete
   DSERIALprintln(F("SZ  file - Send file from OLA to terminal using ZModem (\"SZ *\" will send all files)")); DSERIAL->flush();
   DSERIALprintln(F("SS  file - Send file from OLA using serial TX pin")); DSERIAL->flush();
   DSERIALprintln(F("CAT file - Type file to this terminal - alternate TYPE")); DSERIAL->flush();
@@ -179,19 +172,9 @@ void sdCardHelp(void)
   DSERIALprint(F("\r\n"));
 }
 
-#if SD_FAT_TYPE == 1
-File32 root;
-File32 fout;
-#elif SD_FAT_TYPE == 2
-ExFile root;
-ExFile fout;
-#elif SD_FAT_TYPE == 3
-FsFile root;
-FsFile fout;
-#else // SD_FAT_TYPE == 0
-File root;
-File fout;
-#endif  // SD_FAT_TYPE
+SdFile root; // Copied from SdFat OpenNext example
+SdFile fout;
+//dir_t *dir ;
 
 int count_files(int *file_count, long *byte_count)
 {
@@ -219,12 +202,10 @@ int count_files(int *file_count, long *byte_count)
   return 0;
 }
 
-void sdCardMenu(int numberOfSeconds)
+void sdCardMenu(void)
 {
   sdCardHelp(); // Display the help
   
-  unsigned long startTime = millis();
-
   bool keepGoing = true;
   
   while (keepGoing)
@@ -241,7 +222,6 @@ void sdCardMenu(int numberOfSeconds)
     {
       if (DSERIAL->available() > 0)
       {
-        startTime = millis(); // reset the start time if we receive a char
         c = DSERIAL->read();
         if ((c == 8 or c == 127) && strlen(cmd) > 0) cmd[strlen(cmd)-1] = 0;
         if (c == '\n' || c == '\r') break;
@@ -257,11 +237,6 @@ void sdCardMenu(int numberOfSeconds)
         // from Serial
         checkBattery();
         delay(1);
-        if ( (millis() - startTime) / 1000 >= numberOfSeconds)
-        {
-          SerialPrintln(F("No user input received."));
-          return;
-        }        
       }
     }
      
@@ -350,6 +325,18 @@ void sdCardMenu(int numberOfSeconds)
       }
     }
 
+    // ------------------------------------------------------------------------
+    // WMORE - OSCAR add SD format command.
+    // Formats without further warnings or error messages.
+    else if (!strcmp_P(cmd, PSTR("FMT"))) // ForMat SD card as exFAT
+    {
+      if ((online.microSD == true)) // && (online.dataLogging == false))
+      {
+        sd.format(&Serial);
+        resetArtemis(); // Reset the system ready for logging
+      }  
+    }
+    // ------------------------------------------------------------------------
     else if (!strcmp_P(cmd, PSTR("SZ"))) // Send file(s) using zmodem
     {
       if (!strcmp_P(param, PSTR("*")))
@@ -522,6 +509,5 @@ void sdCardMenu(int numberOfSeconds)
       keepGoing = false;
     }
     
-    startTime = millis(); // reset the start time after commanded action completes
   }
 }
