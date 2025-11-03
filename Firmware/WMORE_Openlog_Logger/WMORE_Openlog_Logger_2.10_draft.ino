@@ -1165,3 +1165,212 @@ void SerialFlush(void)
 
 //----------------------------------------------------------------------------
 
+// WMORE
+// Clear received serial characters. 
+void serialClearBuffer(uint8_t port)
+{
+  uint8_t data;
+  
+  switch(port)
+  {
+    case 0:
+      while(Serial.available() > 0) 
+      {
+        data = Serial.read();         
+      }
+      break;
+    case 1:
+      while(Serial1.available() > 0) 
+      {
+        data = Serial1.read();         
+      }
+      break; 
+    default:
+      break;       
+  }
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Binary SD file format to reduce file size and increase write speed.
+
+void writeSDBin(void) {
+
+  if (online.microSD)
+  {
+    // Write binary data
+    uint32_t recordLength = sensorDataFile.write(outputData, SD_RECORD_LENGTH); // WMORE TODO add error checking and resolve hard-coded length        
+
+  // Force sync every 500ms
+  // WMORE - forced sync does not appear to be needed, and may cause write delays
+//  if (rtcMillis() - lastDataLogSyncTime > 500)
+//  {
+//    lastDataLogSyncTime = rtcMillis();
+//    sensorDataFile.sync();
+//    if (settings.frequentFileAccessTimestamps == true)
+//      updateDataFileAccess(&sensorDataFile); // Update the file access time & date
+//  }
+
+    //Check if it is time to open a new log file
+    uint64_t secsSinceLastFileNameChange = rtcMillis() - lastSDFileNameChangeTime; // Calculate how long we have been logging for
+    secsSinceLastFileNameChange /= 1000ULL; // Convert to secs
+    if ((settings.openNewLogFilesAfter > 0) && (((unsigned long)secsSinceLastFileNameChange) >= settings.openNewLogFilesAfter))
+    {
+      //Close existing files
+      if (online.dataLogging == true)
+      {
+        sensorDataFile.sync();
+        updateDataFileAccess(&sensorDataFile); // Update the file access time & date
+        sensorDataFile.close();
+        strcpy(sensorDataFileName, generateFileName()); // Create file name   
+        beginDataLogging(); //180ms
+      }
+      lastSDFileNameChangeTime = rtcMillis(); // Record the time of the file name change
+    }
+  }
+}  
+//----------------------------------------------------------------------------
+
+// WMORE
+// Overrides EEPROM settings where conflicts with new functionality may occur.
+// The settings struct is defined in settings.h
+void overrideSettings(void) {
+
+//settings.sizeOfSettings = 168;
+//settings.sizeOfSettings = sizeof(settings);
+//settings.olaIdentifier = 291; // Depends on Sparkfun OLA base version
+//settings.nextSerialLogNumber = 1; // Not used
+//settings.nextDataLogNumber = 13; // Not used
+  settings.usBetweenReadings = 10000;
+  settings.logMaxRate = 0;
+  settings.enableRTC = 1; // Alternative implementation
+  settings.enableIMU = 1; 
+  settings.enableTerminalOutput = 0;
+  settings.logDate = 1; // Alternative implementation
+  settings.logTime = 1; // Alternative implementation
+  settings.logData = 1;
+  settings.logSerial = 0;
+  settings.logIMUAccel = 1; // Alternative implementation
+  settings.logIMUGyro = 1; // Alternative implementation
+  settings.logIMUMag = 1; // Alternative implementation
+  settings.logIMUTemp = 1; // Alternative implementation
+  settings.logRTC = 1; // Alternative implementation
+  settings.logHertz = 0; // Alternative implementation
+  settings.correctForDST = 0;
+  settings.dateStyle = 1; // dd/mm/yy
+  settings.hour24Style = 1; // 24 hour
+//settings.serialTerminalBaudRate = 115200; // User set
+  settings.serialLogBaudRate = 9600; // Disabled 
+  settings.showHelperText = 0; // Disabled
+  settings.logA11 = 0; // Disabled
+  settings.logA12 = 0; // Disabled
+  settings.logA13 = 0; // Disabled
+  settings.logA32 = 0; // Disabled
+  settings.logAnalogVoltages = 0; // Disabled
+  settings.localUTCOffset = 0.00;
+  settings.printDebugMessages = 0; // Disabled
+  settings.powerDownQwiicBusBetweenReads = 0; // Disabled
+  settings.qwiicBusMaxSpeed = 100000; // Disabled
+  settings.qwiicBusPowerUpDelayMs = 250; // Disabled
+  settings.printMeasurementCount = 0; // Disabled
+  settings.enablePwrLedDuringSleep = 0; // Enabled
+  settings.logVIN = 0; // Disabled
+//settings.openNewLogFilesAfter = 0; // User set
+//settings.vinCorrectionFactor = 1.47; // User set
+  settings.useGPIO32ForStopLogging = 1;
+  settings.qwiicBusPullUps = 1; // Disabled
+  settings.outputSerial = 0; // Disabled
+//settings.zmodemStartDelay = 20; // User set
+//settings.enableLowBatteryDetection = 0; // User set 
+//settings.lowBatteryThreshold = 3.40; // User set
+  settings.frequentFileAccessTimestamps = 0; // Disabled
+  settings.useGPIO11ForTrigger = 0; // GPIO11 used for synchronisation instead
+  settings.fallingEdgeTrigger = 1; // Falling edge synchronisation
+//settings.imuAccDLPF = 1; // User set
+//settings.imuGyroDLPF = 1; // User set
+//settings.imuAccFSS = 1; // User set
+//settings.imuAccDLPFBW = 4; // User set
+//settings.imuGyroFSS = 2; // User set
+//settings.imuGyroDLPFBW = 4; // User set
+  settings.logMicroseconds = 0; // Disabled
+  settings.useTxRxPinsForTerminal = 0; // Disabled
+  settings.timestampSerial = 0; // Disabled
+  settings.timeStampToken = 10; // Disabled
+  settings.useGPIO11ForFastSlowLogging = 0; // Disabled
+  settings.slowLoggingWhenPin11Is = 0; // Disabled
+  settings.useRTCForFastSlowLogging = 0; // Disabled
+  settings.slowLoggingIntervalSeconds = 300; // Disabled
+  settings.slowLoggingStartMOD = 1260; // Disabled
+  settings.slowLoggingStopMOD = 420; // Disabled
+  settings.resetOnZeroDeviceCount = 0; // Disabled
+  settings.imuUseDMP = 0; // Disabled
+  settings.imuLogDMPQuat6 = 0; // Disabled
+  settings.imuLogDMPQuat9 = 0; // Disabled
+  settings.imuLogDMPAccel = 0; // Disabled
+  settings.imuLogDMPGyro = 0; // Disabled
+  settings.imuLogDMPCpass = 0; // Disabled
+  settings.minimumAwakeTimeMillis = 0; // Disabled
+  settings.identifyBioSensorHubs = 0; // Disabled
+  settings.serialTxRxDuringSleep = 0; // Disabled
+  settings.printGNSSDebugMessages = 0; // Disabled
+//settings.serialNumber = 0; // User set
+}
+
+//----------------------------------------------------------------------------
+
+// WMORE
+// Sends RTC value via Serial1. If this unit is a Coordinator, this is broadcast
+// to all Sensors.
+
+void sendRTC(void) {
+  
+  uint8_t rtcBuf[7];
+  uint8_t i;
+
+  // Fill buffer with current RTC value.
+  rtcBuf[0] = (uint8_t)myRTC.year;
+  rtcBuf[1] = (uint8_t)myRTC.month;
+  rtcBuf[2] = (uint8_t)myRTC.dayOfMonth;
+  rtcBuf[3] = (uint8_t)myRTC.hour;
+  rtcBuf[4] = (uint8_t)myRTC.minute;
+  rtcBuf[5] = (uint8_t)myRTC.seconds;
+  rtcBuf[6] = (uint8_t)myRTC.hundredths;
+
+  // Send RTC value to ESB transmitter.
+  Serial1.write(rtcBuf,7); // Fast - 7 bytes in 150 us @ 460800 bps
+  
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Waits for trigger to start logging
+
+void waitToLog(void) {
+  
+  powerLEDOn(); // Turn on the red LED
+  while (digitalRead(PIN_TRIGGER) == 1) { // Wait for sync falling edge  
+    if (Serial.available()) {
+      menuMain(); //Present user menu if serial character received
+    }; 
+    checkBattery(); // Check for low battery and shutdown if low
+  }
+  powerLEDOff(); // Turn off the red LED  
+    
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Stops logging without going into low power stop
+
+void stopLoggingStayAwake(void)
+{
+
+  //Save current log file
+  if (online.dataLogging == true)
+  {
+    sensorDataFile.sync();
+    updateDataFileAccess(&sensorDataFile); // Update the file access time & date
+    sensorDataFile.close(); //No need to close files. https://forum.arduino.cc/index.php?topic=149504.msg1125098#msg1125098
+  }
+   
+}
