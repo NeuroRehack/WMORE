@@ -85,6 +85,15 @@ void powerDownOLA(void)
     pinMode(PIN_TRIGGER, INPUT); // Remove the pull-up
   }
 
+  // WMORE - OSCAR - save files before power-down
+  if (online.dataLogging == true)
+  {
+    sensorDataFile.sync();
+    updateDataFileAccess(&sensorDataFile); // Update the file access time & date
+    sensorDataFile.close(); //No need to close files. https://forum.arduino.cc/index.php?topic=149504.msg1125098#msg1125098
+  }
+
+
   //WE NEED TO POWER DOWN ASAP - we don't have time to close the SD files
   //Save files before going to sleep
   //  if (online.dataLogging == true)
@@ -108,8 +117,7 @@ void powerDownOLA(void)
   powerControlADC(false); // power_adc_disable(); //Power down ADC. It it started by default before setup().
 
   Serial.end(); //Power down UART
-  if ((settings.useTxRxPinsForTerminal == true) || (online.serialLogging == true))
-    Serial1.end();
+  Serial1.end();
 
   //Force the peripherals off
   //This will cause badness with v2.1 of the core but we don't care as we are waiting for a reset
@@ -130,7 +138,8 @@ void powerDownOLA(void)
         //(x != PIN_LOGIC_DEBUG) &&
         (x != PIN_MICROSD_POWER) &&
         (x != PIN_QWIIC_POWER) &&
-        (x != PIN_IMU_POWER))
+        (x != PIN_IMU_POWER) &&
+        (x != PIN_PWR_LED))
     {
       am_hal_gpio_pinconfig(x, g_AM_HAL_GPIO_DISABLE);
     }
@@ -212,8 +221,7 @@ void resetArtemis(void)
   powerControlADC(false); // power_adc_disable(); //Power down ADC. It it started by default before setup().
 
   Serial.end(); //Power down UART
-  if ((settings.useTxRxPinsForTerminal == true) || (online.serialLogging == true))
-    Serial1.end();
+  Serial1.end();
 
   //Force the peripherals off
   //This will cause badness with v2.1 of the core but we don't care as we are going to force a WDT reset
@@ -234,7 +242,8 @@ void resetArtemis(void)
         //(x != PIN_LOGIC_DEBUG) &&
         (x != PIN_MICROSD_POWER) &&
         (x != PIN_QWIIC_POWER) &&
-        (x != PIN_IMU_POWER))
+        (x != PIN_IMU_POWER) &&
+        (x != PIN_PWR_LED))
     {
       am_hal_gpio_pinconfig(x, g_AM_HAL_GPIO_DISABLE);
     }
@@ -248,7 +257,7 @@ void resetArtemis(void)
   qwiicPowerOff();
 
   //Disable the power LED
-  powerLEDOff();
+  // powerLEDOff();
 
   //Enable the Watchdog so it can reset the Artemis
   petTheDog = false; // Make sure the WDT will not restart
@@ -330,8 +339,7 @@ void goToSleep(uint32_t sysTicksToSleep)
   
   SerialFlush(); //Finish any prints
   Serial.end();
-  if ((settings.useTxRxPinsForTerminal == true) || (online.serialLogging == true))
-    Serial1.end();
+  Serial1.end();
 
   //Force the peripherals off
 
@@ -361,6 +369,10 @@ void goToSleep(uint32_t sysTicksToSleep)
   am_hal_gpio_pinconfig(PIN_IMU_CHIP_SELECT , g_AM_HAL_GPIO_DISABLE); //ICM CS
   am_hal_gpio_pinconfig(PIN_IMU_INT , g_AM_HAL_GPIO_DISABLE); //ICM INT
   am_hal_gpio_pinconfig(PIN_MICROSD_CHIP_SELECT , g_AM_HAL_GPIO_DISABLE); //microSD CS
+
+  //Do disable qwiic SDA and SCL to minimise the current draw during deep sleep
+  am_hal_gpio_pinconfig(PIN_QWIIC_SDA , g_AM_HAL_GPIO_DISABLE);
+  am_hal_gpio_pinconfig(PIN_QWIIC_SCL , g_AM_HAL_GPIO_DISABLE);
 
   //If requested, disable pins 48 and 49 (UART0) to stop them back-feeding the CH340
   if (settings.serialTxRxDuringSleep == false)
@@ -564,7 +576,7 @@ void wakeFromSleep()
 
   SPI.begin(); //Needed if SD is disabled
 
-  beginSD(true); //285 - 293ms
+  beginSD(); //285 - 293ms
 
   enableCIPOpullUp(); // Enable CIPO pull-up _after_ beginSD
 
@@ -576,7 +588,7 @@ void wakeFromSleep()
     beginSerialOutput();
   }
 
-  beginIMU(true); //61ms
+  beginIMU(); //61ms
   printDebug("wakeFromSleep: online.IMU = " + (String)online.IMU + "\r\n");
 
   //If we powered down the Qwiic bus, then re-begin and re-configure everything
@@ -636,6 +648,7 @@ void stopLogging(void)
       Serial1.print((String)settings.serialTerminalBaudRate);
   SerialPrintln(F("bps..."));
   delay(sdPowerDownDelay); // Give the SD card time to shut down
+  powerLEDOn();
   powerDownOLA();
 }
 
@@ -784,3 +797,6 @@ int calculateDayOfYear(int day, int month, int year)
   doy += day;
   return doy;
 }
+
+// Not including WatchDog Timer code by Adam Garbo
+// WDT is natively supported by OLAv2.10, is in main file
