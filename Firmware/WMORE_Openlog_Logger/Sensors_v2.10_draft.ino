@@ -132,6 +132,20 @@ void getData() // WMORE - backwards compatibility with OLAv2.3
   digitalWrite(PIN_STAT_LED, LOW); // Turn off the blue LED
 }
 
+void printHelperText(uint8_t outputDest)
+{
+  char helperText[HELPER_BUFFER_SIZE];
+  helperText[0] = '\0';
+
+  getHelperText(helperText, sizeof(helperText));
+
+  if(outputDest & OL_OUTPUT_SERIAL)
+    SerialPrint(helperText);
+
+  if ((outputDest & OL_OUTPUT_SDCARD) && (settings.logData == true) && (online.microSD))
+    sensorDataFile.print(helperText);
+}
+
 //Read the VIN voltage
 float readVIN()
 {
@@ -145,6 +159,8 @@ float readVIN()
   return (vin);
 #endif
 }
+
+
 
 // ----------------------------------------------------------------------------
 // WMORE - added functions
