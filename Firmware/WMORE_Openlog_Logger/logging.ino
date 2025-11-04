@@ -19,51 +19,54 @@ char* generateFileName(void)
   // The following line should work but the sprintf library doesn't appear to generate leading zeroes correctly
   //sprintf(newFileName, "%02d%02d%02d_%02d%02d%02d.bin", myRTC.year, myRTC.month, myRTC.dayOfMonth, myRTC.hour, myRTC.minute, myRTC.seconds);
   // Workaround to address apparent failure of %02d format specifier to reliably add leading zeroes
-  sprintf(newFileName, "%2s", dig2(myRTC.year));
-  sprintf(newFileName, "%2s%2s", newFileName, dig2(myRTC.month));
-  sprintf(newFileName, "%4s%2s_", newFileName, dig2(myRTC.dayOfMonth)); 
-  sprintf(newFileName, "%7s%2s", newFileName, dig2(myRTC.hour));
-  sprintf(newFileName, "%9s%2s", newFileName, dig2(myRTC.minute));  
-  sprintf(newFileName, "%11s%2s_", newFileName, dig2(myRTC.seconds)); 
-  sprintf(newFileName, "%14s%2s.bin", newFileName, dig2(settings.serialNumber));   
+  sprintf(newFileName, "%2s", digN(myRTC.year,2));
+  sprintf(newFileName, "%2s%2s", newFileName, digN(myRTC.month,2));
+  sprintf(newFileName, "%4s%2s_", newFileName, digN(myRTC.dayOfMonth,2)); 
+  sprintf(newFileName, "%7s%2s", newFileName, digN(myRTC.hour,2));
+  sprintf(newFileName, "%9s%2s", newFileName, digN(myRTC.minute,2));  
+  sprintf(newFileName, "%11s%2s_", newFileName, digN(myRTC.seconds,2)); 
+  sprintf(newFileName, "%14s%3s.bin", newFileName, digN(file_number % 100,3));   
   
   // Tell the user
-  SerialPrint(F("Logging to: "));
+  SerialPrint(F("Logging to -> "));
   SerialPrintln(newFileName);    
 
   return (newFileName);
 }
+
 //----------------------------------------------------------------------------
 // OW 
 // Workaround for apparent non-compliance of %02d format specifer in sprintf().
-// Returns two character string representation of int
-// with leading zeroes if 0 < number < 100. 
-
-char* dig2(int number)
+// Returns a string representation of an integer with 2 or 3 digits.
+// Adds leading zeros if needed, e.g. 5 -> "05" or "005".
+// Set 'digits' = 2 or 3.
+char* digN(int number, int digits)
 {
-  static char numberString[3];
+  static char numberString[5]; // enough for up to "999" + null terminator
 
-  if(number < 10) 
+  if (digits == 3)
   {
-    // add leading zero 
-    sprintf(numberString, "0%1d", number);      
-  } 
-  else 
+    if (number < 10)
+      sprintf(numberString, "00%1d", number);
+    else if (number < 100)
+      sprintf(numberString, "0%2d", number);
+    else if (number < 1000)
+      sprintf(numberString, "%3d", number);
+    else
+      sprintf(numberString, "***");  // overflow
+  }
+  else  // default: 2 digits (same behaviour as original dig2)
   {
-    if(number < 100) {
-      // print two digits
+    if (number < 10)
+      sprintf(numberString, "0%1d", number);
+    else if (number < 100)
       sprintf(numberString, "%2d", number);
-    } 
-    else 
-    {
-      // over/underflow
-      sprintf(numberString, "**"); 
-    }
+    else
+      sprintf(numberString, "**");   // overflow
   }
 
-  return(numberString);
+  return numberString;
 }
-
 //----------------------------------------------------------------------------
 
 //Returns next available log file name

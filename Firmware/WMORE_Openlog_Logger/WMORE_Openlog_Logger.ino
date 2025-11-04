@@ -243,6 +243,8 @@ const byte PIN_SPI_COPI = 7;
 
 const byte SD_RECORD_LENGTH = 30; // WMORE Record length for binary file
 
+static int file_number = 0;
+
 // Include this many extra bytes when starting a mux - to try and avoid the slippery mux bug
 // This should be 0 but 3 or 7 seem to work better depending on which way the wind is blowing.
 const byte EXTRA_MUX_STARTUP_BYTES = 3;
@@ -895,9 +897,10 @@ void beginDataLogging()
   if (online.microSD == true && settings.logData == true) // TODO settings
   {
     //If we don't have a file yet, create one. Otherwise, re-open the last used file
-    if (strlen(sensorDataFileName) == 0)
+    if (strlen(sensorDataFileName) == 0){
       //strcpy(sensorDataFileName, findNextAvailableLog(settings.nextDataLogNumber, "dataLog"));
       strcpy(sensorDataFileName, generateFileName()); // Create file name   
+    }
     // O_CREAT - create the file if it does not exist
     // O_APPEND - seek to the end of the file prior to each write
     // O_WRITE - open for write
