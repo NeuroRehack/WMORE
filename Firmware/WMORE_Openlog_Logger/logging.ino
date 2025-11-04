@@ -7,6 +7,7 @@ void msg(const char * message)
 }
 
 //----------------------------------------------------------------------------
+// WMORE
 // OW
 // Generates file name in the form yymmdd_hhmmss_ID.bin
 // Currently no file existence checks
@@ -34,6 +35,7 @@ char* generateFileName(void)
   return (newFileName);
 }
 //----------------------------------------------------------------------------
+// WMORE
 // OW 
 // Workaround for apparent non-compliance of %02d format specifer in sprintf().
 // Returns two character string representation of int
@@ -71,7 +73,7 @@ char* dig2(int number)
 //Updates EEPROM and then appends to the new log file.
 char* findNextAvailableLog(int &newFileNumber, const char *fileLeader)
 {
-  SdFile newFile; //This will contain the file for SD writing
+  SdFile newFile; // WMORE - This will contain the file for SD writing
 
   if (newFileNumber < 2) //If the settings have been reset, let's warn the user that this could take a while!
   {

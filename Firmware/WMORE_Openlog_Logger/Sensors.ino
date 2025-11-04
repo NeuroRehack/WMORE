@@ -1,19 +1,25 @@
+
+
+
+#include "Sensors.h"
+
 //Query each enabled sensor for its most recent data
-void getData()
+// void getData(char* sdOutputData, size_t lenData)
+
+// ----------------------------------------------------------------------------
+// WMORE - pretty much completely custom
+void getData() // WMORE - backwards compatibility with OLAv2.3
 {
   measurementCount++;
   measurementTotal++;
 
-  outputDataCount = 0; // Counter for binary writes to outputData
+  outputDataCount = 0; // WMORE - Counter for binary writes to outputData
 
   if (online.IMU)
   {
     if (myICM.dataReady())
     {
-      // commended by Sami //intPeriod.full = period; // Average period relative to extTime
-      intPeriod.full = lastSamplingPeriod; // Sami: measured sampling period
-
-      digitalWrite(PIN_STAT_LED, HIGH); // Turn on blue LED
+      intPeriod.full = lastSamplingPeriod; // WMORE - Sami: measured sampling period
       myICM.getAGMT(); //Update values
     }
   }
@@ -49,37 +55,37 @@ void getData()
 
   // Read battery voltage and get top 8 bits
   batteryVoltage = (uint8_t)(analogRead(PIN_VIN_MONITOR) >> 6); 
-  
-    // Debug lines
-//    Serial.print(syncPacket.years);
-//    Serial.print(" ");
-//    Serial.print(syncPacket.months);
-//    Serial.print(" ");
-//    Serial.print(syncPacket.days);
-//    Serial.print(" ");
-//    Serial.print(syncPacket.hours);
-//    Serial.print(" ");
-//    Serial.print(syncPacket.minutes); 
-//    Serial.print(" ");           
-//    Serial.print(syncPacket.seconds);
-//    Serial.print(" ");
-//    Serial.print(syncPacket.hundredths);
-//    Serial.print(" : ");    
-//    Serial.print(myRTC.year);
-//    Serial.print(" ");
-//    Serial.print(myRTC.month);
-//    Serial.print(" ");
-//    Serial.print(myRTC.dayOfMonth);
-//    Serial.print(" ");
-//    Serial.print(myRTC.hour);
-//    Serial.print(" ");
-//    Serial.print(myRTC.minute); 
-//    Serial.print(" ");           
-//    Serial.print(myRTC.seconds);
-//    Serial.print(" ");
-//    Serial.print(myRTC.hundredths);
-//    Serial.print(" ");    
-//    Serial.println(batteryVoltage);
+
+  // Debug lines
+  // Serial.print(syncPacket.years);
+  // Serial.print(" ");
+  // Serial.print(syncPacket.months);
+  // Serial.print(" ");
+  // Serial.print(syncPacket.days);
+  // Serial.print(" ");
+  // Serial.print(syncPacket.hours);
+  // Serial.print(" ");
+  // Serial.print(syncPacket.minutes); 
+  // Serial.print(" ");           
+  // Serial.print(syncPacket.seconds);
+  // Serial.print(" ");
+  // Serial.print(syncPacket.hundredths);
+  // Serial.print(" : ");    
+  // Serial.print(myRTC.year);
+  // Serial.print(" ");
+  // Serial.print(myRTC.month);
+  // Serial.print(" ");
+  // Serial.print(myRTC.dayOfMonth);
+  // Serial.print(" ");
+  // Serial.print(myRTC.hour);
+  // Serial.print(" ");
+  // Serial.print(myRTC.minute); 
+  // Serial.print(" ");           
+  // Serial.print(myRTC.seconds);
+  // Serial.print(" ");
+  // Serial.print(myRTC.hundredths);
+  // Serial.print(" ");    
+  // Serial.println(batteryVoltage);
 
   // Binary write assuming LSB first (ARM little-endian)
   outputData[outputDataCount++] = (uint8_t)(myICM.agmt.acc.axes.x & 0xFF); // LSB
@@ -123,7 +129,21 @@ void getData()
   outputData[outputDataCount++] = (uint8_t)(intPeriod.part[2]); // 
   outputData[outputDataCount++] = (uint8_t)(intPeriod.part[3]); // MSB                    
   totalCharactersPrinted += outputDataCount;
-  digitalWrite(PIN_STAT_LED, LOW); // Turn off the blue LED  
+  digitalWrite(PIN_STAT_LED, LOW); // Turn off the blue LED
+}
+
+void printHelperText(uint8_t outputDest)
+{
+  char helperText[HELPER_BUFFER_SIZE];
+  helperText[0] = '\0';
+
+  getHelperText(helperText, sizeof(helperText));
+
+  if(outputDest & OL_OUTPUT_SERIAL)
+    SerialPrint(helperText);
+
+  if ((outputDest & OL_OUTPUT_SDCARD) && (settings.logData == true) && (online.microSD))
+    sensorDataFile.print(helperText);
 }
 
 //Read the VIN voltage
@@ -139,6 +159,11 @@ float readVIN()
   return (vin);
 #endif
 }
+
+
+
+// ----------------------------------------------------------------------------
+// WMORE - added functions
 
 //uint32_t elapsedMicros(uint32_t now, uint32_t then)
 //{

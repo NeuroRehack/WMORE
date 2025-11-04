@@ -1,12 +1,12 @@
 /*
   OpenLog Artemis
-  By: Nathan Seidle
+  By: Nathan Seidle and Paul Clark
   SparkFun Electronics
   Date: November 26th, 2019
-  License: This code is public domain but you buy me a beer if you use this
-  and we meet someday (Beerware license).
+  License: MIT. Please see LICENSE.md for more details.
   Feel like supporting our work? Buy a board from SparkFun!
-  https://www.sparkfun.com/products/15793
+  https://www.sparkfun.com/products/16832
+  https://www.sparkfun.com/products/19426
 
   This firmware runs the OpenLog Artemis. A large variety of system settings can be
   adjusted by connecting at 115200bps.
@@ -16,6 +16,100 @@
   v1.0 Power Consumption:
    Sleep between reads, RTC fully charged, no Qwiic, SD, no USB, no Power LED: 260uA
    10Hz logging IMU, no Qwiic, SD, no USB, no Power LED: 9-27mA
+
+  TODO:
+  (done) Create settings file for sensor. Load after qwiic bus is scanned.
+  (done on larger Strings) Remove String dependencies.
+  (done) Bubble sort list of devices.
+  (done) Remove listing for muxes.
+  (done) Verify the printing of all sensors is %f, %d correct
+  (done) Add begin function seperate from everything, call after wakeup instead of detect
+  (done) Add counter to output to look for memory leaks on long runs
+  (done) Add AHT20 support
+  (done) Add SHTC3 support
+  (done) Change settings extension to txt
+  (done) Fix max I2C speed to use linked list
+  Currently device settings are not recorded to EEPROM, only deviceSettings.txt
+  Is there a better way to dynamically create size of sdOutputData+0333333333333333333333333333333333333333333 array so we don't ever get larger than X sensors outputting?
+  Find way to store device configs into EEPROM
+  Log four pressure sensors and graph them on plotter
+  (checked) Test GPS - not sure about %d with int32s. Does lat, long, and alt look correct?
+  (done) Test NAU7802s
+  (done) Test SCD30s (Add an extended delay for the SCD30. (Issue #5))
+  (won't do?) Add a 'does not like to be powered cycled' setting for each device type. I think this has been superceded by "Add individual power-on delays for each sensor type?.
+  (done) Add support for logging VIN
+  (done) Investigate error in time between logs (https://github.com/sparkfun/OpenLog_Artemis/issues/13)
+  (done) Invesigate RTC reset issue (https://github.com/sparkfun/OpenLog_Artemis/issues/13 + https://forum.sparkfun.com/viewtopic.php?f=123&t=53157)
+    The solution is to make sure that the OLA goes into deep sleep as soon as the voltage monitor detects that the power has failed.
+    The user will need to press the reset button once power has been restored. Using the WDT to check the monitor and do a POR wasn't reliable.
+  (done) Investigate requires-reset issue on battery power (") (X04 + CCS811/BME280 enviro combo)
+  (done) Add a fix so that the MS8607 does not also appear as an MS5637
+  (done) Add "set RTC from GPS" functionality
+  (done) Add UTCoffset functionality (including support for negative numbers)
+  (done) Figure out how to give the u-blox time to establish a fix if it has been powered down between log intervals. The user can specify up to 60s for the Qwiic power-on delay.
+  Add support for VREG_ENABLE
+  (done) Add support for PWR_LED
+  (done) Use the WDT to reset the Artemis when power is reconnected (previously the Artemis would have stayed in deep sleep)
+  Add a callback function to the u-blox library so we can abort waiting for UBX data if the power goes low
+  (done) Add support for the ADS122C04 ADC (Qwiic PT100)
+  (done) Investigate why usBetweenReadings appears to be longer than expected. We needed to read millis _before_ enabling the lower power clock!
+  (done) Correct u-blox pull-ups
+  (done) Add an olaIdentifier to prevent problems when using two code variants that have the same sizeOfSettings
+  (done) Add a fix for the IMU wake-up issue identified in https://github.com/sparkfun/OpenLog_Artemis/issues/18
+  (done) Add a "stop logging" feature on GPIO 32: allow the pin to be used to read a stop logging button instead of being an analog input
+  (done) Allow the user to set the default qwiic bus pull-up resistance (u-blox will still use 'none')
+  (done) Add support for low battery monitoring using VIN
+  (done) Output sensor data via the serial TX pin (Issue #32)
+  (done) Add support for SD card file transfer (ZMODEM) and delete. (Issue #33) With thanks to: ecm-bitflipper (https://github.com/ecm-bitflipper/Arduino_ZModem)
+  (done) Add file creation and access timestamps
+  (done) Add the ability to trigger data collection via Pin 11 (Issue #36)
+  (done) Correct the measurement count misbehaviour (Issue #31)
+  (done) Use the corrected IMU temperature calculation (Issue #28)
+  (done) Add individual power-on delays for each sensor type. Add an extended delay for the SCD30. (Issue #5)
+  (done) v1.7: Fix readVin after sleep bug: https://github.com/sparkfun/OpenLog_Artemis/issues/39
+  (done) Change detectQwiicDevices so that the MCP9600 (Qwiic Thermocouple) is detected correctly
+  (done) Add support for the MPRLS0025PA micro pressure sensor
+  (done) Add support for the SN-GCJA5 particle sensor
+  (done) Add IMU accelerometer and gyro full scale and digital low pass filter settings to menuIMU
+  (done) Add a fix to make sure the MS8607 is detected correctly: https://github.com/sparkfun/OpenLog_Artemis/issues/54
+  (done) Add logMicroseconds: https://github.com/sparkfun/OpenLog_Artemis/issues/49
+  (done) Add an option to use autoPVT when logging GNSS data: https://github.com/sparkfun/OpenLog_Artemis/issues/50
+  (done) Corrected an issue when using multiple MS8607's: https://github.com/sparkfun/OpenLog_Artemis/issues/62
+  (done) Add a feature to use the TX and RX pins as a duplicate Terminal
+  (done) Add serial log timestamps with a token (as suggested by @DennisMelamed in PR https://github.com/sparkfun/OpenLog_Artemis/pull/70 and Issue https://github.com/sparkfun/OpenLog_Artemis/issues/63)
+  (done) Add "sleep on pin" functionality based @ryanneve's PR https://github.com/sparkfun/OpenLog_Artemis/pull/64 and Issue https://github.com/sparkfun/OpenLog_Artemis/issues/46
+  (done) Add "wake at specified times" functionality based on Issue https://github.com/sparkfun/OpenLog_Artemis/issues/46
+  (done) Add corrections for the SCD30 based on Forum post by paulvha: https://forum.sparkfun.com/viewtopic.php?p=222455#p222455
+  (done) Add support for the SGP40 VOC Index sensor
+  (done) Add support for the SDP3X Differential Pressure sensor
+  (done) Add support for the MS5837 - as used in the BlueRobotics BAR02 and BAR30 water pressure sensors
+  (done) Correct an issue which was causing the OLA to crash when waking from sleep and outputting serial data https://github.com/sparkfun/OpenLog_Artemis/issues/79
+  (done) Correct low-power code as per https://github.com/sparkfun/OpenLog_Artemis/issues/78
+  (done) Correct a bug in menuAttachedDevices when useTxRxPinsForTerminal is enabled https://github.com/sparkfun/OpenLog_Artemis/issues/82
+  (done) Add ICM-20948 DMP support. Requires v1.2.6 of the ICM-20948 library. DMP logging is limited to: Quat6 or Quat9, plus raw accel, gyro and compass. https://github.com/sparkfun/OpenLog_Artemis/issues/47
+  (done) Add support for exFAT. Requires v2.0.6 of Bill Greiman's SdFat library. https://github.com/sparkfun/OpenLog_Artemis/issues/34
+  (done) Add minimum awake time: https://github.com/sparkfun/OpenLog_Artemis/issues/83
+  (done) Add support for the Pulse Oximeter: https://github.com/sparkfun/OpenLog_Artemis/issues/81
+  (done - but does not work) Add support for the Qwiic Button. The QB uses clock-stretching and the Artemis really doesn't enjoy that...
+  (done) Increase DMP data resolution to five decimal places https://github.com/sparkfun/OpenLog_Artemis/issues/90
+
+  (in progress) Update to Apollo3 v2.1.0 - FIRMWARE_VERSION_MAJOR = 2.
+  (done) Implement printf float (OLA uses printf float in _so_ many places...): https://github.com/sparkfun/Arduino_Apollo3/issues/278
+  (worked around) attachInterrupt(PIN_POWER_LOSS, powerDownOLA, FALLING); triggers an immediate interrupt - https://github.com/sparkfun/Arduino_Apollo3/issues/416
+  (done) Add a setQwiicPullups function
+  (done) Check if we need ap3_set_pin_to_analog when coming out of sleep
+  (done) Investigate why code does not wake from deep sleep correctly
+  (worked around) Correct SerialLog RX: https://github.com/sparkfun/Arduino_Apollo3/issues/401
+    The work-around is to use Serial1 in place of serialLog and then to manually force UART1 to use pins 12 and 13
+    We need a work-around anyway because if pins 12 or 13 have been used as analog inputs, Serial1.begin does not re-configure them for UART TX and RX
+  (in progress) Reduce sleep current as much as possible. v1.2.1 achieved ~110uA. With v2.1.0 the draw is more like 260uA...
+
+  (in progress) Update to Apollo3 v2.2.0 - FIRMWARE_VERSION_MAJOR = 2; FIRMWARE_VERSION_MINOR = 1.
+  (done) Add a fix for issue #109 - check if a BME280 is connected before calling multiplexerBegin: https://github.com/sparkfun/OpenLog_Artemis/issues/109
+  (done) Correct issue #104. enableSD was redundant. The microSD power always needs to be on if there is a card inserted, otherwise the card pulls
+         the SPI lines low, preventing communication with the IMU:  https://github.com/sparkfun/OpenLog_Artemis/issues/104
+  (done) Add support for TMP102 temperature sensor (while differentating between it and the ADS1015 (which share the same 4 addresses starting at 0x48)
+
   v2.2:
     Use Apollo3 v2.2.1 with changes by paulvha to fix Issue 117 (Thank you Paul!)
       https://github.com/sparkfun/OpenLog_Artemis/issues/117#issuecomment-1085881142
@@ -42,7 +136,37 @@
     
   v2.3:
     Resolve https://forum.sparkfun.com/viewtopic.php?f=171&t=58109
-    
+
+  v2.4:
+    Add noPowerLossProtection to the main branch
+    Add changes by KDB: If we are streaming to Serial, start the stream with a Mime Type marker, followed by CR
+    Add debug option to only open the menu using a printable character: based on https://github.com/sparkfun/OpenLog_Artemis/pull/125
+
+  v2.5:
+    Add Tony Whipple's PR #146 - thank you @whipple63
+    Add support for the ISM330DHCX, MMC5983MA, KX134 and ADS1015
+    Resolve issue #87
+
+  v2.6:
+    Add support for the LPS28DFW - thank you @gauteh #179
+    Only disable I2C SDA and SCL during sleep when I2C bus is being powered down - thank you @whipple63 #167
+    Add calibrationConcentration support for the SCD30 - thank you @hotstick #181
+    Add limited support for the VEML7700 light sensor
+
+  v2.7:
+    Resolve serial logging issue - crash on startup - #182
+
+  v2.8:
+    Corrects the serial token timestamp printing - resolves #192
+    The charsReceived debug print ("Total chars received: ") now excludes the length of the timestamps
+    Consistent use of File32/ExFile/FsFile/File. Don't use SdFile for temporary files
+
+  v2.9
+    Adds support for TMP102 low(er) cost temperature sensor
+
+  v2.10
+    Restructure the serial logging code in loop()
+    Where possible, write residual serial data to file before closing
 */
 
 //----------------------------------------------------------------------------
@@ -196,8 +320,10 @@ volatile uint32_t periodSum = period * PERIOD_AVG_BUFFER_SIZE; // initialise run
 #define SerialPrintf4( var1, var2, var3, var4 ) {Serial.printf( var1, var2, var3, var4 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3, var4 );}
 #define SerialPrintf5( var1, var2, var3, var4, var5 ) {Serial.printf( var1, var2, var3, var4, var5 ); if (settings.useTxRxPinsForTerminal == true) Serial1.printf( var1, var2, var3, var4, var5 );}
 
+//----------------------------------------------------------------------------
+
 const int FIRMWARE_VERSION_MAJOR = 2;
-const int FIRMWARE_VERSION_MINOR = 3;
+const int FIRMWARE_VERSION_MINOR = 10;
 
 //Define the OLA board identifier:
 //  This is an int which is unique to this variant of the OLA and which allows us
@@ -207,10 +333,18 @@ const int FIRMWARE_VERSION_MINOR = 3;
 //    the variant * 0x100 (OLA = 1; GNSS_LOGGER = 2; GEOPHONE_LOGGER = 3)
 //    the major firmware version * 0x10
 //    the minor firmware version
-#define OLA_IDENTIFIER 0x123 // Stored as 291 decimal in OLA_settings.txt
+#define OLA_IDENTIFIER 0x12A // Stored as 298 decimal in OLA_settings.txt
+
+//#define noPowerLossProtection // Uncomment this line to disable the sleep-on-power-loss functionality
+
+#include "Sensors.h"
 
 #include "settings.h"
 
+//Define the pin functions
+//Depends on hardware version. This can be found as a marking on the PCB.
+//x04 was the SparkX 'black' version.
+//v10 was the first red version.
 #define HARDWARE_VERSION_MAJOR 1
 #define HARDWARE_VERSION_MINOR 0
 
@@ -223,7 +357,7 @@ const byte PIN_IMU_POWER = 27;
 const byte PIN_PWR_LED = 29;
 const byte PIN_VREG_ENABLE = 25;
 const byte PIN_VIN_MONITOR = 34; // VIN/3 (1M/2M - will require a correction factor)
-const byte PIN_NC = 0;
+const byte PIN_NC = 0; // WMORE - (DUB: not sure why this exists)
 #endif
 
 const byte PIN_POWER_LOSS = 3;
@@ -315,13 +449,12 @@ Apollo3RTC myRTC; //Create instance of RTC class
 
 //UART SerialLog(BREAKOUT_PIN_TX, BREAKOUT_PIN_RX);  // Declares a Uart object called SerialLog with TX on pin 12 and RX on pin 13
 
-//uint64_t lastSeriaLogSyncTime = 0;
+// uint64_t lastSeriaLogSyncTime = 0;
 uint64_t lastAwakeTimeMillis;
 const int MAX_IDLE_TIME_MSEC = 500;
-//bool newSerialData = false;
-//char incomingBuffer[256 * 2]; //This size of this buffer is sensitive. Do not change without analysis using OpenLog_Serial.
-//int incomingBufferSpot = 0;
-//int charsReceived = 0; //Used for verifying/debugging serial reception
+// char incomingBuffer[256 * 2]; //This size of this buffer is sensitive. Do not change without analysis using OpenLog_Serial.
+// int incomingBufferSpot = 0;
+// int charsReceived = 0; //Used for verifying/debugging serial reception
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 //Add ICM IMU interface
@@ -337,26 +470,24 @@ uint64_t measurementStartTime; //Used to calc the actual update rate. Max is ~80
 uint64_t lastSDFileNameChangeTime; //Used to calculate the interval since the last SD filename change
 unsigned long measurementCount = 0; //Used to calc the actual update rate.
 unsigned long measurementTotal = 0; //The total number of recorded measurements. (Doesn't get reset when the menu is opened)
-char outputData[512 * 2]; //Factor of 512 for easier recording to SD in 512 chunks
-//unsigned long lastReadTime = 0; //Used to delay until user wants to record a new reading
+char sdOutputData[512 * 2]; //Factor of 512 for easier recording to SD in 512 chunks
+// unsigned long lastReadTime = 0; //Used to delay until user wants to record a new reading
 unsigned long lastDataLogSyncTime = 0; //Used to record to SD every half second
 unsigned int totalCharactersPrinted = 0; //Limit output rate based on baud rate and number of characters to print
 bool takeReading = true; //Goes true when enough time has passed between readings or we've woken from sleep
 bool sleepAfterRead = false; //Used to keep the code awake for at least minimumAwakeTimeMillis
 const uint64_t maxUsBeforeSleep = 2000000ULL; //Number of us between readings before sleep is activated.
 const byte menuTimeout = 15; //Menus will exit/timeout after this number of seconds
+const int sdCardMenuTimeout = 60; // sdCard menu will exit/timeout after this number of seconds
 volatile static bool stopLoggingSeen = false; //Flag to indicate if we should stop logging
 uint64_t qwiicPowerOnTime = 0; //Used to delay after Qwiic power on to allow sensors to power on, then answer autodetect
 unsigned long qwiicPowerOnDelayMillis; //Wait for this many milliseconds after turning on the Qwiic power before attempting to communicate with Qwiic devices
 int lowBatteryReadings = 0; // Count how many times the battery voltage has read low
 const int lowBatteryReadingsLimit = 10; // Don't declare the battery voltage low until we have had this many consecutive low readings (to reject sampling noise)
 volatile static bool triggerEdgeSeen = false; //Flag to indicate if a trigger interrupt has been seen
-char serialTimestamp[40]; //Buffer to store serial timestamp, if needed
+char serialTimestamp[50]; //Buffer to store serial timestamp, if needed
 volatile static bool powerLossSeen = false; //Flag to indicate if a power loss event has been seen
-
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-uint8_t getByteChoice(int numberOfSeconds, bool updateDZSERIAL = false); // Header
 
 // The Serial port for the Zmodem connection
 // must not be the same as DSERIAL unless all
@@ -365,6 +496,38 @@ Stream *ZSERIAL;
 
 // Serial output for debugging info for Zmodem
 Stream *DSERIAL;
+
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+#include "WDT.h" // WDT support
+
+volatile static bool petTheDog = true; // Flag to control whether the WDT ISR pets (resets) the timer.
+
+// Interrupt handler for the watchdog.
+extern "C" void am_watchdog_isr(void)
+{
+  // Clear the watchdog interrupt.
+  wdt.clear();
+
+  // Restart the watchdog if petTheDog is true
+  if (petTheDog)
+    wdt.restart(); // "Pet" the dog.
+}
+
+void startWatchdog()
+{
+  // Set watchdog timer clock to 16 Hz
+  // Set watchdog interrupt to 1 seconds (16 ticks / 16 Hz = 1 second)
+  // Set watchdog reset to 1.25 seconds (20 ticks / 16 Hz = 1.25 seconds)
+  // Note: Ticks are limited to 255 (8-bit)
+  wdt.configure(WDT_16HZ, 16, 20);
+  wdt.start(); // Start the watchdog
+}
+
+void stopWatchdog()
+{
+  wdt.stop();
+}
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 //----------------------------------------------------------------------------
 // WMORE
@@ -549,6 +712,8 @@ void setupSync(void) {
 }
 
 //----------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------
 // WMORE
 // Modified and simplified original setup()
 
@@ -564,9 +729,15 @@ void setup() {
 
   delay(1); // Let PIN_POWER_LOSS stabilize
 
+#ifndef noPowerLossProtection
   if (digitalRead(PIN_POWER_LOSS) == LOW) powerDownOLA(); //Check PIN_POWER_LOSS just in case we missed the falling edge
   //attachInterrupt(PIN_POWER_LOSS, powerDownOLA, FALLING); // We can't do this with v2.1.0 as attachInterrupt causes a spontaneous interrupt
   attachInterrupt(PIN_POWER_LOSS, powerLossISR, FALLING);
+#else
+  // No Power Loss Protection
+  // Set up the WDT to generate a reset just in case the code crashes during a brown-out
+  startWatchdog();
+#endif
   powerLossSeen = false; // Make sure the flag is clear
 
   pinMode(PIN_STAT_LED, OUTPUT);
@@ -590,8 +761,9 @@ void setup() {
   overrideSettings(); // Hard-code some critical settings to avoid accidents
 
   Serial.flush(); //Complete any previous prints
-  Serial.begin(settings.serialTerminalBaudRate); // TODO settings
+  Serial.begin(settings.serialTerminalBaudRate); // WMORE - TODO settings
 
+  //----------------------------------------------------------------------------
   Serial.println(WMORE_VERSION);
 
   // Setup the stop logging pin
@@ -607,7 +779,8 @@ void setup() {
   pinMode(BREAKOUT_PIN_TX, OUTPUT);
   digitalWrite(BREAKOUT_PIN_TX, LOW);
   // end of modification
- 
+  //----------------------------------------------------------------------------
+
   analogReadResolution(14); //Increase from default of 10
 
   beginDataLogging(); //180ms
@@ -624,8 +797,8 @@ void setup() {
   if (online.IMU == true) SerialPrintln(F("IMU online"));
   else SerialPrintln(F("IMU offline - or not present"));
 
-  digitalWrite(PIN_STAT_LED, LOW); // Turn the blue LED off
-  waitToLog(); // Wait for sync falling edge to start logging
+  digitalWrite(PIN_STAT_LED, LOW); // Turn the blue LED off now that everything is configured
+  waitToLog(); // WMORE - Wait for sync falling edge to start logging
 
 }
 
@@ -711,6 +884,7 @@ void beginSD()
     {
       SerialPrintln(F("SD init failed (second attempt). Is card present? Formatted?"));
       SerialPrintln(F("Please ensure the SD card is formatted correctly using https://www.sdcard.org/downloads/formatter/"));
+
       digitalWrite(PIN_MICROSD_CHIP_SELECT, HIGH); //Be sure SD is deselected
       online.microSD = false;
       return;
@@ -720,7 +894,6 @@ void beginSD()
   //Change to root directory. All new file creation will be in root.
   if (sd.chdir() == false)
   {
-    SerialPrintln(F("SD change directory failed"));
     online.microSD = false;
     return;
   }
@@ -754,8 +927,6 @@ void configureSerial1TxRx(void) // Configure pins 12 and 13 for UART1 TX and RX
   pin_config(PinName(BREAKOUT_PIN_RX), pinConfigRx);
 }
 
-//----------------------------------------------------------------------------
-
 void beginIMU()
 {
   pinMode(PIN_IMU_POWER, OUTPUT);
@@ -781,7 +952,7 @@ void beginIMU()
     }
 
     if (settings.printDebugMessages) myICM.enableDebugging();
-    myICM.begin(PIN_IMU_CHIP_SELECT, SPI, 7000000); // WMORE set IMU SPI rate to 7 MHz
+    myICM.begin(PIN_IMU_CHIP_SELECT, SPI, 7000000); // WMORE - Set IMU SPI rate to 7MHz
     if (myICM.status != ICM_20948_Stat_Ok)
     {
       printDebug("beginIMU: first attempt at myICM.begin failed. myICM.status = " + (String)myICM.status + "\r\n");
@@ -801,7 +972,7 @@ void beginIMU()
         delay(1);
       }
 
-      myICM.begin(PIN_IMU_CHIP_SELECT, SPI, 7000000); // WMORE set IMU SPI rate to 7MHz
+      myICM.begin(PIN_IMU_CHIP_SELECT, SPI, 7000000);  // WMORE - Set IMU SPI rate to 7MHz
       if (myICM.status != ICM_20948_Stat_Ok)
       {
         printDebug("beginIMU: second attempt at myICM.begin failed. myICM.status = " + (String)myICM.status + "\r\n");
@@ -822,8 +993,6 @@ void beginIMU()
     }
 
     bool success = true;
-
-    //Check if we are using the DMP
 
     //Perform a full startup (not minimal) for non-DMP mode
     ICM_20948_Status_e retval = myICM.startupDefault(false);
@@ -895,12 +1064,13 @@ void beginIMU()
 
 void beginDataLogging()
 {
-  if (online.microSD == true && settings.logData == true) // TODO settings
+  if (online.microSD == true && settings.logData == true) // WMORE - TODO settings
   {
     //If we don't have a file yet, create one. Otherwise, re-open the last used file
     if (strlen(sensorDataFileName) == 0)
       //strcpy(sensorDataFileName, findNextAvailableLog(settings.nextDataLogNumber, "dataLog"));
-      strcpy(sensorDataFileName, generateFileName()); // Create file name   
+      strcpy(sensorDataFileName, generateFileName()); // WMORE - Create file name
+
     // O_CREAT - create the file if it does not exist
     // O_APPEND - seek to the end of the file prior to each write
     // O_WRITE - open for write
@@ -919,6 +1089,8 @@ void beginDataLogging()
   else
     online.dataLogging = false;
 }
+
+//----------------------------------------------------------------------------
 
 #if SD_FAT_TYPE == 1
 void updateDataFileCreate(File32 *dataFile)
@@ -952,6 +1124,8 @@ void updateDataFileAccess(File *dataFile)
   dataFile->timestamp(T_WRITE, (myRTC.year + 2000), myRTC.month, myRTC.dayOfMonth, myRTC.hour, myRTC.minute, myRTC.seconds);
 }
 
+//----------------------------------------------------------------------------
+
 //Called once number of milliseconds has passed
 extern "C" void am_stimer_cmpr6_isr(void)
 {
@@ -964,7 +1138,7 @@ extern "C" void am_stimer_cmpr6_isr(void)
 
 //----------------------------------------------------------------------------
 
-//Power Loss ISR
+// Power Loss ISR
 void powerLossISR(void)
 {
   powerLossSeen = true;
@@ -990,6 +1164,7 @@ void SerialFlush(void)
 }
 
 //----------------------------------------------------------------------------
+
 // WMORE
 // Clear received serial characters. 
 void serialClearBuffer(uint8_t port)
