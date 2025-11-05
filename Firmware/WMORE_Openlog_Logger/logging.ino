@@ -28,8 +28,10 @@ char* generateFileName(void)
   sprintf(newFileName, "%14s%3s.bin", newFileName, digN(file_number % 100,3));   
   
   // Tell the user
-  SerialPrint(F("Logging to -> "));
-  SerialPrintln(newFileName);    
+  // SerialPrint(F("Logging to -> "));
+  // SerialPrintln(newFileName);    
+
+  file_number++;
 
   return (newFileName);
 }

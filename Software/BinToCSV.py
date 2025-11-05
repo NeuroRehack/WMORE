@@ -29,7 +29,7 @@ def binToCSV(file_path):
     """
     
     # set the name of the output csv file
-    out_file = os.path.join(os.path.split(file_path)[0], os.path.split(file_path)[1][:16] + ".csv")
+    out_file = os.path.join(os.path.split(file_path)[0], os.path.split(file_path)[1][:17] + ".csv")
     with open(file_path, 'rb') as file_id:
         # read binary file
         raw_data = file_id.read()
