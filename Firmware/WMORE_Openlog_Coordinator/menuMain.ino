@@ -33,8 +33,8 @@ void menuMain()
 
     SerialPrintln(F("2) Configure Time Stamp"));
 
-    if (online.IMU)
-      SerialPrintln(F("3) Configure IMU Logging"));
+    // if (online.IMU)
+    //   SerialPrintln(F("3) Configure IMU Logging"));
 
     // if (settings.useTxRxPinsForTerminal == false)
     //   SerialPrintln(F("4) Configure Serial Logging"));
@@ -52,7 +52,7 @@ void menuMain()
 
     // SerialPrintln(F("r) Reset all settings to default"));
 
-    SerialPrintln(F("q) Quit logging: Close log files and reset"));
+    SerialPrintln(F("q) Quit logging: Close log files and power down"));
 
     //SerialPrintln(F("d) Debug Menu"));
 
@@ -64,8 +64,8 @@ void menuMain()
       menuLogRate();
     else if (incoming == '2')
       menuTimeStamp();
-    else if ((incoming == '3') && (online.IMU))
-      restartIMU = menuIMU();
+    // else if ((incoming == '3') && (online.IMU))
+    //   restartIMU = menuIMU();
     // else if ((incoming == '4') && (settings.useTxRxPinsForTerminal == false))
     //   menuSerialLogging();
     // else if (incoming == '5')
@@ -191,15 +191,13 @@ void menuMain()
           updateDataFileAccess(&serialDataFile); // Update the file access time & date
           serialDataFile.close();
         }
-        SerialPrint(F("Log files are closed. System will reset."));
-        // SerialPrint(F("Log files are closed. Please reset OpenLog Artemis and open a terminal at "));
-        // Serial.print((String)settings.serialTerminalBaudRate);
-        // if (settings.useTxRxPinsForTerminal == true)
-        //   Serial1.print((String)settings.serialTerminalBaudRate);
-        // SerialPrintln(F("bps..."));
+        SerialPrint(F("Log files are closed. Please reset OpenLog Artemis and open a terminal at "));
+        Serial.print((String)settings.serialTerminalBaudRate);
+        if (settings.useTxRxPinsForTerminal == true)
+          Serial1.print((String)settings.serialTerminalBaudRate);
+        SerialPrintln(F("bps..."));
         delay(sdPowerDownDelay); // Give the SD card time to shut down
-        // powerDownOLA();
-        resetArtemis();
+        powerDownOLA();
       }
       else
         SerialPrintln(F("Quit aborted"));
