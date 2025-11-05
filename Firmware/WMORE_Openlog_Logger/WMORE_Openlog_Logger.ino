@@ -449,12 +449,12 @@ Apollo3RTC myRTC; //Create instance of RTC class
 
 //UART SerialLog(BREAKOUT_PIN_TX, BREAKOUT_PIN_RX);  // Declares a Uart object called SerialLog with TX on pin 12 and RX on pin 13
 
-// uint64_t lastSeriaLogSyncTime = 0;
+uint64_t lastSeriaLogSyncTime = 0;
 uint64_t lastAwakeTimeMillis;
 const int MAX_IDLE_TIME_MSEC = 500;
-// char incomingBuffer[256 * 2]; //This size of this buffer is sensitive. Do not change without analysis using OpenLog_Serial.
-// int incomingBufferSpot = 0;
-// int charsReceived = 0; //Used for verifying/debugging serial reception
+char incomingBuffer[256 * 2]; //This size of this buffer is sensitive. Do not change without analysis using OpenLog_Serial.
+int incomingBufferSpot = 0;
+int charsReceived = 0; //Used for verifying/debugging serial reception
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 //Add ICM IMU interface
@@ -470,7 +470,7 @@ uint64_t measurementStartTime; //Used to calc the actual update rate. Max is ~80
 uint64_t lastSDFileNameChangeTime; //Used to calculate the interval since the last SD filename change
 unsigned long measurementCount = 0; //Used to calc the actual update rate.
 unsigned long measurementTotal = 0; //The total number of recorded measurements. (Doesn't get reset when the menu is opened)
-char sdOutputData[512 * 2]; //Factor of 512 for easier recording to SD in 512 chunks
+char outputData[512 * 2]; //Factor of 512 for easier recording to SD in 512 chunks // WMORE - changed from sdOutputData to outputData (OLA changed from outputData to sdOutputData between OLAv2.3 and OLAv2.10)
 // unsigned long lastReadTime = 0; //Used to delay until user wants to record a new reading
 unsigned long lastDataLogSyncTime = 0; //Used to record to SD every half second
 unsigned int totalCharactersPrinted = 0; //Limit output rate based on baud rate and number of characters to print

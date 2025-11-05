@@ -22,8 +22,6 @@ void menuMain()
       if (firstChar < 9)
         return;
     }
-    else if (!alwaysOpen)
-      return;
   }
   
   while (1)
@@ -128,8 +126,8 @@ void menuMain()
           //   strcpy(sensorDataFileName, findNextAvailableLog(settings.nextDataLogNumber, "dataLog"));
             strcpy(sensorDataFileName, generateFileName()); // Create new file name
           beginDataLogging(); //180ms
-          if (settings.showHelperText == true) 
-            printHelperText(OL_OUTPUT_SERIAL | OL_OUTPUT_SDCARD); //printHelperText to terminal and sensor file
+          // if (settings.showHelperText == true) 
+          //   printHelperText(OL_OUTPUT_SERIAL | OL_OUTPUT_SDCARD); //printHelperText to terminal and sensor file
         }
         if (online.serialLogging == true)
         {

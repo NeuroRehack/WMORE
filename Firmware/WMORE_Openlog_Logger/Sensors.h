@@ -9,6 +9,7 @@
 
 void printHelperText(uint8_t);
 void getData(void);
+uint8_t getByteChoice(int numberOfSeconds, bool updateDZSERIAL = false);
 void menuMain(void);
 void beginSD(void);
 void beginIMU(void);

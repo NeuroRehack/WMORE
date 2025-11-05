@@ -134,16 +134,17 @@ void getData() // WMORE - backwards compatibility with OLAv2.3
 
 void printHelperText(uint8_t outputDest)
 {
-  char helperText[HELPER_BUFFER_SIZE];
-  helperText[0] = '\0';
+  // WMORE - was in misc.ino file and is blank. HELPER_BUFFER_SIZE is 1024 in OLAv2.10
+  // char helperText[HELPER_BUFFER_SIZE];
+  // helperText[0] = '\0';
 
-  getHelperText(helperText, sizeof(helperText));
+  // getHelperText(helperText, sizeof(helperText));
 
-  if(outputDest & OL_OUTPUT_SERIAL)
-    SerialPrint(helperText);
+  // if(outputDest & OL_OUTPUT_SERIAL)
+  //   SerialPrint(helperText);
 
-  if ((outputDest & OL_OUTPUT_SDCARD) && (settings.logData == true) && (online.microSD))
-    sensorDataFile.print(helperText);
+  // if ((outputDest & OL_OUTPUT_SDCARD) && (settings.logData == true) && (online.microSD))
+  //   sensorDataFile.print(helperText);
 }
 
 //Read the VIN voltage
