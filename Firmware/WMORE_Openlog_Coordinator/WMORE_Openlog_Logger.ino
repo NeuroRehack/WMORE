@@ -173,7 +173,7 @@
 // WMORE defines
 
 // WMORE version number, which is different to the Openlog Artemis version number it's based on
-#define WMORE_VERSION "WMORE Logger v0.1" 
+#define WMORE_VERSION "WMORE Coordinator v0.1" 
 
 // WMORE defines for synchronised sampling clock
 #define TIMERB_PERIOD 65535U // Free-running timer period
@@ -189,9 +189,9 @@
 //#define TIMER_CLOCK AM_HAL_CTIMER_XT_32_768KHZ
 //#define TIMER_CLOCK AM_HAL_CTIMER_HFRC_187_5KHZ
 #define TIMER_CLOCK AM_HAL_CTIMER_HFRC_3MHZ
-#define RTC_UPDATE_INTERVAL_MINS 1U
 #define LEDS_WAIT 0U // LEDS indicate waiting to start logging
 #define LEDS_LOG 1U // LEDS indicate logging 
+#define POWER_DOWN_WAIT_MS 1000U // Milliseconds to wait before powering down
 
 //----------------------------------------------------------------------------
 // WMORE timestamp structure
@@ -217,9 +217,12 @@ struct {
 //----------------------------------------------------------------------------
 // WMORE measures of time for logging
 
+// syncUnion globalSampleTime; // (1/32768) s master clock at time of sending sync packet
+// syncUnion localSampleTime; // local sample time taken from micros() 
+// syncUnion intTime; // internal sample timer value at time of sync event
+// syncUnion extTime; // external sync event timer value at time of sync event
 periodUnion intPeriod; // internal 
 
-uint8_t lastRTCSetMinutes = 0; // WMORE minutes of last time RTC was updated by Coordinator
 uint8_t outputDataCount; // WMORE counter for binary writes to outputData
 uint8_t batteryVoltage; // WMORE battery voltage 
 
@@ -230,9 +233,6 @@ const int sampleTimer = 2;
 //const int syncTimer = 3;
 volatile uint32_t period = NOMINAL_PERIOD; // Initial estimate for timer period
 volatile uint32_t extTimerValue;
-volatile uint32_t extTimerValue2; // created by Sami
-volatile uint32_t samplingPeriod; // created by Sami // WMORE sampling
-volatile uint32_t lastSamplingPeriod; // created by Sami // last WMORE sampling
 volatile uint32_t intTimerValue;
 volatile uint32_t timerValue; 
 volatile uint32_t extTimerValueLast = 0;
@@ -435,7 +435,7 @@ File serialDataFile; //File that all incoming serial data is written to
 char sensorDataFileName[30] = ""; //We keep a record of this file name so that we can re-open it upon wakeup from sleep
 char serialDataFileName[30] = ""; //We keep a record of this file name so that we can re-open it upon wakeup from sleep
 //const int sdPowerDownDelay = 100; //Delay for this many ms before turning off the SD card power
-const int sdPowerDownDelay = 1000; // WMORE - increased delay before turning off the SD card power to ensure files are saved
+const int sdPowerDownDelay = 1000; // WMORE - increased delay before turning off the SD card power to ensure files are saved (relevant for logger)
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 //Add RTC interface for Artemis
@@ -574,14 +574,14 @@ extern "C" void triggerPinISR() {
   uint64_t gpio_int_mask = 0x00;
   am_hal_gpio_interrupt_status_get(true, &gpio_int_mask);
   // read the current internal timer (sampling timer) value
-  intTimerValue = am_hal_ctimer_read(sampleTimer, AM_HAL_CTIMER_TIMERA);
+  // intTimerValue = am_hal_ctimer_read(sampleTimer, AM_HAL_CTIMER_TIMERA); // WMORE - Disabled for coordinator
   // read the current external event timer (sync timer) value
-  extTimerValue = am_hal_stimer_counter_get(); // Now using STIMER instead of timer 3 
+  // extTimerValue = am_hal_stimer_counter_get(); // Now using STIMER instead of timer 3 // WMORE - Disabled for coordinator
   am_hal_gpio_interrupt_clear(AM_HAL_GPIO_BIT(gpio_int_mask)); // clear GPIO interrupt
-  adjustTime(); // Adjust the sampling timer
+  // adjustTime(); // Adjust the sampling timer // Disabled for coordinator
   // store previous timer value
-  extTimerValueLast = extTimerValue;   
-  //triggerPinFlag = true; // Currently used for debugging 
+  // extTimerValueLast = extTimerValue; // Disabled for coordinator
+  triggerPinFlag = true; // WMORE - for coordinator
 }
 
 //----------------------------------------------------------------------------
@@ -601,13 +601,14 @@ void burstMode(void) {
   am_hal_burst_mode_initialize(&eBurstModeAvailable);
   am_hal_burst_mode_enable(&eBurstMode);
 }
+
 //----------------------------------------------------------------------------
 // WMORE 
 // Set clock state
 
 void clockState(void) {
 
-  burstMode(); // Engage burst mode
+  burstMode(); // Engage burst mode - disabled for coordinator
 
   //am_hal_stimer_config(AM_HAL_STIMER_XTAL_32KHZ);
   //
@@ -650,6 +651,22 @@ void setupSampleTimer(int timerNum, uint32_t periodTicks)
   //  The last parameter to am_hal_ctimer_period_set() has no effect in this mode.
   //
   am_hal_ctimer_period_set(timerNum, AM_HAL_CTIMER_TIMERA, periodTicks, 1);
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Configure sync timer (not used, uses STIMER instead)
+
+void setupSyncTimer(int timerNum, uint32_t periodTicks)
+{
+  //  Refer to Ambiq Micro Apollo3 Blue MCU datasheet section 13.2.2
+  //  and am_hal_ctimer.c line 710 of 2210.
+  //
+  am_hal_ctimer_config_single(timerNum, AM_HAL_CTIMER_BOTH,
+                              TIMER_CLOCK |
+                              AM_HAL_CTIMER_FN_REPEAT);
+
+  am_hal_ctimer_period_set(timerNum, AM_HAL_CTIMER_BOTH, periodTicks, 1);
 }
 
 //----------------------------------------------------------------------------
@@ -698,15 +715,15 @@ void setupSync(void) {
   am_hal_gpio_pincfg_t intPinConfig = g_AM_HAL_GPIO_INPUT_PULLUP;
   intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
   pin_config(PinName(PIN_TRIGGER), intPinConfig); // Make sure the pull-up does actually stay enabled
-  //triggerPinFlag = false; // Make sure the flag is clear
+  triggerPinFlag = false; // Make sure the flag is clear
 
-  // Setup sample interval timer
-  setupSampleTimer(sampleTimer, period); // timerNum, period, padNum
-  am_hal_ctimer_start(sampleTimer, AM_HAL_CTIMER_TIMERA);
-  NVIC_EnableIRQ(CTIMER_IRQn);
-  am_hal_ctimer_int_clear(AM_HAL_CTIMER_INT_TIMERA2);
-  am_hal_ctimer_int_enable(AM_HAL_CTIMER_INT_TIMERA2);  
-  am_hal_ctimer_int_register(AM_HAL_CTIMER_INT_TIMERA2, timerISR);
+  // Setup sample interval timer - disabled for coordinator
+  // setupSampleTimer(sampleTimer, period); // timerNum, period, padNum
+  // am_hal_ctimer_start(sampleTimer, AM_HAL_CTIMER_TIMERA);
+  // NVIC_EnableIRQ(CTIMER_IRQn);
+  // am_hal_ctimer_int_clear(AM_HAL_CTIMER_INT_TIMERA2);
+  // am_hal_ctimer_int_enable(AM_HAL_CTIMER_INT_TIMERA2);  
+  // am_hal_ctimer_int_register(AM_HAL_CTIMER_INT_TIMERA2, timerISR);
   am_hal_interrupt_master_enable();
 
 }
@@ -722,6 +739,7 @@ void setup() {
   // Ensure clocks are in a known state
   clockState();
   // Set up synchronisation inputs, timers, and ISRs
+  // Only uses triggerPinISR() for coordinator
   setupSync();
   
   //If 3.3V rail drops below 3V, system will power down and maintain RTC
@@ -775,31 +793,34 @@ void setup() {
   pin_config(PinName(PIN_STOP_LOGGING), intPinConfig); // Make sure the pull-up does actually stay enabled
   stopLoggingSeen = false; // Make sure the flag is clear
 
-  // Modified by Sami -- set pin 12 to output and low
-  pinMode(BREAKOUT_PIN_TX, OUTPUT);
-  digitalWrite(BREAKOUT_PIN_TX, LOW);
-  // end of modification
   //----------------------------------------------------------------------------
 
   analogReadResolution(14); //Increase from default of 10
 
-  beginDataLogging(); //180ms
+  beginDataLogging(); //180ms - WMORE - not used for coordinator
   lastSDFileNameChangeTime = rtcMillis(); // Record the time of the file name change
 
-  beginIMU(); //61ms
+  // beginIMU(); //61ms
 
-  if (online.microSD == true) SerialPrintln(F("SD card online"));
-  else SerialPrintln(F("SD card offline"));
+  // if (online.microSD == true) SerialPrintln(F("SD card online"));
+  // else SerialPrintln(F("SD card offline"));
 
-  if (online.dataLogging == true) SerialPrintln(F("Data logging online"));
-  else SerialPrintln(F("Datalogging offline"));
+  // if (online.dataLogging == true) SerialPrintln(F("Data logging online"));
+  // else SerialPrintln(F("Datalogging offline"));
 
-  if (online.IMU == true) SerialPrintln(F("IMU online"));
-  else SerialPrintln(F("IMU offline - or not present"));
+  // if (online.IMU == true) SerialPrintln(F("IMU online"));
+  // else SerialPrintln(F("IMU offline - or not present"));
 
   digitalWrite(PIN_STAT_LED, LOW); // Turn the blue LED off now that everything is configured
   waitToLog(); // WMORE - Wait for sync falling edge to start logging
 
+  // while (digitalRead(PIN_TRIGGER) == 1) { // Wait for first sync falling edge  
+  //  if (Serial.available()) {
+  //    menuMain(); //Present user menu if serial character received
+  //  }; 
+  //  checkBattery(); // Check for low battery
+  // }
+  // powerLEDOff(); // Turn off red LED during logging
 }
 
 //----------------------------------------------------------------------------
@@ -808,40 +829,29 @@ void setup() {
 
 void loop() {
 
-  if (timerIntFlag == true) { // Act if sampling timer has interrupted
-    // added by Sami -- set pin 12 to toggle between low and high
-    digitalWrite(BREAKOUT_PIN_TX, HIGH);
-    extTimerValue2 = am_hal_stimer_counter_get();// added by Sami
-    timerIntFlag = false; // Reset sampling timer flag
-    myRTC.getTime(); // Get the local time from the RTC
-    lastSamplingPeriod = samplingPeriod; // added by Sami // the previous sampling period to write to SD card
-    getData(); // Get data from IMU and global time from Coordinator 
-    writeSDBin(); // Store IMU and time data     
-    if (stopLoggingSeen == true) { // Stop logging if directed by Coordinator
+  // Sampling driven by timer
+  // while (timerIntFlag != true) {}; // Wait for sampling timer
+
+  // Sampling driven by triggerPinISR
+  if (triggerPinFlag == true) {
+    triggerPinFlag = false;
+    digitalWrite(PIN_STAT_LED, HIGH); // Turn on blue LED
+    myRTC.getTime(); // Get the time from the RTC
+    sendRTC(); // Send the RTC value to the ESB transmitter (Coordinator use only) 
+    digitalWrite(PIN_STAT_LED, LOW); // Turn off blue LED
+    if (stopLoggingSeen == true) {
       stopLoggingSeen = false; // Reset the flag
-      resetArtemis(); // Reset the system
-//      stopLoggingStayAwake(); // Close file and prepare for next start command
-//      beginDataLogging(); // Open file in preparation for next logging run
-//      waitToLog(); // Wait until directed to start logging again
+      waitToLog();
+      // delay(POWER_DOWN_WAIT_MS); // Give the Nano time to transmit the stop command
+      // powerDownOLA(); // Enter low power sleep; cycle power to reset
     } 
-    // added by Sami -- set pin 12 to toggle between low and high
-    digitalWrite(BREAKOUT_PIN_TX, LOW); 
-    // end of modification
-    samplingPeriod = am_hal_stimer_counter_get() - extTimerValue2; // added by Sami
-  }  
+  }
 
   if (Serial.available()) {
     menuMain(); //Present user menu if serial character received
   }  
+  checkBattery(); // Check for low battery
   
-  checkBattery(); // Check for low battery and shutdown if low
-  
-  // Debug: output time difference for performance evaluation
-  //if (triggerPinFlag == true) {
-  //  triggerPinFlag = false;
-  //  Serial.println(timeDifference);
-  //}
-
 }
 
 //----------------------------------------------------------------------------
@@ -917,10 +927,9 @@ void disableCIPOpullUp() // updated for v2.1.0 of the Apollo3 core
 
 void configureSerial1TxRx(void) // Configure pins 12 and 13 for UART1 TX and RX
 {
-  // Commented out by Sami ---------------------------------------------
-  // am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
-  // pinConfigTx.uFuncSel = AM_HAL_PIN_12_UART1TX;
-  // pin_config(PinName(BREAKOUT_PIN_TX), pinConfigTx);
+  am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
+  pinConfigTx.uFuncSel = AM_HAL_PIN_12_UART1TX;
+  pin_config(PinName(BREAKOUT_PIN_TX), pinConfigTx);
   am_hal_gpio_pincfg_t pinConfigRx = g_AM_BSP_GPIO_COM_UART_RX;
   pinConfigRx.uFuncSel = AM_HAL_PIN_13_UART1RX;
   pinConfigRx.ePullup = AM_HAL_GPIO_PIN_PULLUP_WEAK; // Put a weak pull-up on the Rx pin
@@ -1227,6 +1236,10 @@ void writeSDBin(void) {
       }
       lastSDFileNameChangeTime = rtcMillis(); // Record the time of the file name change
     }
+    // if ((settings.useGPIO32ForStopLogging == true) && (stopLoggingSeen == true)) // Has the user pressed the stop logging button?
+    // {
+    //   stopLogging();
+    // } 
   }
 }  
 //----------------------------------------------------------------------------
@@ -1244,16 +1257,16 @@ void overrideSettings(void) {
   settings.usBetweenReadings = 10000;
   settings.logMaxRate = 0;
   settings.enableRTC = 1; // Alternative implementation
-  settings.enableIMU = 1; 
+  settings.enableIMU = 0; // WMORE - Coordinator
   settings.enableTerminalOutput = 0;
   settings.logDate = 1; // Alternative implementation
   settings.logTime = 1; // Alternative implementation
   settings.logData = 1;
   settings.logSerial = 0;
-  settings.logIMUAccel = 1; // Alternative implementation
-  settings.logIMUGyro = 1; // Alternative implementation
-  settings.logIMUMag = 1; // Alternative implementation
-  settings.logIMUTemp = 1; // Alternative implementation
+  settings.logIMUAccel = 0; // Alternative implementation // WMORE - Coordinator
+  settings.logIMUGyro = 0; // Alternative implementation // WMORE - Coordinator
+  settings.logIMUMag = 0; // Alternative implementation // WMORE - Coordinator
+  settings.logIMUTemp = 0; // Alternative implementation // WMORE - Coordinator
   settings.logRTC = 1; // Alternative implementation
   settings.logHertz = 0; // Alternative implementation
   settings.correctForDST = 0;
@@ -1273,7 +1286,7 @@ void overrideSettings(void) {
   settings.qwiicBusMaxSpeed = 100000; // Disabled
   settings.qwiicBusPowerUpDelayMs = 250; // Disabled
   settings.printMeasurementCount = 0; // Disabled
-  settings.enablePwrLedDuringSleep = 0; // Enabled
+  settings.enablePwrLedDuringSleep = 0; // Enabled // WMORE - Disabled for Coordinator
   settings.logVIN = 0; // Disabled
 //settings.openNewLogFilesAfter = 0; // User set
 //settings.vinCorrectionFactor = 1.47; // User set
@@ -1356,21 +1369,4 @@ void waitToLog(void) {
   }
   powerLEDOff(); // Turn off the red LED  
     
-}
-
-//----------------------------------------------------------------------------
-// WMORE
-// Stops logging without going into low power stop
-
-void stopLoggingStayAwake(void)
-{
-
-  //Save current log file
-  if (online.dataLogging == true)
-  {
-    sensorDataFile.sync();
-    updateDataFileAccess(&sensorDataFile); // Update the file access time & date
-    sensorDataFile.close(); //No need to close files. https://forum.arduino.cc/index.php?topic=149504.msg1125098#msg1125098
-  }
-   
 }
