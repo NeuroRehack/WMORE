@@ -13,20 +13,21 @@ void getData() // WMORE - backwards compatibility with OLAv2.3
   measurementCount++;
   measurementTotal++;
 
+  outputData[0] = '\0'; //Clear string contents
   outputDataCount = 0; // WMORE - Counter for binary writes to outputData
 
   if (online.IMU)
   {
     if (myICM.dataReady())
     {
-      digitalWrite(PIN_STAT_LED, HIGH); // Turn on blue LED
-      intPeriod.full = lastSamplingPeriod; // WMORE - Sami: measured sampling period
+      //localSampleTime.full = am_hal_stimer_counter_get(); // Local time measured by STIMER
+      intPeriod.full = period; // Average period relative to extTime
+      digitalWrite(PIN_STAT_LED, HIGH);
       myICM.getAGMT(); //Update values
+      digitalWrite(PIN_STAT_LED, LOW);
     }
   }
 
-  delayMicroseconds(1000); // Wait until syncPacket data is available (delay may not be optimal)
-  
   if (Serial1.available() == 7) { // A timestamp is available
     syncPacket.valid = true;
     syncPacket.years = Serial1.read();
@@ -48,45 +49,8 @@ void getData() // WMORE - backwards compatibility with OLAv2.3
   }
   serialClearBuffer(1); // Get rid of any spurious characters
 
-  // Update RTC from master if more than RTC_UPDATE_INTERVAL_US has elapsed. 
-  if ((syncPacket.valid == true) && (elapsedMinutes(myRTC.minute, lastRTCSetMinutes) > RTC_UPDATE_INTERVAL_MINS)) {
-    myRTC.setTime(syncPacket.hundredths, syncPacket.seconds, syncPacket.minutes, syncPacket.hours, syncPacket.days, syncPacket.months, syncPacket.years); 
-    lastRTCSetMinutes = myRTC.minute;   
-  }
-
   // Read battery voltage and get top 8 bits
   batteryVoltage = (uint8_t)(analogRead(PIN_VIN_MONITOR) >> 6); 
-
-  // Debug lines
-  // Serial.print(syncPacket.years);
-  // Serial.print(" ");
-  // Serial.print(syncPacket.months);
-  // Serial.print(" ");
-  // Serial.print(syncPacket.days);
-  // Serial.print(" ");
-  // Serial.print(syncPacket.hours);
-  // Serial.print(" ");
-  // Serial.print(syncPacket.minutes); 
-  // Serial.print(" ");           
-  // Serial.print(syncPacket.seconds);
-  // Serial.print(" ");
-  // Serial.print(syncPacket.hundredths);
-  // Serial.print(" : ");    
-  // Serial.print(myRTC.year);
-  // Serial.print(" ");
-  // Serial.print(myRTC.month);
-  // Serial.print(" ");
-  // Serial.print(myRTC.dayOfMonth);
-  // Serial.print(" ");
-  // Serial.print(myRTC.hour);
-  // Serial.print(" ");
-  // Serial.print(myRTC.minute); 
-  // Serial.print(" ");           
-  // Serial.print(myRTC.seconds);
-  // Serial.print(" ");
-  // Serial.print(myRTC.hundredths);
-  // Serial.print(" ");    
-  // Serial.println(batteryVoltage);
 
   // Binary write assuming LSB first (ARM little-endian)
   outputData[outputDataCount++] = (uint8_t)(myICM.agmt.acc.axes.x & 0xFF); // LSB
@@ -130,7 +94,6 @@ void getData() // WMORE - backwards compatibility with OLAv2.3
   outputData[outputDataCount++] = (uint8_t)(intPeriod.part[2]); // 
   outputData[outputDataCount++] = (uint8_t)(intPeriod.part[3]); // MSB                    
   totalCharactersPrinted += outputDataCount;
-  digitalWrite(PIN_STAT_LED, LOW); // Turn off the blue LED
 }
 
 void printHelperText(uint8_t outputDest)
@@ -160,42 +123,4 @@ float readVIN()
   vin = vin * settings.vinCorrectionFactor; //Correct for divider impedance (determined experimentally)
   return (vin);
 #endif
-}
-
-
-
-// ----------------------------------------------------------------------------
-// WMORE - added functions
-
-//uint32_t elapsedMicros(uint32_t now, uint32_t then)
-//{
-//  uint32_t diff;
-//  
-//  // Allow for 32-bit rollover
-//  if (now < then) {
-//    diff = (0xffff - then) + now;
-//  } else {
-//    diff = now - then;    
-//  }
-//  return diff;
-//}
-
-// OSCAR calculate the number of minutes between two
-// numbers which are assumed to represent cuurent and  
-// previous minute times in the range 0 to 59. Rollover
-// detection is performed.
- 
-uint8_t elapsedMinutes(uint8_t current, uint8_t previous)
-{
-  uint8_t diff = 0; // difference between two readings in minutes
-
-  if ((current < 60) && (previous < 60)) { // Bounds check
-    if (current < previous) {
-      diff = (60 - previous) + current; // Rollover has occurred
-    } else {
-      diff = current - previous; // Rollover has not occurred  
-    }
-  }
-  
-  return diff;
 }
