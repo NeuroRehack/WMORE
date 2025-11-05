@@ -19,6 +19,7 @@ void getData() // WMORE - backwards compatibility with OLAv2.3
   {
     if (myICM.dataReady())
     {
+      digitalWrite(PIN_STAT_LED, HIGH); // Turn on blue LED
       intPeriod.full = lastSamplingPeriod; // WMORE - Sami: measured sampling period
       myICM.getAGMT(); //Update values
     }
