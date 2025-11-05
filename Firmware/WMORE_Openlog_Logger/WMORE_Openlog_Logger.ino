@@ -508,15 +508,25 @@ void adjustTime(void) {
     // Calculate the average
     period = periodSum / PERIOD_AVG_BUFFER_SIZE;
     // Increment the buffer pointer, modulo the buffer size
-    periodAvgPtr++ % PERIOD_AVG_BUFFER_SIZE;
+    // periodAvgPtr++ % PERIOD_AVG_BUFFER_SIZE;
+    periodAvgPtr = (periodAvgPtr + 1) % PERIOD_AVG_BUFFER_SIZE;
   }
   // Calculate a period adjustment value to be applied once
   // When did the sync event happen relative to the local timer  
-  if (intTimerValue < (period / 2)) { 
-    timerAdj = (intTimerValue / 1); // try proportional to distance to desired timeout (/4, /2, /1 tried) 
+  // if (intTimerValue < (period / 2)) { 
+  //   timerAdj = (intTimerValue / 1); // try proportional to distance to desired timeout (/4, /2, /1 tried) 
+  // } else {
+  //   timerAdj = -1 * (((period - intTimerValue) / 1)); // try proportional to distance to desired timeout (/4, /2, /1 tried)
+  // } 
+  int32_t adj;
+  if (intTimerValue < (period >> 1)) {
+      adj = (int32_t)intTimerValue;
   } else {
-    timerAdj = -1 * (((period - intTimerValue) / 1)); // try proportional to distance to desired timeout (/4, /2, /1 tried)
-  } 
+      adj = - (int32_t)(period - intTimerValue);
+  }
+  // reduce gain to avoid jitter / overshoot
+  adj >>= 1; // gain = 0.5 (>>2 for 0.25)
+  timerAdj = adj;
 }
 
 //----------------------------------------------------------------------------
