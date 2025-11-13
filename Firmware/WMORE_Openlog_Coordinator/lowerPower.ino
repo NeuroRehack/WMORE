@@ -30,12 +30,21 @@ void checkBattery(void)
       
         delay(sdPowerDownDelay); // Give the SD card time to finish writing ***** THIS IS CRITICAL *****
 
+#ifdef noPowerLossProtection
+        SerialPrintln(F("*** LOW BATTERY VOLTAGE DETECTED! RESETTING... ***"));
+        SerialPrintln(F("*** PLEASE CHANGE THE POWER SOURCE TO CONTINUE ***"));
+      
+        SerialFlush(); //Finish any prints
+
+        resetArtemis(); // Reset the Artemis so we don't get stuck in a low voltage infinite loop
+#else
         SerialPrintln(F("***      LOW BATTERY VOLTAGE DETECTED! GOING INTO POWERDOWN      ***"));
         SerialPrintln(F("*** PLEASE CHANGE THE POWER SOURCE AND RESET THE OLA TO CONTINUE ***"));
       
         SerialFlush(); //Finish any prints
 
-        powerDownOLA(); // power down and wait for reset
+        powerDownOLA(); // Power down and wait for reset
+#endif
       }
     }
     else
@@ -45,8 +54,10 @@ void checkBattery(void)
   }
 #endif
 
+#ifndef noPowerLossProtection // Redundant - since the interrupt is not attached if noPowerLossProtection is defined... But you never know...
   if (powerLossSeen)
     powerDownOLA(); // power down and wait for reset
+#endif
 }
 
 //Power down the entire system but maintain running of RTC
@@ -55,8 +66,10 @@ void checkBattery(void)
 //With leakage across the 3.3V protection diode, it's approx 3.00uA.
 void powerDownOLA(void)
 {
+#ifndef noPowerLossProtection // Probably redundant - included just in case detachInterrupt causes badness when it has not been attached
   //Prevent voltage supervisor from waking us from sleep
   detachInterrupt(PIN_POWER_LOSS);
+#endif
 
   //Prevent stop logging button from waking us from sleep
   if (settings.useGPIO32ForStopLogging == true)
@@ -71,6 +84,15 @@ void powerDownOLA(void)
     detachInterrupt(PIN_TRIGGER); // Disable the interrupt
     pinMode(PIN_TRIGGER, INPUT); // Remove the pull-up
   }
+
+  // WMORE - OSCAR - save files before power-down
+  if (online.dataLogging == true)
+  {
+    sensorDataFile.sync();
+    updateDataFileAccess(&sensorDataFile); // Update the file access time & date
+    sensorDataFile.close(); //No need to close files. https://forum.arduino.cc/index.php?topic=149504.msg1125098#msg1125098
+  }
+
 
   //WE NEED TO POWER DOWN ASAP - we don't have time to close the SD files
   //Save files before going to sleep
@@ -140,6 +162,10 @@ void powerDownOLA(void)
   qwiicPowerOff();
 #endif
 
+#ifdef noPowerLossProtection // If noPowerLossProtection is defined, then the WDT will already be running
+  stopWatchdog();
+#endif
+
   //Power down cache, flash, SRAM
   am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_ALL); // Power down all flash and cache
   am_hal_pwrctrl_memory_deepsleep_retain(AM_HAL_PWRCTRL_MEM_SRAM_384K); // Retain all SRAM
@@ -166,6 +192,18 @@ void resetArtemis(void)
   }
   if (online.serialLogging == true)
   {
+    if (incomingBufferSpot > 0)
+    {
+      //Write the remainder of the buffer
+      digitalWrite(PIN_STAT_LED, HIGH); //Toggle stat LED to indicating log recording
+      serialDataFile.write(incomingBuffer, incomingBufferSpot); //Record the buffer to the card
+      digitalWrite(PIN_STAT_LED, LOW);
+
+      incomingBufferSpot = 0;
+
+      lastSeriaLogSyncTime = rtcMillis(); //Reset the last sync time to now
+    }
+
     serialDataFile.sync();
     updateDataFileAccess(&serialDataFile); // Update the file access time & date
     serialDataFile.close();
@@ -219,10 +257,13 @@ void resetArtemis(void)
   qwiicPowerOff();
 
   //Disable the power LED
-  //powerLEDOff();
+  // powerLEDOff();
 
   //Enable the Watchdog so it can reset the Artemis
-  startWatchdog();
+  petTheDog = false; // Make sure the WDT will not restart
+#ifndef noPowerLossProtection // If noPowerLossProtection is defined, then the WDT will already be running
+  startWatchdog(); // Start the WDT to generate a reset
+#endif
   while (1) // That's all folks! Artemis will reset in 1.25 seconds
     ;
 }
@@ -232,8 +273,10 @@ void goToSleep(uint32_t sysTicksToSleep)
 {
   printDebug("goToSleep: sysTicksToSleep = " + (String)sysTicksToSleep + "\r\n");
   
+#ifndef noPowerLossProtection // Probably redundant - included just in case detachInterrupt causes badness when it has not been attached
   //Prevent voltage supervisor from waking us from sleep
   detachInterrupt(PIN_POWER_LOSS);
+#endif
 
   //Prevent stop logging button from waking us from sleep
   if (settings.useGPIO32ForStopLogging == true)
@@ -259,6 +302,18 @@ void goToSleep(uint32_t sysTicksToSleep)
   }
   if (online.serialLogging == true)
   {
+    if (incomingBufferSpot > 0)
+    {
+      //Write the remainder of the buffer
+      digitalWrite(PIN_STAT_LED, HIGH); //Toggle stat LED to indicating log recording
+      serialDataFile.write(incomingBuffer, incomingBufferSpot); //Record the buffer to the card
+      digitalWrite(PIN_STAT_LED, LOW);
+
+      incomingBufferSpot = 0;
+
+      lastSeriaLogSyncTime = rtcMillis(); //Reset the last sync time to now
+    }
+
     serialDataFile.sync();
     updateDataFileAccess(&serialDataFile); // Update the file access time & date
     serialDataFile.close();
@@ -340,7 +395,12 @@ void goToSleep(uint32_t sysTicksToSleep)
 
   //Keep Qwiic bus powered on if user desires it
   if (settings.powerDownQwiicBusBetweenReads == true)
+  {
+    //Do disable qwiic SDA and SCL to minimise the current draw during deep sleep
+    am_hal_gpio_pinconfig(PIN_QWIIC_SDA , g_AM_HAL_GPIO_DISABLE);
+    am_hal_gpio_pinconfig(PIN_QWIIC_SCL , g_AM_HAL_GPIO_DISABLE);
     qwiicPowerOff();
+  }
   else
     qwiicPowerOn(); //Make sure pins stays as output
 
@@ -349,6 +409,13 @@ void goToSleep(uint32_t sysTicksToSleep)
     powerLEDOn();
   else
     powerLEDOff();
+
+
+#ifdef noPowerLossProtection
+  // If noPowerLossProtection is defined, then the WDT will be running
+  // We need to stop it otherwise it will wake the Artemis
+  stopWatchdog();
+#endif
 
   //Power down cache, flash, SRAM
   am_hal_pwrctrl_memory_deepsleep_powerdown(AM_HAL_PWRCTRL_MEM_ALL); // Power down all flash and cache
@@ -419,12 +486,17 @@ void wakeFromSleep()
 
   delay(1); // Let PIN_POWER_LOSS stabilize
 
+#ifndef noPowerLossProtection
   if (digitalRead(PIN_POWER_LOSS) == LOW) powerDownOLA(); //Check PIN_POWER_LOSS just in case we missed the falling edge
-
   //attachInterrupt(PIN_POWER_LOSS, powerDownOLA, FALLING); // We can't do this with v2.1.0 as attachInterrupt causes a spontaneous interrupt
   attachInterrupt(PIN_POWER_LOSS, powerLossISR, FALLING);
+#else
+  // No Power Loss Protection
+  // Set up the WDT to generate a reset just in case the code crashes during a brown-out
+  startWatchdog();
+#endif
   powerLossSeen = false; // Make sure the flag is clear
-  
+
   if (settings.useGPIO32ForStopLogging == true)
   {
     pinMode(PIN_STOP_LOGGING, INPUT_PULLUP);
@@ -526,7 +598,16 @@ void wakeFromSleep()
     //loadDeviceSettingsFromFile(); //Apply device settings after the Qwiic bus devices have been detected and begin()'d
     configureQwiicDevices(); //Apply config settings to each device in the node list
   }
-
+  
+  // Late in the process to allow time for external device to generate unwanted signals
+  while(Serial.available())  // Flush the input buffer
+    Serial.read();
+  if (settings.useTxRxPinsForTerminal == true)
+  {
+    while(Serial1.available())  // Flush the input buffer
+      Serial1.read();
+  }
+  
   //When we wake up micros has been reset to zero so we need to let the main loop know to take a reading
   takeReading = true;
 }
@@ -544,6 +625,18 @@ void stopLogging(void)
   }
   if (online.serialLogging == true)
   {
+    if (incomingBufferSpot > 0)
+    {
+      //Write the remainder of the buffer
+      digitalWrite(PIN_STAT_LED, HIGH); //Toggle stat LED to indicating log recording
+      serialDataFile.write(incomingBuffer, incomingBufferSpot); //Record the buffer to the card
+      digitalWrite(PIN_STAT_LED, LOW);
+
+      incomingBufferSpot = 0;
+
+      lastSeriaLogSyncTime = rtcMillis(); //Reset the last sync time to now
+    }
+
     serialDataFile.sync();
     updateDataFileAccess(&serialDataFile); // Update the file access time & date
     serialDataFile.close();
@@ -705,45 +798,5 @@ int calculateDayOfYear(int day, int month, int year)
   return doy;
 }
 
-//WatchDog Timer code by Adam Garbo:
-//https://forum.sparkfun.com/viewtopic.php?f=169&t=52431&p=213296#p213296
-
-// Watchdog timer configuration structure.
-am_hal_wdt_config_t g_sWatchdogConfig = {
-
-  // Configuration values for generated watchdog timer event.
-  .ui32Config = AM_HAL_WDT_LFRC_CLK_16HZ | AM_HAL_WDT_ENABLE_RESET | AM_HAL_WDT_ENABLE_INTERRUPT,
-
-  // Number of watchdog timer ticks allowed before a watchdog interrupt event is generated.
-  .ui16InterruptCount = 16, // Set WDT interrupt timeout for 1 second.
-
-  // Number of watchdog timer ticks allowed before the watchdog will issue a system reset.
-  .ui16ResetCount = 20 // Set WDT reset timeout for 1.25 seconds.
-};
-
-void startWatchdog()
-{
-  // LFRC must be turned on for this example as the watchdog only runs off of the LFRC.
-  am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_LFRC_START, 0);
-
-  // Configure the watchdog.
-  am_hal_wdt_init(&g_sWatchdogConfig);
-
-  // Enable the interrupt for the watchdog in the NVIC.
-  NVIC_EnableIRQ(WDT_IRQn);
-  //NVIC_SetPriority(WDT_IRQn, 0); // Set the interrupt priority to 0 = highest (255 = lowest)
-  //am_hal_interrupt_master_enable(); // ap3_initialization.cpp does this - no need to do it here
-
-  // Enable the watchdog.
-  am_hal_wdt_start();
-}
-
-// Interrupt handler for the watchdog.
-extern "C++" void am_watchdog_isr(void)
-{
-  // Clear the watchdog interrupt.
-  am_hal_wdt_int_clear();
-
-  // DON'T Restart the watchdog.
-  //am_hal_wdt_restart(); // "Pet" the dog.
-}
+// Not including WatchDog Timer code by Adam Garbo
+// WDT is natively supported by OLAv2.10, is in main file

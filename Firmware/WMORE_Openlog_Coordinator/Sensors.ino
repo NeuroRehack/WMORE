@@ -1,11 +1,20 @@
+
+
+
+#include "Sensors.h"
+
 //Query each enabled sensor for its most recent data
-void getData()
+// void getData(char* sdOutputData, size_t lenData)
+
+// ----------------------------------------------------------------------------
+// WMORE - pretty much completely custom
+void getData() // WMORE - backwards compatibility with OLAv2.3
 {
   measurementCount++;
   measurementTotal++;
 
   outputData[0] = '\0'; //Clear string contents
-  outputDataCount = 0; // Counter for binary writes to outputData
+  outputDataCount = 0; // WMORE - Counter for binary writes to outputData
 
   if (online.IMU)
   {
@@ -65,26 +74,41 @@ void getData()
   outputData[outputDataCount++] = (uint8_t)(myICM.agmt.tmp.val & 0xFF); 
   outputData[outputDataCount++] = (uint8_t)((myICM.agmt.tmp.val >> 8) & 0xFF);                  
   outputData[outputDataCount++] = (uint8_t)(syncPacket.valid); // LSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.years); // 
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.months); // 
+  outputData[outputDataCount++] = (uint8_t)(syncPacket.years); // MSB
+  outputData[outputDataCount++] = (uint8_t)(syncPacket.months); // LSB
   outputData[outputDataCount++] = (uint8_t)(syncPacket.days); // MSB 
   outputData[outputDataCount++] = (uint8_t)(syncPacket.hours); // LSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.minutes); // 
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.seconds); // 
+  outputData[outputDataCount++] = (uint8_t)(syncPacket.minutes); // MSB
+  outputData[outputDataCount++] = (uint8_t)(syncPacket.seconds); // LSB
   outputData[outputDataCount++] = (uint8_t)(syncPacket.hundredths); // MSB   
-  outputData[outputDataCount++] = (uint8_t)(myRTC.year); // 
-  outputData[outputDataCount++] = (uint8_t)(myRTC.month); // 
-  outputData[outputDataCount++] = (uint8_t)(myRTC.dayOfMonth); // 
-  outputData[outputDataCount++] = (uint8_t)(myRTC.hour); // 
-  outputData[outputDataCount++] = (uint8_t)(myRTC.minute); // 
-  outputData[outputDataCount++] = (uint8_t)(myRTC.seconds); // 
-  outputData[outputDataCount++] = (uint8_t)(myRTC.hundredths); // 
-  outputData[outputDataCount++] = (uint8_t)(batteryVoltage); // 
+  outputData[outputDataCount++] = (uint8_t)(myRTC.year); // LSB
+  outputData[outputDataCount++] = (uint8_t)(myRTC.month); // MSB
+  outputData[outputDataCount++] = (uint8_t)(myRTC.dayOfMonth); // LSB 
+  outputData[outputDataCount++] = (uint8_t)(myRTC.hour); // MSB
+  outputData[outputDataCount++] = (uint8_t)(myRTC.minute); // LSB
+  outputData[outputDataCount++] = (uint8_t)(myRTC.seconds); // MSB
+  outputData[outputDataCount++] = (uint8_t)(myRTC.hundredths); // LSB
+  outputData[outputDataCount++] = (uint8_t)(batteryVoltage); // MSB
   outputData[outputDataCount++] = (uint8_t)(intPeriod.part[0]); // LSB
   outputData[outputDataCount++] = (uint8_t)(intPeriod.part[1]); // 
   outputData[outputDataCount++] = (uint8_t)(intPeriod.part[2]); // 
   outputData[outputDataCount++] = (uint8_t)(intPeriod.part[3]); // MSB                    
   totalCharactersPrinted += outputDataCount;
+}
+
+void printHelperText(uint8_t outputDest)
+{
+  // WMORE - was in misc.ino file and is blank. HELPER_BUFFER_SIZE is 1024 in OLAv2.10
+  // char helperText[HELPER_BUFFER_SIZE];
+  // helperText[0] = '\0';
+
+  // getHelperText(helperText, sizeof(helperText));
+
+  // if(outputDest & OL_OUTPUT_SERIAL)
+  //   SerialPrint(helperText);
+
+  // if ((outputDest & OL_OUTPUT_SDCARD) && (settings.logData == true) && (online.microSD))
+  //   sensorDataFile.print(helperText);
 }
 
 //Read the VIN voltage

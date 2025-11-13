@@ -177,7 +177,8 @@ void recordSystemSettingsToFile()
     settingsFile.println("identifyBioSensorHubs=" + (String)settings.identifyBioSensorHubs);
     settingsFile.println("serialTxRxDuringSleep=" + (String)settings.serialTxRxDuringSleep);
     settingsFile.println("printGNSSDebugMessages=" + (String)settings.printGNSSDebugMessages);
-    settingsFile.println("serialNumber=" + (String)settings.serialNumber); // OW   
+    settingsFile.println("openMenuWithPrintable=" + (String)settings.openMenuWithPrintable);
+    settingsFile.println("serialNumber=" + (String)settings.serialNumber); // WMORE - OW   
     updateDataFileAccess(&settingsFile); // Update the file access time & date
     settingsFile.close();
   }
@@ -194,9 +195,10 @@ bool loadSystemSettingsFromFile()
     if (sd.exists("OLA_settings.txt"))
     {
       SdFile settingsFile; //FAT32
+
       if (settingsFile.open("OLA_settings.txt", O_READ) == false)
       {
-        SerialPrintln(F("Failed to open settings file"));
+        SerialPrintln(F("Failed to open device settings file"));
         return (false);
       }
 
@@ -448,7 +450,9 @@ bool parseLine(char* str) {
     settings.serialTxRxDuringSleep = d;
   else if (strcmp(settingName, "printGNSSDebugMessages") == 0)
     settings.printGNSSDebugMessages = d;
-  else if (strcmp(settingName, "serialNumber") == 0) // OW
+  else if (strcmp(settingName, "openMenuWithPrintable") == 0)
+    settings.openMenuWithPrintable = d;
+  else if (strcmp(settingName, "serialNumber") == 0) // WMORE - OW
     settings.serialNumber = d;  
   else
     {
@@ -488,7 +492,9 @@ void recordDeviceSettingsToFile()
     while (temp != NULL)
     {
       sprintf(base, "%s.%d.%d.%d.%d.", getDeviceName(temp->deviceType), temp->deviceType, temp->address, temp->muxAddress, temp->portNumber);
+
       SerialPrintf2("recordSettingsToFile Unknown device: %s\r\n", base);
+
       temp = temp->next;
     }
     updateDataFileAccess(&settingsFile); // Update the file access time & date

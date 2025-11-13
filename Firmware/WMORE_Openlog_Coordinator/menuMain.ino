@@ -1,8 +1,29 @@
+
+
+#include "Sensors.h"
+
 //Display the options
 //If user doesn't respond within a few seconds, return to main loop
 void menuMain()
 {
   bool restartIMU = false;
+
+  if (settings.openMenuWithPrintable) // If settings.openMenuWithPrintable is true, eat the first character. Return if < 9 (Tab)
+  {
+    if ((settings.useTxRxPinsForTerminal == true) && (Serial1.available()))
+    {
+      uint8_t firstChar = Serial1.read();
+      if (firstChar < 9)
+        return;
+    }
+    else if (Serial.available())
+    {
+      uint8_t firstChar = Serial.read();
+      if (firstChar < 9)
+        return;
+    }
+  }
+  
   while (1)
   {
     SerialPrintln(F(""));
@@ -12,26 +33,26 @@ void menuMain()
 
     SerialPrintln(F("2) Configure Time Stamp"));
 
-    //if (online.IMU)
-    //  SerialPrintln(F("3) Configure IMU Logging"));
+    // if (online.IMU)
+    //   SerialPrintln(F("3) Configure IMU Logging"));
 
-    //if (settings.useTxRxPinsForTerminal == false)
-    //  SerialPrintln(F("4) Configure Serial Logging"));
+    // if (settings.useTxRxPinsForTerminal == false)
+    //   SerialPrintln(F("4) Configure Serial Logging"));
 
-    //SerialPrintln(F("5) Configure Analog Logging"));
+    // SerialPrintln(F("5) Configure Analog Logging"));
 
-    //SerialPrintln(F("6) Detect / Configure Attached Devices"));
+    // SerialPrintln(F("6) Detect / Configure Attached Devices"));
 
     SerialPrintln(F("7) Configure Power Options"));
 
-    //SerialPrintln(F("h) Print Sensor Helper Text (and return to logging)"));
+    // SerialPrintln(F("h) Print Sensor Helper Text (and return to logging)"));
 
     if (online.microSD)
       SerialPrintln(F("s) SD Card File Transfer"));
 
-    //SerialPrintln(F("r) Reset all settings to default"));
+    // SerialPrintln(F("r) Reset all settings to default"));
 
-    SerialPrintln(F("q) Quit: Close log files and power down"));
+    SerialPrintln(F("q) Quit logging: Close log files and power down"));
 
     //SerialPrintln(F("d) Debug Menu"));
 
@@ -43,23 +64,25 @@ void menuMain()
       menuLogRate();
     else if (incoming == '2')
       menuTimeStamp();
-    //else if ((incoming == '3') && (online.IMU))
-    //  restartIMU = menuIMU();
-    //else if ((incoming == '4') && (settings.useTxRxPinsForTerminal == false))
-    //  menuSerialLogging();
-    //else if (incoming == '5')
-    //  menuAnalogLogging();
-    //else if (incoming == '6')
-    //  menuAttachedDevices();
+    // else if ((incoming == '3') && (online.IMU))
+    //   restartIMU = menuIMU();
+    // else if ((incoming == '4') && (settings.useTxRxPinsForTerminal == false))
+    //   menuSerialLogging();
+    // else if (incoming == '5')
+    //   menuAnalogLogging();
+    // else if (incoming == '6')
+    //   menuAttachedDevices();
     else if (incoming == '7')
       menuPower();
-    //else if (incoming == 'h')
-    //{
-    //  printHelperText(true); //printHelperText to terminal only
-    //  break; //return to logging
-    //}
-    //else if (incoming == 'd')
-    //  menuDebug();
+    // else if (incoming == 'h')
+    // {
+    //   printHelperText(OL_OUTPUT_SERIAL); //printHelperText to terminal only
+    //   break; //return to logging
+    // }
+    // else if (incoming == 'd')
+    // {
+    //   menuDebug();
+    // }
     else if (incoming == 's')
     {
       if (online.microSD)
@@ -73,6 +96,18 @@ void menuMain()
         }
         if (online.serialLogging == true)
         {
+          if (incomingBufferSpot > 0)
+          {
+            //Write the remainder of the buffer
+            digitalWrite(PIN_STAT_LED, HIGH); //Toggle stat LED to indicating log recording
+            serialDataFile.write(incomingBuffer, incomingBufferSpot); //Record the buffer to the card
+            digitalWrite(PIN_STAT_LED, LOW);
+
+            incomingBufferSpot = 0;
+
+            lastSeriaLogSyncTime = rtcMillis(); //Reset the last sync time to now
+          }
+
           serialDataFile.sync();
           updateDataFileAccess(&serialDataFile); // Update the file access time & date
           serialDataFile.close();
@@ -86,40 +121,45 @@ void menuMain()
         
         if (online.dataLogging == true)
         {
-          //strcpy(sensorDataFileName, findNextAvailableLog(settings.nextDataLogNumber, "dataLog"));
-          strcpy(sensorDataFileName, generateFileName()); // Create new file name
+          // Check if the current datafile was deleted
+          if (sd.exists(sensorDataFileName) == false)
+          //   strcpy(sensorDataFileName, findNextAvailableLog(settings.nextDataLogNumber, "dataLog"));
+            strcpy(sensorDataFileName, generateFileName()); // Create new file name
           beginDataLogging(); //180ms
-          if (settings.showHelperText == true) printHelperText(false); //printHelperText to terminal and sensor file
+          // if (settings.showHelperText == true) 
+          //   printHelperText(OL_OUTPUT_SERIAL | OL_OUTPUT_SDCARD); //printHelperText to terminal and sensor file
         }
         if (online.serialLogging == true)
         {
-          strcpy(serialDataFileName, findNextAvailableLog(settings.nextSerialLogNumber, "serialLog"));
+          // Check if the current serial file was deleted
+          if (sd.exists(serialDataFileName) == false)
+            strcpy(serialDataFileName, findNextAvailableLog(settings.nextSerialLogNumber, "serialLog"));
           beginSerialLogging();
         }
       }
     }
-    //else if (incoming == 'r')
-//    {
-//      SerialPrintln(F("\r\nResetting to factory defaults. Press 'y' to confirm: "));
-//      byte bContinue = getByteChoice(menuTimeout);
-//      if (bContinue == 'y')
-//      {
-//        EEPROM.erase();
-//        if (sd.exists("OLA_settings.txt"))
-//          sd.remove("OLA_settings.txt");
-//        if (sd.exists("OLA_deviceSettings.txt"))
-//          sd.remove("OLA_deviceSettings.txt");
-//
-//        SerialPrint(F("Settings erased. Please reset OpenLog Artemis and open a terminal at "));
-//        Serial.print((String)settings.serialTerminalBaudRate);
-//        if (settings.useTxRxPinsForTerminal == true)
-//          Serial1.print((String)settings.serialTerminalBaudRate);
-//        SerialPrintln(F("bps..."));
-//        while (1);
-//      }
-//      else
-//        SerialPrintln(F("Reset aborted"));
-//    }
+    // else if (incoming == 'r')
+    // {
+    //   SerialPrintln(F("\r\nResetting to factory defaults. Press 'y' to confirm: "));
+    //   byte bContinue = getByteChoice(menuTimeout);
+    //   if (bContinue == 'y')
+    //   {
+    //     EEPROM.erase();
+    //     if (sd.exists("OLA_settings.txt"))
+    //       sd.remove("OLA_settings.txt");
+    //     if (sd.exists("OLA_deviceSettings.txt"))
+    //       sd.remove("OLA_deviceSettings.txt");
+
+    //     SerialPrint(F("Settings erased. Please reset OpenLog Artemis and open a terminal at "));
+    //     Serial.print((String)settings.serialTerminalBaudRate);
+    //     if (settings.useTxRxPinsForTerminal == true)
+    //       Serial1.print((String)settings.serialTerminalBaudRate);
+    //     SerialPrintln(F("bps..."));
+    //     while (1);
+    //   }
+    //   else
+    //     SerialPrintln(F("Reset aborted"));
+    // }
     else if (incoming == 'q')
     {
       SerialPrintln(F("\r\nQuit? Press 'y' to confirm:"));
@@ -135,6 +175,18 @@ void menuMain()
         }
         if (online.serialLogging == true)
         {
+          if (incomingBufferSpot > 0)
+          {
+            //Write the remainder of the buffer
+            digitalWrite(PIN_STAT_LED, HIGH); //Toggle stat LED to indicating log recording
+            serialDataFile.write(incomingBuffer, incomingBufferSpot); //Record the buffer to the card
+            digitalWrite(PIN_STAT_LED, LOW);
+
+            incomingBufferSpot = 0;
+
+            lastSeriaLogSyncTime = rtcMillis(); //Reset the last sync time to now
+          }
+
           serialDataFile.sync();
           updateDataFileAccess(&serialDataFile); // Update the file access time & date
           serialDataFile.close();
@@ -150,6 +202,13 @@ void menuMain()
       else
         SerialPrintln(F("Quit aborted"));
     }
+    // WMORE - added by SK
+    else if (incoming == 'i')
+    {
+      Serial.println(WMORE_VERSION);
+      break;
+    }
+    // -------------------------------
     else if (incoming == 'x')
       break;
     else if (incoming == STATUS_GETBYTE_TIMEOUT)
