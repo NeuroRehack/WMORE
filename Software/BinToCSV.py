@@ -29,7 +29,7 @@ def binToCSV(file_path):
     """
     
     # set the name of the output csv file
-    out_file = os.path.join(os.path.split(file_path)[0], os.path.split(file_path)[1][:16] + ".csv")
+    out_file = os.path.join(os.path.split(file_path)[0], os.path.split(file_path)[1][:17] + ".csv")
     with open(file_path, 'rb') as file_id:
         # read binary file
         raw_data = file_id.read()
@@ -38,7 +38,7 @@ def binToCSV(file_path):
     max_index = int(len(raw_data) / NUM_UNIT8_LINE)
 
     # Create a row vector for extracted variables
-    formatted_data = [0] * 27  # 27 human-readable variables per line
+    formatted_data = [0] * 13  # 13 human-readable variables per line
     
     # Create and open output csv file
     with open(out_file, 'w') as file_id:
@@ -53,21 +53,41 @@ def binToCSV(file_path):
             end = i * NUM_UNIT8_LINE + (NUM_UNIT8_LINE)
             uint8_line = list(raw_data[start:end])
             
-            # Extract 10 x int16 IMU sensor data from line in LSB, MSB pairs
+            # Extract 9 x int16 IMU sensor data from line in LSB, MSB pairs
             for j in range(NUM_IMU_VARS):
                 temp = uint8_line[(2 * j)] + (uint8_line[2 * j + 1] * 256)
                 formatted_data[j] =  np.int16(temp)
+
+            # Extract validity byte
+            formatted_data[9] = int(uint8_line[18])
+
+            # Extract global unix time
+            temp  = uint8_line[19]
+            temp += uint8_line[20] * 2**8
+            temp += uint8_line[21] * 2**16
+            temp += uint8_line[22] * 2**24
+            # Add hundredths
+            temp += int(uint8_line[23]) / 100.0
+            formatted_data[10] = round(temp, 2)
                 
-            # Extract 16 x uint8 from line
-            for j in range(NUM_UNIT8_VARS):
-                formatted_data[j + 10] = int(uint8_line[j + 20])
+            # Extract local unix time
+            temp  = uint8_line[24]
+            temp += uint8_line[25] * 2**8
+            temp += uint8_line[26] * 2**16
+            temp += uint8_line[27] * 2**24
+            # Add hundredths
+            temp += int(uint8_line[28]) / 100.0
+            formatted_data[11] = round(temp, 2)
+
+            # Extract battery byte
+            formatted_data[12] = int(uint8_line[29])
                 
-            # Extract 1 x uint32 from line
-            temp = uint8_line[36]
-            temp += uint8_line[37] * 2**8
-            temp += uint8_line[38] * 2**16
-            temp += uint8_line[39] * 2**24
-            formatted_data[26] = temp
+            # # Extract 1 x uint32 from line
+            # temp = uint8_line[32]
+            # temp += uint8_line[33] * 2**8
+            # temp += uint8_line[34] * 2**16
+            # temp += uint8_line[35] * 2**24
+            # formatted_data[14] = temp
             
             # print the data to the output text file
             file_id.write(LINE_FORMAT % tuple(formatted_data))
