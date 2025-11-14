@@ -464,17 +464,6 @@ static void enter_logger(void)
 
     g_state = ST_LOGGER;
 
-    /* If desired, we could forward g_last_time5[] to UART here.
-     * For now this is disabled to keep behaviour minimal and symmetric.
-     *
-     * Example (commented out):
-     *
-     * for (int i = 0; i < DATA_LEN; ++i) {
-     *     uart_poll_out(uart, g_last_time5[i]);
-     *     k_busy_wait(50);
-     * }
-     */
-
     /* Local SYNC pulse to start logging on the attached OLA */
     set_sync(true);
     k_busy_wait(50);
@@ -719,7 +708,7 @@ void main(void)
             break;
 
         case ST_COORD:
-            if (ev & EVT_BTN) {
+            if (ev & (EVT_BTN | EVT_ESB_STOP)) {
                 /* Local button: broadcast STOP, pulse STOP line, go back to IDLE */
                 (void)esb_send_cmd(CMD_STOP, false);
                 (void)wait_tx_done(10);
@@ -741,13 +730,7 @@ void main(void)
                  *  - pulse SYNC to its own OLA,
                  *  - periodically poll loggers to collect ACK payloads.
                  */
-                (void)esb_send_cmd(CMD_START_TICK, false);
-
-                // Optionally forward time/zeros to UART here (disabled for now)
-                // for (int i = 0; i < DATA_LEN; ++i) {
-                //   uart_poll_out(uart, 0x00);
-                //   k_busy_wait(50);
-                // }
+                (void)esb_send_cmd(CMD_START_TICK, true);
 
                 set_sync(true);
                 k_busy_wait(50);
@@ -757,23 +740,7 @@ void main(void)
                     (void)ptx_poll_pipe(g_poll_pipe);
                     g_poll_pipe = (g_poll_pipe >= 7) ? 1 : (g_poll_pipe + 1);
                 }
-            }
-            if (ev & EVT_ESB_STOP) {
-                /* A Logger requested STOP (via CMD_STOP_REQ) or another Coordinator broadcast STOP:
-                 * behave as if the local button was pressed.
-                 */
-                (void)esb_send_cmd(CMD_STOP, false);
-                (void)wait_tx_done(10);
-                /* Extra redundancy to make sure everyone heard */
-                (void)esb_send_cmd(CMD_STOP, false);
-                (void)wait_tx_done(10);
-
-                set_stop(true);
-                k_busy_wait(50);
-                set_stop(false);
-
-                k_timer_stop(&periodic_timer);
-                enter_idle();
+                break;
             }
             break;
 
@@ -783,6 +750,7 @@ void main(void)
                  * Coordinator will act on it when it next polls this pipe.
                  */
                 (void)prx_queue_ack_stop_req();
+                break;
             }
             if (ev & EVT_ESB_STOP) {
                 /* Coordinator (or another Logger via Coordinator) requested global STOP */
@@ -794,17 +762,18 @@ void main(void)
             }
             if (ev & EVT_ESB_START_TICK) {
                 /* Coordinator sent a START_TICK: generate a local SYNC pulse.
-                 * The commented block could forward the cached time to UART.
+                 * Also forward the cached global time to UART.
                  */
 
-                // for (int i = 0; i < DATA_LEN; ++i) {
-                //   uart_poll_out(uart, g_last_time5[i]);
-                //   k_busy_wait(50);
-                // }
+                for (int i = 0; i < DATA_LEN; ++i) {
+                  uart_poll_out(uart, g_last_time5[i]);
+                  k_busy_wait(50);
+                }
 
                 set_sync(true);
                 k_busy_wait(50);
                 set_sync(false);
+                break;
             }
             /* Keep listening in PRX mode */
             k_sleep(K_MSEC(1));
