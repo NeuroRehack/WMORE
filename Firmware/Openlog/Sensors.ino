@@ -1,92 +1,136 @@
+static uint8_t  rxbuf[5];
+static uint8_t  rxidx = 0;
+bool newPacket = false;
 
+UnixTimeWithHunds local_unixTime;
 
+// Get local RTC and convert to UNIX time
+UnixTimeWithHunds getUnixTimeFromRTC(void) {
+  UnixTimeWithHunds result;
+  struct tm t = {0};
 
-#include "Sensors.h"
+  t.tm_year = myRTC.year + 100;
+  t.tm_mon  = myRTC.month - 1;
+  t.tm_mday = myRTC.dayOfMonth;
+  t.tm_hour = myRTC.hour;
+  t.tm_min  = myRTC.minute;
+  t.tm_sec  = myRTC.seconds;
+  t.tm_isdst = -1;
+
+  result.unix = (uint32_t)mktime(&t);
+  result.hundredths = myRTC.hundredths;
+  return result;
+}
+
+// Process Unix time package
+void pollUnixPacket() {
+
+  newPacket = false;
+
+  // Non-blocking: read whatever bytes are in the buffer
+  while (Serial1.available() > 0) {
+    int b = Serial1.read();
+    if (b < 0) break;
+
+    rxbuf[rxidx++] = (uint8_t)b;
+
+    if (rxidx == 5) {
+      // --- A complete packet has arrived ---
+      uint32_t unixTime =  (uint32_t)rxbuf[0]
+                         | ((uint32_t)rxbuf[1] << 8)
+                         | ((uint32_t)rxbuf[2] << 16)
+                         | ((uint32_t)rxbuf[3] << 24);
+      uint8_t hundredths = rxbuf[4];
+
+      syncPacket.unix = unixTime;
+      syncPacket.hundredths = hundredths;
+      syncPacket.valid = true;
+      newPacket = true;
+
+      rxidx = 0; // reset for next packet
+      break; // stop after one packet
+    }
+  }
+
+  // Debug lines
+  // Serial.print("UNIX time: ");
+  // Serial.print(syncPacket.unix);
+  // Serial.print(" | Hundredths: ");
+  // Serial.println(syncPacket.hundredths);
+
+  // If no new complete packet this cycle
+  if (!newPacket) {
+    syncPacket.valid = false;
+  }
+}
 
 //Query each enabled sensor for its most recent data
-// void getData(char* sdOutputData, size_t lenData)
-
-// ----------------------------------------------------------------------------
-// WMORE - pretty much completely custom
-void getData() // WMORE - backwards compatibility with OLAv2.3
+void getData()
 {
   measurementCount++;
   measurementTotal++;
 
-  outputDataCount = 0; // WMORE - Counter for binary writes to outputData
+  outputDataCount = 0; // Counter for binary writes to outputData
 
   if (online.IMU)
   {
     if (myICM.dataReady())
     {
+      // commended by Sami //intPeriod.full = period; // Average period relative to extTime
+      intPeriod.full = lastSamplingPeriod; // Sami: measured sampling period
+
       digitalWrite(PIN_STAT_LED, HIGH); // Turn on blue LED
-      intPeriod.full = lastSamplingPeriod; // WMORE - Sami: measured sampling period
       myICM.getAGMT(); //Update values
     }
   }
 
   delayMicroseconds(1000); // Wait until syncPacket data is available (delay may not be optimal)
-  
-  if (Serial1.available() == 7) { // A timestamp is available
-    syncPacket.valid = true;
-    syncPacket.years = Serial1.read();
-    syncPacket.months = Serial1.read();
-    syncPacket.days = Serial1.read();
-    syncPacket.hours = Serial1.read(); 
-    syncPacket.minutes = Serial1.read();
-    syncPacket.seconds = Serial1.read();
-    syncPacket.hundredths = Serial1.read();
-  } else {  // Timestamp not available
-    syncPacket.valid = false;
-    syncPacket.years = 0;
-    syncPacket.months = 0;
-    syncPacket.days = 0;
-    syncPacket.hours = 0; 
-    syncPacket.minutes = 0;
-    syncPacket.seconds = 0;
-    syncPacket.hundredths = 0;
-  }
-  serialClearBuffer(1); // Get rid of any spurious characters
 
-  // Update RTC from master if more than RTC_UPDATE_INTERVAL_US has elapsed. 
-  if ((syncPacket.valid == true) && (elapsedMinutes(myRTC.minute, lastRTCSetMinutes) > RTC_UPDATE_INTERVAL_MINS)) {
-    myRTC.setTime(syncPacket.hundredths, syncPacket.seconds, syncPacket.minutes, syncPacket.hours, syncPacket.days, syncPacket.months, syncPacket.years); 
-    lastRTCSetMinutes = myRTC.minute;   
-  }
+  // Get global UNIX time
+  pollUnixPacket();
+
+  // Get local UNIX time
+  local_unixTime = getUnixTimeFromRTC();
+
+  // // Update RTC from master if more than RTC_UPDATE_INTERVAL_US has elapsed. 
+  // if ((syncPacket.valid == true) && (elapsedMinutes(myRTC.minute, lastRTCSetMinutes) > RTC_UPDATE_INTERVAL_MINS)) {
+  //   myRTC.setTime(syncPacket.hundredths, syncPacket.seconds, syncPacket.minutes, syncPacket.hours, syncPacket.days, syncPacket.months, syncPacket.years); 
+  //   lastRTCSetMinutes = myRTC.minute;   
+  // }
 
   // Read battery voltage and get top 8 bits
   batteryVoltage = (uint8_t)(analogRead(PIN_VIN_MONITOR) >> 6); 
-
-  // Debug lines
-  // Serial.print(syncPacket.years);
-  // Serial.print(" ");
-  // Serial.print(syncPacket.months);
-  // Serial.print(" ");
-  // Serial.print(syncPacket.days);
-  // Serial.print(" ");
-  // Serial.print(syncPacket.hours);
-  // Serial.print(" ");
-  // Serial.print(syncPacket.minutes); 
-  // Serial.print(" ");           
-  // Serial.print(syncPacket.seconds);
-  // Serial.print(" ");
-  // Serial.print(syncPacket.hundredths);
-  // Serial.print(" : ");    
-  // Serial.print(myRTC.year);
-  // Serial.print(" ");
-  // Serial.print(myRTC.month);
-  // Serial.print(" ");
-  // Serial.print(myRTC.dayOfMonth);
-  // Serial.print(" ");
-  // Serial.print(myRTC.hour);
-  // Serial.print(" ");
-  // Serial.print(myRTC.minute); 
-  // Serial.print(" ");           
-  // Serial.print(myRTC.seconds);
-  // Serial.print(" ");
-  // Serial.print(myRTC.hundredths);
-  // Serial.print(" ");    
-  // Serial.println(batteryVoltage);
+  
+//    Debug lines
+//    Serial.print(syncPacket.years);
+//    Serial.print(" ");
+//    Serial.print(syncPacket.months);
+//    Serial.print(" ");
+//    Serial.print(syncPacket.days);
+//    Serial.print(" ");
+//    Serial.print(syncPacket.hours);
+//    Serial.print(" ");
+//    Serial.print(syncPacket.minutes); 
+//    Serial.print(" ");           
+//    Serial.print(syncPacket.seconds);
+//    Serial.print(" ");
+//    Serial.print(syncPacket.hundredths);
+//    Serial.print(" : ");    
+//    Serial.print(myRTC.year);
+//    Serial.print(" ");
+//    Serial.print(myRTC.month);
+//    Serial.print(" ");
+//    Serial.print(myRTC.dayOfMonth);
+//    Serial.print(" ");
+//    Serial.print(myRTC.hour);
+//    Serial.print(" ");
+//    Serial.print(myRTC.minute); 
+//    Serial.print(" ");           
+//    Serial.print(myRTC.seconds);
+//    Serial.print(" ");
+//    Serial.print(myRTC.hundredths);
+//    Serial.print(" ");    
+//    Serial.println(batteryVoltage);
 
   // Binary write assuming LSB first (ARM little-endian)
   outputData[outputDataCount++] = (uint8_t)(myICM.agmt.acc.axes.x & 0xFF); // LSB
@@ -107,45 +151,33 @@ void getData() // WMORE - backwards compatibility with OLAv2.3
   outputData[outputDataCount++] = (uint8_t)((myICM.agmt.mag.axes.y >> 8) & 0xFF); 
   outputData[outputDataCount++] = (uint8_t)(myICM.agmt.mag.axes.z & 0xFF); 
   outputData[outputDataCount++] = (uint8_t)((myICM.agmt.mag.axes.z >> 8) & 0xFF);
-  outputData[outputDataCount++] = (uint8_t)(myICM.agmt.tmp.val & 0xFF); 
-  outputData[outputDataCount++] = (uint8_t)((myICM.agmt.tmp.val >> 8) & 0xFF);                  
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.valid); // LSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.years); // MSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.months); // LSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.days); // MSB 
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.hours); // LSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.minutes); // MSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.seconds); // LSB
-  outputData[outputDataCount++] = (uint8_t)(syncPacket.hundredths); // MSB   
-  outputData[outputDataCount++] = (uint8_t)(myRTC.year); // LSB
-  outputData[outputDataCount++] = (uint8_t)(myRTC.month); // MSB
-  outputData[outputDataCount++] = (uint8_t)(myRTC.dayOfMonth); // LSB 
-  outputData[outputDataCount++] = (uint8_t)(myRTC.hour); // MSB
-  outputData[outputDataCount++] = (uint8_t)(myRTC.minute); // LSB
-  outputData[outputDataCount++] = (uint8_t)(myRTC.seconds); // MSB
-  outputData[outputDataCount++] = (uint8_t)(myRTC.hundredths); // LSB
+  // outputData[outputDataCount++] = (uint8_t)(myICM.agmt.tmp.val & 0xFF); 
+  // outputData[outputDataCount++] = (uint8_t)((myICM.agmt.tmp.val >> 8) & 0xFF);                  
+  outputData[outputDataCount++] = (uint8_t)(syncPacket.valid);
+
+  // 4 bytes for global UNIX time (LSB first)
+  outputData[outputDataCount++] = (uint8_t)(syncPacket.unix & 0xFF);
+  outputData[outputDataCount++] = (uint8_t)((syncPacket.unix >> 8) & 0xFF);
+  outputData[outputDataCount++] = (uint8_t)((syncPacket.unix >> 16) & 0xFF);
+  outputData[outputDataCount++] = (uint8_t)((syncPacket.unix >> 24) & 0xFF);
+
+  outputData[outputDataCount++] = (uint8_t)(syncPacket.hundredths); 
+
+  // 4 bytes for local UNIX time (LSB first)
+  outputData[outputDataCount++] = (uint8_t)(local_unixTime.unix & 0xFF);
+  outputData[outputDataCount++] = (uint8_t)((local_unixTime.unix >> 8) & 0xFF);
+  outputData[outputDataCount++] = (uint8_t)((local_unixTime.unix >> 16) & 0xFF);
+  outputData[outputDataCount++] = (uint8_t)((local_unixTime.unix >> 24) & 0xFF);
+
+  outputData[outputDataCount++] = (uint8_t)(local_unixTime.hundredths); // LSB
+
   outputData[outputDataCount++] = (uint8_t)(batteryVoltage); // MSB
-  outputData[outputDataCount++] = (uint8_t)(intPeriod.part[0]); // LSB
-  outputData[outputDataCount++] = (uint8_t)(intPeriod.part[1]); // 
-  outputData[outputDataCount++] = (uint8_t)(intPeriod.part[2]); // 
-  outputData[outputDataCount++] = (uint8_t)(intPeriod.part[3]); // MSB                    
+  // outputData[outputDataCount++] = (uint8_t)(intPeriod.part[0]); // LSB
+  // outputData[outputDataCount++] = (uint8_t)(intPeriod.part[1]); // 
+  // outputData[outputDataCount++] = (uint8_t)(intPeriod.part[2]); // 
+  // outputData[outputDataCount++] = (uint8_t)(intPeriod.part[3]); // MSB                    
   totalCharactersPrinted += outputDataCount;
-  digitalWrite(PIN_STAT_LED, LOW); // Turn off the blue LED
-}
-
-void printHelperText(uint8_t outputDest)
-{
-  // WMORE - was in misc.ino file and is blank. HELPER_BUFFER_SIZE is 1024 in OLAv2.10
-  // char helperText[HELPER_BUFFER_SIZE];
-  // helperText[0] = '\0';
-
-  // getHelperText(helperText, sizeof(helperText));
-
-  // if(outputDest & OL_OUTPUT_SERIAL)
-  //   SerialPrint(helperText);
-
-  // if ((outputDest & OL_OUTPUT_SDCARD) && (settings.logData == true) && (online.microSD))
-  //   sensorDataFile.print(helperText);
+  digitalWrite(PIN_STAT_LED, LOW); // Turn off the blue LED  
 }
 
 //Read the VIN voltage
@@ -161,11 +193,6 @@ float readVIN()
   return (vin);
 #endif
 }
-
-
-
-// ----------------------------------------------------------------------------
-// WMORE - added functions
 
 //uint32_t elapsedMicros(uint32_t now, uint32_t then)
 //{

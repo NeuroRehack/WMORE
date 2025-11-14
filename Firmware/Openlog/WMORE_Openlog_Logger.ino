@@ -173,7 +173,7 @@
 // WMORE defines
 
 // WMORE version number, which is different to the Openlog Artemis version number it's based on
-#define WMORE_VERSION "WMORE Logger v0.1" 
+#define WMORE_VERSION "WMORE v0.1" 
 
 // WMORE defines for synchronised sampling clock
 #define TIMERB_PERIOD 65535U // Free-running timer period
@@ -204,14 +204,9 @@ union periodUnion {
 
 // Struct for synchronisation packets
 struct {
-  uint8_t valid;
-  uint8_t years;
-  uint8_t months;
-  uint8_t days;
-  uint8_t hours;
-  uint8_t minutes;
-  uint8_t seconds;
-  uint8_t hundredths; 
+  uint8_t  valid;
+  uint32_t unix;
+  uint8_t  hundredths;
 } syncPacket;
 
 //----------------------------------------------------------------------------
@@ -380,7 +375,7 @@ const byte PIN_SPI_SCK = 5;
 const byte PIN_SPI_CIPO = 6;
 const byte PIN_SPI_COPI = 7;
 
-const byte SD_RECORD_LENGTH = 40; // WMORE Record length for binary file
+const byte SD_RECORD_LENGTH = 30; // WMORE Record length for binary file
 
 // Include this many extra bytes when starting a mux - to try and avoid the slippery mux bug
 // This should be 0 but 3 or 7 seem to work better depending on which way the wind is blowing.
@@ -817,6 +812,7 @@ void loop() {
     lastSamplingPeriod = samplingPeriod; // added by Sami // the previous sampling period to write to SD card
     getData(); // Get data from IMU and global time from Coordinator 
     writeSDBin(); // Store IMU and time data     
+    sendRTC();  
     if (stopLoggingSeen == true) { // Stop logging if directed by Coordinator
       stopLoggingSeen = false; // Reset the flag
       resetArtemis(); // Reset the system
@@ -1317,28 +1313,52 @@ void overrideSettings(void) {
 }
 
 //----------------------------------------------------------------------------
-
 // WMORE
 // Sends RTC value via Serial1. If this unit is a Coordinator, this is broadcast
 // to all Sensors.
-
 void sendRTC(void) {
-  
-  uint8_t rtcBuf[7];
-  uint8_t i;
 
-  // Fill buffer with current RTC value.
-  rtcBuf[0] = (uint8_t)myRTC.year;
-  rtcBuf[1] = (uint8_t)myRTC.month;
-  rtcBuf[2] = (uint8_t)myRTC.dayOfMonth;
-  rtcBuf[3] = (uint8_t)myRTC.hour;
-  rtcBuf[4] = (uint8_t)myRTC.minute;
-  rtcBuf[5] = (uint8_t)myRTC.seconds;
-  rtcBuf[6] = (uint8_t)myRTC.hundredths;
+  uint8_t rtcBuf[5];
+  uint32_t unixTime;
+  uint8_t hundredths;
 
-  // Send RTC value to ESB transmitter.
-  Serial1.write(rtcBuf,7); // Fast - 7 bytes in 150 us @ 460800 bps
+  // Get current UNIX time 
+  unixTime = convertRTCtoUNIX();
+  hundredths = (uint8_t)myRTC.hundredths;
+
+  // Pack UNIX time (4 bytes) into buffer (little endian)
+  rtcBuf[0] = (uint8_t)(unixTime & 0xFF);
+  rtcBuf[1] = (uint8_t)((unixTime >> 8) & 0xFF);
+  rtcBuf[2] = (uint8_t)((unixTime >> 16) & 0xFF);
+  rtcBuf[3] = (uint8_t)((unixTime >> 24) & 0xFF);
+  rtcBuf[4] = hundredths;
+
+  // Send to transmitter
+  Serial1.write(rtcBuf, 5);  // 5 bytes: 4 for UNIX time, 1 for hundredths
   
+  // // Debug lines:
+  // Serial.print(F("UNIX time: "));
+  // Serial.print(unixTime);
+  // Serial.print(F(", hundredths: "));
+  // Serial.println(hundredths);
+}
+
+//----------------------------------------------------------------------------
+// WMORE
+// Get RTC and convert to UNIX time using the local UTC offset
+uint32_t convertRTCtoUNIX(void) {
+  struct tm t = {0};                // ensure all fields start at 0
+  t.tm_year = myRTC.year + 100;     // years since 1900 (e.g. 2025 → 125)
+  t.tm_mon  = myRTC.month - 1;      // months since January (0–11)
+  t.tm_mday = myRTC.dayOfMonth;
+  t.tm_hour = myRTC.hour;
+  t.tm_min  = myRTC.minute;
+  t.tm_sec  = myRTC.seconds;
+  t.tm_isdst = -1;
+
+  // Convert from local time to UTC
+  time_t local = mktime(&t);        // converts local time → epoch (local)
+  return (uint32_t)local;
 }
 
 //----------------------------------------------------------------------------

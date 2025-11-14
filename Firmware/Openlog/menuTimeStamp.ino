@@ -89,7 +89,7 @@ void menuTimeStamp()
       if (incoming == 4)
       {
         SerialPrint(F("Enter year (2000-2099): "));
-        int year = getNumber(menuTimeout);
+        int year = getNumber(menuTimeout) + 2000;
         if (year < 2000 || year > 2099)
         {
           SerialPrintln(F("Error: Year out of range"));
