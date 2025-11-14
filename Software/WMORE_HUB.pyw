@@ -353,7 +353,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 num_devices+=1
         self.list_widget.clearSelection()
         self.set_button_state(True)
-        self.rtc_button.setEnabled(False)
+        self.rtc_button.setEnabled(True)
         self.download_button.setEnabled(False)
         self.format_button.setEnabled(False)
 
@@ -381,7 +381,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     devices = [device for device in self.device_list if device.com_port == port_name]
                     self.selected_device = devices[0]
                     
-                    self.rtc_button.setEnabled(not any((device.firmware is not None) and ("Logger" in device.firmware)  for device in devices))
+                    # self.rtc_button.setEnabled(not any((device.firmware is not None) and ("Logger" in device.firmware)  for device in devices))
                     if self.teratermPath != None:
                         self.download_button.setEnabled(any((device.firmware is not None) and ("Logger" in device.firmware) for device in devices))
                     self.format_button.setEnabled(any((device.firmware is not None) and ("Logger" in device.firmware) for device in devices))
