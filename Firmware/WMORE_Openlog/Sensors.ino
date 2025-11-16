@@ -1,10 +1,12 @@
+#include "Sensors.h"
+#include <time.h>
+
 static uint8_t  rxbuf[5];
 static uint8_t  rxidx = 0;
 bool newPacket = false;
 
 UnixTimeWithHunds local_unixTime;
 
-// Get local RTC and convert to UNIX time
 UnixTimeWithHunds getUnixTimeFromRTC(void) {
   UnixTimeWithHunds result;
   struct tm t = {0};
@@ -53,10 +55,10 @@ void pollUnixPacket() {
   }
 
   // Debug lines
-  // Serial.print("UNIX time: ");
-  // Serial.print(syncPacket.unix);
-  // Serial.print(" | Hundredths: ");
-  // Serial.println(syncPacket.hundredths);
+  Serial.print("UNIX time: ");
+  Serial.print(syncPacket.unix);
+  Serial.print(" | Hundredths: ");
+  Serial.println(syncPacket.hundredths);
 
   // If no new complete packet this cycle
   if (!newPacket) {

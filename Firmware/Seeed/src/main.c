@@ -141,6 +141,13 @@ static uint32_t tick_count = 0;
 /* Current ESB mode (PRX / PTX), tracked so we can guard TX calls */
 static enum esb_mode g_esb_mode = ESB_MODE_PRX;
 
+/* ESB TX payload (initialised with dummy bytes) */
+static struct esb_payload tx_p = ESB_CREATE_PAYLOAD(
+    0,
+    0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00
+);
+
 /* -------------------------------------------------------------------------- */
 /*  Helper functions / forward declarations                                   */
 /* -------------------------------------------------------------------------- */
@@ -255,27 +262,27 @@ static int esb_send_cmd(uint8_t cmd, bool with_time)
         return -EPERM;
     }
 
-    struct esb_payload p = {0};
+    // struct esb_payload p = {0};
 
-    p.noack  = true;     // broadcast (no ACK requested)
-    p.pipe   = 0;        // broadcast pipe
-    p.length = RXTX_LEN;
+    tx_p.noack  = true;     // broadcast (no ACK requested)
+    tx_p.pipe   = 0;        // broadcast pipe
+    tx_p.length = RXTX_LEN;
 
-    p.data[0] = SOF;
-    p.data[1] = cmd;
+    tx_p.data[0] = SOF;
+    tx_p.data[1] = cmd;
 
     if (with_time) {
         for (int i = 0; i < DATA_LEN; i++) {
-            p.data[2 + i] = latest_rtc[i];
+            tx_p.data[2 + i] = latest_rtc[i];
         }
     } else {
-        memset(&p.data[2], 0, DATA_LEN);
+        memset(&tx_p.data[2], 0, DATA_LEN);
     }
 
     /* Compute CRC over bytes [0..6] and place CHK at [7] */
-    p.data[RXTX_LEN - 1] = crc8_0x07(p.data, RXTX_LEN - 1);
+    tx_p.data[RXTX_LEN - 1] = crc8_0x07(tx_p.data, RXTX_LEN - 1);
 
-    int err = esb_write_payload(&p);
+    int err = esb_write_payload(&tx_p);
     if (!err) {
         err = esb_start_tx();
     }
@@ -310,18 +317,24 @@ static void esb_cb(const struct esb_evt *evt)
 
     /* Process all queued RX payloads (including ACK payloads) */
     while (esb_read_rx_payload(&rx_p) == 0) {
-        if (rx_p.length < 2) {
+        if (rx_p.length != RXTX_LEN) {
             continue;
         }
         if (rx_p.data[0] != SOF) {
             continue;
         }
 
+        /* CRC check over bytes [0..6], compare with CHK in [7] */
+        uint8_t calc = crc8_0x07(rx_p.data, RXTX_LEN - 1);
+        if (calc != rx_p.data[RXTX_LEN - 1]) {
+            return;
+        }
+
         uint8_t cmd = rx_p.data[1];
 
         if (cmd == CMD_START_TICK) {
             if (rx_p.length == RXTX_LEN) {
-                /* Cache time field in case we want to forward to UART (currently disabled) */
+                /* Cache time field in case we want to forward to UART */
                 for (int i = 0; i < DATA_LEN; i++) {
                     g_last_time5[i] = rx_p.data[2 + i];
                 }
@@ -736,11 +749,11 @@ void main(void)
                 k_busy_wait(50);
                 set_sync(false);
 
-                if ((++tick_count % POLL_EVERY_N_TICKS) == 0) {
-                    (void)ptx_poll_pipe(g_poll_pipe);
-                    g_poll_pipe = (g_poll_pipe >= 7) ? 1 : (g_poll_pipe + 1);
-                }
-                break;
+                // if ((++tick_count % POLL_EVERY_N_TICKS) == 0) {
+                //     (void)ptx_poll_pipe(g_poll_pipe);
+                //     g_poll_pipe = (g_poll_pipe >= 7) ? 1 : (g_poll_pipe + 1);
+                // }
+                // break;
             }
             break;
 
@@ -766,7 +779,8 @@ void main(void)
                  */
 
                 for (int i = 0; i < DATA_LEN; ++i) {
-                  uart_poll_out(uart, g_last_time5[i]);
+                  uart_poll_out(uart, i + 1);
+                //   uart_poll_out(uart, g_last_time5[i]);
                   k_busy_wait(50);
                 }
 

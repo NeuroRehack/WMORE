@@ -1336,7 +1336,7 @@ void sendRTC(void) {
   // Send to transmitter
   Serial1.write(rtcBuf, 5);  // 5 bytes: 4 for UNIX time, 1 for hundredths
   
-  // // Debug lines:
+  // Debug lines:
   // Serial.print(F("UNIX time: "));
   // Serial.print(unixTime);
   // Serial.print(F(", hundredths: "));
