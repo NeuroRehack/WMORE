@@ -693,7 +693,7 @@ void setupSync(void) {
   am_hal_gpio_pincfg_t intPinConfig = g_AM_HAL_GPIO_INPUT_PULLUP;
   intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
   pin_config(PinName(PIN_TRIGGER), intPinConfig); // Make sure the pull-up does actually stay enabled
-  //triggerPinFlag = false; // Make sure the flag is clear
+  triggerPinFlag = false; // Make sure the flag is clear // TODO: CHECK THIS
 
   // Setup sample interval timer
   setupSampleTimer(sampleTimer, period); // timerNum, period, padNum
@@ -770,9 +770,9 @@ void setup() {
   pin_config(PinName(PIN_STOP_LOGGING), intPinConfig); // Make sure the pull-up does actually stay enabled
   stopLoggingSeen = false; // Make sure the flag is clear
 
-  // Modified by Sami -- set pin 12 to output and low
-  pinMode(BREAKOUT_PIN_TX, OUTPUT);
-  digitalWrite(BREAKOUT_PIN_TX, LOW);
+  // Modified by Sami -- set pin 12 to output and low // TODO: CHECK THIS
+  // pinMode(BREAKOUT_PIN_TX, OUTPUT);
+  // digitalWrite(BREAKOUT_PIN_TX, LOW);
   // end of modification
   //----------------------------------------------------------------------------
 
@@ -805,7 +805,7 @@ void loop() {
 
   if (timerIntFlag == true) { // Act if sampling timer has interrupted
     // added by Sami -- set pin 12 to toggle between low and high
-    digitalWrite(BREAKOUT_PIN_TX, HIGH);
+    // digitalWrite(BREAKOUT_PIN_TX, HIGH); // TODO: CHECK THIS
     extTimerValue2 = am_hal_stimer_counter_get();// added by Sami
     timerIntFlag = false; // Reset sampling timer flag
     myRTC.getTime(); // Get the local time from the RTC
@@ -815,13 +815,14 @@ void loop() {
     sendRTC();  
     if (stopLoggingSeen == true) { // Stop logging if directed by Coordinator
       stopLoggingSeen = false; // Reset the flag
-      resetArtemis(); // Reset the system
+      // resetArtemis(); // Reset the system
+      waitToLog();// TODO: CHECK THIS
 //      stopLoggingStayAwake(); // Close file and prepare for next start command
 //      beginDataLogging(); // Open file in preparation for next logging run
 //      waitToLog(); // Wait until directed to start logging again
     } 
     // added by Sami -- set pin 12 to toggle between low and high
-    digitalWrite(BREAKOUT_PIN_TX, LOW); 
+    // digitalWrite(BREAKOUT_PIN_TX, LOW); // TODO: CHECK THIS
     // end of modification
     samplingPeriod = am_hal_stimer_counter_get() - extTimerValue2; // added by Sami
   }  
@@ -890,6 +891,7 @@ void beginSD()
   //Change to root directory. All new file creation will be in root.
   if (sd.chdir() == false)
   {
+    SerialPrintln(F("SD change directory failed"));
     online.microSD = false;
     return;
   }
@@ -914,9 +916,10 @@ void disableCIPOpullUp() // updated for v2.1.0 of the Apollo3 core
 void configureSerial1TxRx(void) // Configure pins 12 and 13 for UART1 TX and RX
 {
   // Commented out by Sami ---------------------------------------------
-  // am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
-  // pinConfigTx.uFuncSel = AM_HAL_PIN_12_UART1TX;
-  // pin_config(PinName(BREAKOUT_PIN_TX), pinConfigTx);
+  // TODO: CHECK THIS
+  am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
+  pinConfigTx.uFuncSel = AM_HAL_PIN_12_UART1TX;
+  pin_config(PinName(BREAKOUT_PIN_TX), pinConfigTx);
   am_hal_gpio_pincfg_t pinConfigRx = g_AM_BSP_GPIO_COM_UART_RX;
   pinConfigRx.uFuncSel = AM_HAL_PIN_13_UART1RX;
   pinConfigRx.ePullup = AM_HAL_GPIO_PIN_PULLUP_WEAK; // Put a weak pull-up on the Rx pin
