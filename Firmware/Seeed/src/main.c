@@ -58,13 +58,14 @@
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/gpio.h>
-#include <zephyr/drivers/uart.h>
+#include <drivers/uart.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/clock_control/nrf_clock_control.h>
 #include <zephyr/sys/atomic.h>
 #include <hal/nrf_ficr.h>
 #include <esb.h>
 #include <string.h>
+#include <irq.h>
 
 // Target board
 #define XIAO
@@ -779,8 +780,8 @@ void main(void)
                  */
 
                 for (int i = 0; i < DATA_LEN; ++i) {
-                  uart_poll_out(uart, i + 1);
-                //   uart_poll_out(uart, g_last_time5[i]);
+                //   uart_poll_out(uart, i + 1);
+                  uart_poll_out(uart, g_last_time5[i]);
                   k_busy_wait(50);
                 }
 
