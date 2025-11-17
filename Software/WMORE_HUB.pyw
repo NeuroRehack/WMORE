@@ -354,8 +354,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.list_widget.clearSelection()
         self.set_button_state(True)
         self.rtc_button.setEnabled(True)
-        self.download_button.setEnabled(False)
-        self.format_button.setEnabled(False)
+        self.download_button.setEnabled(True)
+        self.format_button.setEnabled(True)
 
     def switch_device(self):
         """Function triggered when the user selects a new device.
@@ -382,9 +382,9 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.selected_device = devices[0]
                     
                     # self.rtc_button.setEnabled(not any((device.firmware is not None) and ("Logger" in device.firmware)  for device in devices))
-                    if self.teratermPath != None:
-                        self.download_button.setEnabled(any((device.firmware is not None) and ("Logger" in device.firmware) for device in devices))
-                    self.format_button.setEnabled(any((device.firmware is not None) and ("Logger" in device.firmware) for device in devices))
+                    # if self.teratermPath != None:
+                    #     self.download_button.setEnabled(any((device.firmware is not None) and ("Logger" in device.firmware) for device in devices))
+                    # self.format_button.setEnabled(any((device.firmware is not None) and ("Logger" in device.firmware) for device in devices))
                    
                 else:
                     QtWidgets.QMessageBox.warning(self, "Communication failure", f"Failed to connect to device\nIt may be opened in another program" )

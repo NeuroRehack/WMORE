@@ -55,10 +55,10 @@ void pollUnixPacket() {
   }
 
   // Debug lines
-  Serial.print("UNIX time: ");
-  Serial.print(syncPacket.unix);
-  Serial.print(" | Hundredths: ");
-  Serial.println(syncPacket.hundredths);
+  // Serial.print("UNIX time: ");
+  // Serial.print(syncPacket.unix);
+  // Serial.print(" | Hundredths: ");
+  // Serial.println(syncPacket.hundredths);
 
   // If no new complete packet this cycle
   if (!newPacket) {

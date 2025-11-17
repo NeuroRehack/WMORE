@@ -173,7 +173,7 @@
 // WMORE defines
 
 // WMORE version number, which is different to the Openlog Artemis version number it's based on
-#define WMORE_VERSION "WMORE v0.1" 
+#define WMORE_VERSION "WMORE Logger v0.1" 
 
 // WMORE defines for synchronised sampling clock
 #define TIMERB_PERIOD 65535U // Free-running timer period
@@ -815,8 +815,8 @@ void loop() {
     sendRTC();  
     if (stopLoggingSeen == true) { // Stop logging if directed by Coordinator
       stopLoggingSeen = false; // Reset the flag
-      // resetArtemis(); // Reset the system
-      waitToLog();// TODO: CHECK THIS
+      resetArtemis(); // Reset the system
+      // waitToLog();// TODO: CHECK THIS
 //      stopLoggingStayAwake(); // Close file and prepare for next start command
 //      beginDataLogging(); // Open file in preparation for next logging run
 //      waitToLog(); // Wait until directed to start logging again
@@ -1200,6 +1200,19 @@ void writeSDBin(void) {
     // Write binary data
     uint32_t recordLength = sensorDataFile.write(outputData, SD_RECORD_LENGTH); // WMORE TODO add error checking and resolve hard-coded length        
 
+    // if (recordLength != SD_RECORD_LENGTH) {
+    //     Serial.print(F("WRITE ERROR: expected "));
+    //     Serial.print(SD_RECORD_LENGTH);
+    //     Serial.print(F(" bytes, wrote "));
+    //     Serial.println(recordLength);
+    // } else {
+    //     Serial.println(F("Write OK"));
+    // }
+
+    // sensorDataFile.flush();
+    // if (!sensorDataFile) {
+    //     Serial.println(F("FLUSH ERROR: file object not valid"));
+    // }
   // Force sync every 500ms
   // WMORE - forced sync does not appear to be needed, and may cause write delays
 //  if (rtcMillis() - lastDataLogSyncTime > 500)
