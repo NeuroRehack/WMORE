@@ -225,14 +225,20 @@ static int prx_queue_ack_stop_req(void)
 {
     struct esb_payload a = {0};
 
-    a.noack  = false;                 // must be acked
-    a.pipe   = my_pipe();             // only this pipe will carry our ACK
-    a.length = 3;                     // SOF, CMD, CRC (minimal)
+    a.noack  = false;               // must be acked
+    a.pipe   = my_pipe();           // only this pipe will carry our ACK
+    a.length = RXTX_LEN;            // full 8-byte frame
+
     a.data[0] = SOF;
     a.data[1] = CMD_STOP_REQ;
-    a.data[2] = crc8_0x07(a.data, 2);
 
-    return esb_write_payload(&a);     // queues the ACK payload in PRX
+    // For now, no extra data → zero-fill D0..D4
+    memset(&a.data[2], 0, DATA_LEN);
+
+    // CRC over bytes [0..6]
+    a.data[RXTX_LEN - 1] = crc8_0x07(a.data, RXTX_LEN - 1);
+
+    return esb_write_payload(&a);   // queues the ACK payload in PRX
 }
 
 /* PTX-side helper: unicast CMD_POLL to a specific logger pipe */
@@ -240,15 +246,22 @@ static int ptx_poll_pipe(uint8_t pipe)
 {
     struct esb_payload p = {0};
 
-    p.noack  = false;                   // request ACK (so ACK payload can ride back)
-    p.pipe   = pipe;                    // unicast to a specific logger
-    p.length = 2;                       // SOF + CMD_POLL
+    p.noack  = false;                 // request ACK so STOP_REQ can ride back
+    p.pipe   = pipe;                  // unicast to specific logger
+    p.length = RXTX_LEN;              // full 8-byte frame
+
     p.data[0] = SOF;
     p.data[1] = CMD_POLL;
 
+    // No data needed → zero-fill D0..D4
+    memset(&p.data[2], 0, DATA_LEN);
+
+    // CRC
+    p.data[RXTX_LEN - 1] = crc8_0x07(p.data, RXTX_LEN - 1);
+
     int err = esb_write_payload(&p);
     if (!err) {
-        err = esb_start_tx();           // PTX only
+        err = esb_start_tx();         // PTX only
     }
     return err;
 }
@@ -308,44 +321,58 @@ static void esb_cb(const struct esb_evt *evt)
     /* TX completion (success or failure) */
     if (evt->evt_id == ESB_EVENT_TX_SUCCESS || evt->evt_id == ESB_EVENT_TX_FAILED) {
         atomic_or(&g_events, EVT_TX_DONE);
-        // Keep going; there might also be RX payloads (ACK payload) queued.
+        // May also have RX payloads queued, so don't return yet.
     }
 
-    /* No RX payloads → nothing else to do */
     if (evt->evt_id != ESB_EVENT_RX_RECEIVED) {
         return;
     }
 
     /* Process all queued RX payloads (including ACK payloads) */
     while (esb_read_rx_payload(&rx_p) == 0) {
+
         if (rx_p.length != RXTX_LEN) {
-            continue;
+            continue;                   // we only accept full frames
         }
         if (rx_p.data[0] != SOF) {
-            continue;
+            continue;                   // bad SOF
         }
 
-        /* CRC check over bytes [0..6], compare with CHK in [7] */
+        // Validate CRC: bytes [0..6] vs [7]
         uint8_t calc = crc8_0x07(rx_p.data, RXTX_LEN - 1);
         if (calc != rx_p.data[RXTX_LEN - 1]) {
-            return;
+            continue;                   // drop corrupted frame
         }
 
         uint8_t cmd = rx_p.data[1];
 
-        if (cmd == CMD_START_TICK) {
-            if (rx_p.length == RXTX_LEN) {
-                /* Cache time field in case we want to forward to UART */
-                for (int i = 0; i < DATA_LEN; i++) {
-                    g_last_time5[i] = rx_p.data[2 + i];
-                }
+        switch (cmd) {
+        case CMD_START_TICK:
+            // Cache the time field if present
+            for (int i = 0; i < DATA_LEN; i++) {
+                g_last_time5[i] = rx_p.data[2 + i];
             }
             atomic_or(&g_events, EVT_ESB_START_TICK);
-        } else if (cmd == CMD_STOP) {
+            break;
+
+        case CMD_STOP:
+            // Coordinator broadcasted STOP
             atomic_or(&g_events, EVT_ESB_STOP);
-        } else if (cmd == CMD_STOP_REQ) {
-            /* Logger requested a global stop via ACK payload */
+            break;
+
+        case CMD_STOP_REQ:
+            // Logger requested STOP via ACK payload
             atomic_or(&g_events, EVT_ESB_STOP);
+            break;
+
+        case CMD_POLL:
+            // Coordinator is just polling; logger doesn't need to do anything here.
+            // ACK payload (if queued) is handled by the ESB hardware.
+            break;
+
+        default:
+            // Unknown command → ignore
+            break;
         }
     }
 }
@@ -750,11 +777,11 @@ void main(void)
                 k_busy_wait(50);
                 set_sync(false);
 
-                // if ((++tick_count % POLL_EVERY_N_TICKS) == 0) {
-                //     (void)ptx_poll_pipe(g_poll_pipe);
-                //     g_poll_pipe = (g_poll_pipe >= 7) ? 1 : (g_poll_pipe + 1);
-                // }
-                // break;
+                if ((++tick_count % POLL_EVERY_N_TICKS) == 0) {
+                    (void)ptx_poll_pipe(g_poll_pipe);
+                    g_poll_pipe = (g_poll_pipe >= 7) ? 1 : (g_poll_pipe + 1);
+                }
+                break;
             }
             break;
 
