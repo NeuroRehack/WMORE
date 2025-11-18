@@ -804,8 +804,6 @@ void setup() {
 void loop() {
 
   if (timerIntFlag == true) { // Act if sampling timer has interrupted
-    // added by Sami -- set pin 12 to toggle between low and high
-    // digitalWrite(BREAKOUT_PIN_TX, HIGH); // TODO: CHECK THIS
     extTimerValue2 = am_hal_stimer_counter_get();// added by Sami
     timerIntFlag = false; // Reset sampling timer flag
     myRTC.getTime(); // Get the local time from the RTC
@@ -816,29 +814,13 @@ void loop() {
     if (stopLoggingSeen == true) { // Stop logging if directed by Coordinator
       stopLoggingSeen = false; // Reset the flag
       resetArtemis(); // Reset the system
-      // waitToLog();// TODO: CHECK THIS
-//      stopLoggingStayAwake(); // Close file and prepare for next start command
-//      beginDataLogging(); // Open file in preparation for next logging run
-//      waitToLog(); // Wait until directed to start logging again
     } 
-    // added by Sami -- set pin 12 to toggle between low and high
-    // digitalWrite(BREAKOUT_PIN_TX, LOW); // TODO: CHECK THIS
-    // end of modification
     samplingPeriod = am_hal_stimer_counter_get() - extTimerValue2; // added by Sami
   }  
-
   if (Serial.available()) {
     menuMain(); //Present user menu if serial character received
   }  
-  
   checkBattery(); // Check for low battery and shutdown if low
-  
-  // Debug: output time difference for performance evaluation
-  //if (triggerPinFlag == true) {
-  //  triggerPinFlag = false;
-  //  Serial.println(timeDifference);
-  //}
-
 }
 
 //----------------------------------------------------------------------------
@@ -1335,46 +1317,14 @@ void overrideSettings(void) {
 void sendRTC(void) {
 
   uint8_t rtcBuf[5];
-  uint32_t unixTime;
-  uint8_t hundredths;
 
-  // Get current UNIX time 
-  unixTime = convertRTCtoUNIX();
-  hundredths = (uint8_t)myRTC.hundredths;
-
-  // Pack UNIX time (4 bytes) into buffer (little endian)
-  rtcBuf[0] = (uint8_t)(unixTime & 0xFF);
-  rtcBuf[1] = (uint8_t)((unixTime >> 8) & 0xFF);
-  rtcBuf[2] = (uint8_t)((unixTime >> 16) & 0xFF);
-  rtcBuf[3] = (uint8_t)((unixTime >> 24) & 0xFF);
-  rtcBuf[4] = hundredths;
+  // Copy the 5-byte RTC timestamp (UNIX time [4 bytes, little-endian] + hundredths [1 byte])
+  // from outputData[] into rtcBuf[]. The RTC fields occupy indices 24–28 in outputData[]
+  // (see Sensors.ino for the full payload layout).
+  memcpy(rtcBuf, &outputData[24], 5);
 
   // Send to transmitter
   Serial1.write(rtcBuf, 5);  // 5 bytes: 4 for UNIX time, 1 for hundredths
-  
-  // Debug lines:
-  // Serial.print(F("UNIX time: "));
-  // Serial.print(unixTime);
-  // Serial.print(F(", hundredths: "));
-  // Serial.println(hundredths);
-}
-
-//----------------------------------------------------------------------------
-// WMORE
-// Get RTC and convert to UNIX time using the local UTC offset
-uint32_t convertRTCtoUNIX(void) {
-  struct tm t = {0};                // ensure all fields start at 0
-  t.tm_year = myRTC.year + 100;     // years since 1900 (e.g. 2025 → 125)
-  t.tm_mon  = myRTC.month - 1;      // months since January (0–11)
-  t.tm_mday = myRTC.dayOfMonth;
-  t.tm_hour = myRTC.hour;
-  t.tm_min  = myRTC.minute;
-  t.tm_sec  = myRTC.seconds;
-  t.tm_isdst = -1;
-
-  // Convert from local time to UTC
-  time_t local = mktime(&t);        // converts local time → epoch (local)
-  return (uint32_t)local;
 }
 
 //----------------------------------------------------------------------------
