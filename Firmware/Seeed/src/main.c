@@ -260,9 +260,11 @@ static int ptx_poll_pipe(uint8_t pipe)
     p.data[RXTX_LEN - 1] = crc8_0x07(p.data, RXTX_LEN - 1);
 
     int err = esb_write_payload(&p);
-    if (!err) {
-        err = esb_start_tx();         // PTX only
+    if (err) {
+        return err;
     }
+
+    err = esb_start_tx();         // PTX only
     return err;
 }
 
@@ -276,7 +278,11 @@ static int esb_send_cmd(uint8_t cmd, bool with_time)
         return -EPERM;
     }
 
-    // struct esb_payload p = {0};
+    /* Defensive: ensure TX FIFO is empty before queuing a new broadcast frame.
+     * We are not using TX queuing semantics for this protocol, so it's safe
+     * (and safer) to flush on each send.
+     */
+    (void)esb_flush_tx();
 
     tx_p.noack  = true;     // broadcast (no ACK requested)
     tx_p.pipe   = 0;        // broadcast pipe
@@ -297,9 +303,14 @@ static int esb_send_cmd(uint8_t cmd, bool with_time)
     tx_p.data[RXTX_LEN - 1] = crc8_0x07(tx_p.data, RXTX_LEN - 1);
 
     int err = esb_write_payload(&tx_p);
-    if (!err) {
-        err = esb_start_tx();
+    if (err) {
+        /* If TX FIFO is full or ESB is busy, report the error so
+         * the caller / main loop can decide how to recover.
+         */
+        return err;
     }
+
+    err = esb_start_tx();
     return err;
 }
 
@@ -319,11 +330,11 @@ static int esb_send_cmd(uint8_t cmd, bool with_time)
 static void esb_cb(const struct esb_evt *evt)
 {
     /* TX completion (success or failure) */
-    if (evt->evt_id == ESB_EVENT_TX_SUCCESS || evt->evt_id == ESB_EVENT_TX_FAILED) {
+    if (evt->evt_id == ESB_EVENT_TX_SUCCESS) {
         atomic_or(&g_events, EVT_TX_DONE);
         // May also have RX payloads queued, so don't return yet.
     }
-
+    
     if (evt->evt_id != ESB_EVENT_RX_RECEIVED) {
         return;
     }
