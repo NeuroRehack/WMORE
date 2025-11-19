@@ -193,6 +193,8 @@ void getData(void)
                     year2);
 
       lastRTCSetMinutes = myRTC.minute;
+      // Debug lines:
+      // Serial.println("Updated!");
     }
   }
 

@@ -80,6 +80,7 @@
 #define CMD_STOP_REQ        0x02   // Logger → Coordinator via ACK payload: “please stop”
 #define CMD_POLL            0x03   // Coordinator → Logger: request ACK so payload can ride back
 #define SOF                 0xAA   // Start-of-frame marker for ESB packets
+#define UART_SOF_RTC_STATUS 0xF7   // Start-of-frame marker for the “RTC-status message”
 #define DATA_LEN            5      // Timestamp fields: [t3][t2][t1][t0] + [hh]
 #define SAMPLE_INTERVAL_MS  10     // Tick period (ms) used by Coordinator
 #define DEBOUNCE_MS         50     // Button debounce delay (ms)
@@ -100,6 +101,14 @@ static const struct device *uart                = DEVICE_DT_GET(DT_NODELABEL(uar
 /* -------------------------------------------------------------------------- */
 /*  Global state and constants                                                */
 /* -------------------------------------------------------------------------- */
+
+/* RTC status from OLA (read once over UART at startup) */
+static bool g_rtc_status_known = false;   // true once we saw the status byte
+static bool g_rtc_has_valid_time = false; // true if RTC year >= 2025 on OLA
+
+/* IDLE LED animation state */
+static int64_t g_idle_led_last_toggle_ms = 0;
+static bool    g_idle_led_phase = false;   // toggles between 0/1
 
 /* Special 5-byte packet so the OLA can identify the COORDINATOR.
  * Pattern: 0x00 0x00 0x00 0x00 0xFF (hundredths = 0xFF = "I'm the coordinator").
@@ -175,6 +184,48 @@ static bool                     btn_pressed = false;  // debounced logical state
 /* -------------------------------------------------------------------------- */
 /*  Utility helpers                                                           */
 /* -------------------------------------------------------------------------- */
+
+/* Apply / update IDLE LED style based on RTC status.
+ * Call this periodically while in ST_IDLE (e.g. each loop iteration).
+ */
+static void apply_idle_led_style(void)
+{
+    if (g_state != ST_IDLE) {
+        return;
+    }
+
+    int64_t now = k_uptime_get();
+    int64_t period_ms;
+
+    if (g_rtc_status_known && g_rtc_has_valid_time) {
+        /* RTC defined → blink green at 1 Hz (toggle every 500 ms) */
+        period_ms = 500;
+        if (now - g_idle_led_last_toggle_ms >= period_ms) {
+            g_idle_led_last_toggle_ms = now;
+            g_idle_led_phase = !g_idle_led_phase;
+
+            set_led_red(false);
+            set_led_green(g_idle_led_phase);  // on/off
+            set_led_blue(false);
+        }
+    } else {
+        /* RTC NOT defined or unknown → alternate red/green at 2 Hz (toggle every 250 ms) */
+        period_ms = 250;
+        if (now - g_idle_led_last_toggle_ms >= period_ms) {
+            g_idle_led_last_toggle_ms = now;
+            g_idle_led_phase = !g_idle_led_phase;
+
+            if (g_idle_led_phase) {
+                set_led_red(true);
+                set_led_green(false);
+            } else {
+                set_led_red(false);
+                set_led_green(true);
+            }
+            set_led_blue(false);
+        }
+    }
+}
 
 /* Helper to wait for an ESB TX completion event (success or fail) */
 static bool wait_tx_done(int timeout_ms)
@@ -419,20 +470,47 @@ static void uart_irq_cb(const struct device *dev, void *user_data)
 
     while (uart_irq_update(dev) && uart_irq_rx_ready(dev)) {
         while (uart_fifo_read(dev, &ch, 1) == 1) {
-            /* Accumulate into uart_rx_buf */
+
+            /* --- RTC STATUS MESSAGE HANDLING -----------------------------------
+             * Format: [0xF7][STATUS]
+             *   STATUS = 0xA5 → RTC defined
+             *   STATUS = 0x5A → RTC not defined
+             * These messages only matter in ST_IDLE.
+             */
+            static bool waiting_rtc_status = false;
+
+            if (g_state == ST_IDLE) {
+
+                if (!waiting_rtc_status && ch == UART_SOF_RTC_STATUS) {
+                    waiting_rtc_status = true;
+                    continue; // wait for the next byte
+                }
+
+                if (waiting_rtc_status) {
+                    g_rtc_has_valid_time = (ch == 0xA5);
+                    g_rtc_status_known = true;
+                    waiting_rtc_status = false;
+
+                    apply_idle_led_style();  // update LEDs
+
+                    continue; // do NOT feed into time buffer
+                }
+            }
+
+            /* --- NORMAL 5-BYTE UNIX-TIME HANDLING ----------------------------- */
+
             uart_rx_buf[rx_count++] = ch;
 
             if (rx_count >= DATA_LEN) {
-                /* We have a full [t3 t2 t1 t0 hh] frame from OLA */
                 for (size_t i = 0; i < DATA_LEN; ++i) {
                     latest_rtc[i] = uart_rx_buf[i];
                 }
-                /* Reset count for next frame */
                 rx_count = 0;
             }
         }
     }
 }
+
 
 /* Button ISR: schedule debounce work after DEBOUNCE_MS of stable input */
 static void btn_cb(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
@@ -470,25 +548,24 @@ static void btn_debounce_work_handler(struct k_work *work)
 
 static void enter_idle(void)
 {
-    /* IDLE = red LED solid */
-    set_led_red(true);
-    set_led_green(false);
-    set_led_blue(false);
-
     g_state = ST_IDLE;
     set_sync(false);
     set_stop(false);
 
     /* Ensure we’re listening for ESB packets as PRX */
     (void)esb_switch_mode(ESB_MODE_PRX);
+
+    /* Reset LED animation state for IDLE */
+    g_idle_led_last_toggle_ms = k_uptime_get();
+    g_idle_led_phase = false;
 }
 
 static void enter_coord(void)
 {
-    /* Coordinator = green LED solid */
+    /* Logging = blue LED solid */
     set_led_red(false);
-    set_led_green(true);
-    set_led_blue(false);
+    set_led_green(false);
+    set_led_blue(true);
 
     g_state = ST_COORD;
 
@@ -514,7 +591,7 @@ static void enter_coord(void)
 
 static void enter_logger(void)
 {
-    /* Logger = blue LED solid */
+    /* Logging = blue LED solid */
     set_led_red(false);
     set_led_green(false);
     set_led_blue(true);
@@ -750,9 +827,14 @@ void main(void)
         switch (g_state) {
 
         case ST_IDLE:
+
+            apply_idle_led_style();   // update blink pattern
+
             if (ev & EVT_BTN) {
-                /* This device pressed the button first → become Coordinator (PTX) */
-                enter_coord();
+                /* This device pressed the button first → become Coordinator (PTX) but only if RTC is defined */
+                if (g_rtc_status_known && g_rtc_has_valid_time) {
+                    enter_coord();
+                }
                 break;
             }
             if (ev & EVT_ESB_START_TICK) {

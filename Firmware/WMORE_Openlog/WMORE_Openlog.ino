@@ -192,6 +192,7 @@
 #define RTC_UPDATE_INTERVAL_MINS 1U
 #define LEDS_WAIT 0U // LEDS indicate waiting to start logging
 #define LEDS_LOG 1U // LEDS indicate logging 
+#define UART_SOF_RTC_STATUS  0xF7   // SOF byte for the “RTC-status message”
 
 //----------------------------------------------------------------------------
 // WMORE timestamp structure
@@ -517,6 +518,23 @@ void stopWatchdog()
 }
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+// Return true if RTC year >= 2025
+bool rtcLooksDefined()
+{
+  // myRTC.year is stored as 0-99 = 2000–2099
+  uint16_t fullYear = 2000 + myRTC.year;
+  return (fullYear >= 2025);
+}
+
+// Send 1-byte status code over Serial1:
+//  0xA5 = RTC defined (year >= 2025)
+//  0x5A = RTC not defined
+void sendRTCStatusOverUART()
+{
+  Serial1.write(UART_SOF_RTC_STATUS);
+  Serial1.write(rtcLooksDefined() ? 0xA5 : 0x5A);
+}
+
 //----------------------------------------------------------------------------
 // WMORE
 // Sample timer ISR
@@ -786,6 +804,11 @@ void setup() {
   else SerialPrintln(F("IMU offline - or not present"));
 
   digitalWrite(PIN_STAT_LED, LOW); // Turn the blue LED off now that everything is configured
+
+  // Tell the Seeed whether RTC is defined or not
+  myRTC.getTime();
+  sendRTCStatusOverUART();
+
   waitToLog(); // WMORE - Wait for sync falling edge to start logging
 
 }
