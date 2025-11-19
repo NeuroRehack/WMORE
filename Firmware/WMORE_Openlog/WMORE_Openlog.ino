@@ -633,8 +633,7 @@ void clockState(void) {
   
   delay(1); // wait for clock to settle
   
-  // Enable HFADJ 
-  // TODO: confirm this is working
+  // Enable HFADJ
   am_hal_clkgen_control(AM_HAL_CLKGEN_CONTROL_HFADJ_ENABLE, 0);  
 }
 
@@ -704,7 +703,7 @@ void setupSync(void) {
   am_hal_gpio_pincfg_t intPinConfig = g_AM_HAL_GPIO_INPUT_PULLUP;
   intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
   pin_config(PinName(PIN_TRIGGER), intPinConfig); // Make sure the pull-up does actually stay enabled
-  triggerPinFlag = false; // Make sure the flag is clear // TODO: CHECK THIS
+  triggerPinFlag = false; // Make sure the flag is clear
 
   // Setup sample interval timer
   setupSampleTimer(sampleTimer, period); // timerNum, period, padNum
@@ -780,11 +779,6 @@ void setup() {
   intPinConfig.eIntDir = AM_HAL_GPIO_PIN_INTDIR_HI2LO;
   pin_config(PinName(PIN_STOP_LOGGING), intPinConfig); // Make sure the pull-up does actually stay enabled
   stopLoggingSeen = false; // Make sure the flag is clear
-
-  // Modified by Sami -- set pin 12 to output and low // TODO: CHECK THIS
-  // pinMode(BREAKOUT_PIN_TX, OUTPUT);
-  // digitalWrite(BREAKOUT_PIN_TX, LOW);
-  // end of modification
   //----------------------------------------------------------------------------
 
   analogReadResolution(14); //Increase from default of 10
@@ -914,7 +908,6 @@ void disableCIPOpullUp() // updated for v2.1.0 of the Apollo3 core
 void configureSerial1TxRx(void) // Configure pins 12 and 13 for UART1 TX and RX
 {
   // Commented out by Sami ---------------------------------------------
-  // TODO: CHECK THIS
   am_hal_gpio_pincfg_t pinConfigTx = g_AM_BSP_GPIO_COM_UART_TX;
   pinConfigTx.uFuncSel = AM_HAL_PIN_12_UART1TX;
   pin_config(PinName(BREAKOUT_PIN_TX), pinConfigTx);
