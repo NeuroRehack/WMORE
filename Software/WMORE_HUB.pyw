@@ -15,6 +15,7 @@ To Do:
 """
 
 import os
+os.environ["QT_LOGGING_RULES"] = "qt.qpa.fonts.warning=false" # Suppress the "EUDC.TTE" missing-font warning from Qt’s font subsystem on Windows
 import subprocess
 import time
 from datetime import datetime
@@ -27,7 +28,6 @@ from PySide2 import QtCore, QtGui, QtWidgets, QtSerialPort
 from ConversionGUI import ConvertWindow
 from constants import *
 import helpers 
-
 
 class WMORE:
     def __init__(self, id = None, com_port = None, firmware = None):
@@ -428,15 +428,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.command_line_edit.clear()
             
     def read_serial(self):
-        """Read data from the device, process the data and display in on the screen
-        """
+        """Read data from the device, process the data and display it on the screen"""
         try:
-            data = self.serial.readAll().data().decode()
-        except:
+            raw = self.serial.readAll().data()
+            # Decode safely, replacing invalid bytes instead of crashing
+            data = raw.decode(errors="replace")
+        except Exception:
             data = "could not decode!"
+
+        # Remove embedded null characters that break QTextEdit
+        data = data.replace('\x00', '')
+
+        # If nothing left after cleaning, just return
+        if not data:
+            return
+
         self.process_serial_output(data)
         self.serial_output.insertPlainText(data)
-        self.serial_output.ensureCursorVisible() #automatically scroll down
+        self.serial_output.ensureCursorVisible()  # automatically scroll down
 
     def disconnect_serial(self):
         """close serial port
@@ -460,10 +469,11 @@ class MainWindow(QtWidgets.QMainWindow):
         if MESSAGE_PATTERNS["M_FORMAT"] in data:
             self.format_done()
         elif MESSAGE_PATTERNS["M_FIRMWARE"] in data:
-            # fw = re.search(r"\bWMORE\s+(.+)", data).group(1) # extract the firmaware
-            fw = re.search(r"\bWMORE[^\r\n]*", data).group(0) # extract the firmaware
-            self.selected_device.firmware = fw
-            self.update_item_text()
+            m = re.search(r"\bWMORE[^\r\n]*", data)
+            if m:
+                fw = m.group(0)
+                self.selected_device.firmware = fw
+                self.update_item_text()
         elif MESSAGE_PATTERNS["M_ID"] in data:
             sensorID = int(re.search(r'Sensor ID: (\d+)', data).group(1)) # extract the id
             self.selected_device.id = sensorID
