@@ -7,6 +7,16 @@ bool newPacket = false;
 
 UnixTimeWithHunds local_unixTime;
 
+// Describe what we receive over UART from the coordinator/logger
+struct SyncPacket {
+  uint32_t unix;        // UNIX time (seconds since 1970)
+  uint8_t  hundredths;  // hundredths of a second
+  bool     valid;       // true if a complete packet was received this cycle
+  bool     isCoordinator; // true if this packet came from the coordinator
+};
+
+static SyncPacket syncPacket;  // <-- this is the global instance
+
 UnixTimeWithHunds getUnixTimeFromRTC(void) {
   UnixTimeWithHunds result;
   struct tm t = {0};
@@ -22,6 +32,71 @@ UnixTimeWithHunds getUnixTimeFromRTC(void) {
   result.unix = (uint32_t)mktime(&t);
   result.hundredths = myRTC.hundredths;
   return result;
+}
+
+// Convert UNIX time (seconds since 1970-01-01) to date/time in the range 2000–2099.
+// Outputs: sec, min, hour, day (1–31), month (1–12), year2 (00–99 for 2000–2099).
+bool unixToRTC(uint32_t unixTime,
+               uint8_t &sec, uint8_t &min, uint8_t &hour,
+               uint8_t &day, uint8_t &month, uint8_t &year2)
+{
+  // Seconds between 1970-01-01 and 2000-01-01 (inclusive of leap years)
+  const uint32_t UNIX_2000 = 946684800UL;
+  const uint32_t SECS_PER_DAY = 86400UL;
+
+  if (unixTime < UNIX_2000) {
+    return false; // out of supported range
+  }
+
+  uint32_t t = unixTime - UNIX_2000;
+
+  // Time of day
+  uint32_t days = t / SECS_PER_DAY;
+  uint32_t sod  = t % SECS_PER_DAY;
+
+  hour = sod / 3600;
+  sod %= 3600;
+  min  = sod / 60;
+  sec  = sod % 60;
+
+  // Date
+  uint16_t year = 2000;
+  auto isLeap = [](uint16_t y) {
+    return (y % 4 == 0 && (y % 100 != 0 || y % 400 == 0));
+  };
+
+  while (true) {
+    uint16_t dYear = isLeap(year) ? 366 : 365;
+    if (days >= dYear) {
+      days -= dYear;
+      year++;
+    } else {
+      break;
+    }
+  }
+
+  static const uint8_t daysInMonthBase[12] = {
+    31,28,31,30,31,30,31,31,30,31,30,31
+  };
+
+  month = 1;
+  for (int i = 0; i < 12; ++i) {
+    uint8_t dMonth = daysInMonthBase[i];
+    if (i == 1 && isLeap(year)) {
+      dMonth = 29; // February in leap year
+    }
+    if (days >= dMonth) {
+      days -= dMonth;
+      month++;
+    } else {
+      break;
+    }
+  }
+
+  day   = days + 1;
+  year2 = (uint8_t)(year - 2000); // convert to two-digit year (e.g. 25 for 2025)
+
+  return true;
 }
 
 // Process Unix time package
@@ -44,21 +119,24 @@ void pollUnixPacket() {
                          | ((uint32_t)rxbuf[3] << 24);
       uint8_t hundredths = rxbuf[4];
 
-      syncPacket.unix = unixTime;
-      syncPacket.hundredths = hundredths;
-      syncPacket.valid = true;
-      newPacket = true;
+      syncPacket.unix         = unixTime;
+      syncPacket.hundredths   = hundredths;
+      syncPacket.isCoordinator = (hundredths == 0xFF);  // 0xFF = special coordinator marker
+      syncPacket.valid        = true;
+      newPacket               = true;
 
       rxidx = 0; // reset for next packet
-      break; // stop after one packet
+      break;     // stop after one packet
     }
   }
 
   // Debug lines
-  // Serial.print("UNIX time: ");
-  // Serial.print(syncPacket.unix);
-  // Serial.print(" | Hundredths: ");
-  // Serial.println(syncPacket.hundredths);
+  Serial.print("UNIX time: ");
+  Serial.print(syncPacket.unix);
+  Serial.print(" | Hundredths: ");
+  Serial.print(syncPacket.hundredths);
+  Serial.print(" | isCoord: ");
+  Serial.println(syncPacket.isCoordinator ? "YES" : "NO");
 
   // If no new complete packet this cycle
   if (!newPacket) {
@@ -94,11 +172,27 @@ void getData()
   // Get local UNIX time
   local_unixTime = getUnixTimeFromRTC();
 
-  // // Update RTC from master if more than RTC_UPDATE_INTERVAL_US has elapsed. 
-  // if ((syncPacket.valid == true) && (elapsedMinutes(myRTC.minute, lastRTCSetMinutes) > RTC_UPDATE_INTERVAL_MINS)) {
-  //   myRTC.setTime(syncPacket.hundredths, syncPacket.seconds, syncPacket.minutes, syncPacket.hours, syncPacket.days, syncPacket.months, syncPacket.years); 
-  //   lastRTCSetMinutes = myRTC.minute;   
-  // }
+  // Update RTC from master if more than RTC_UPDATE_INTERVAL_MINS has elapsed, 
+  // packet is valid, not from coordinator, and UNIX time is non-zero.
+  if (syncPacket.valid &&
+      !syncPacket.isCoordinator &&
+      (syncPacket.unix != 0) &&
+      (elapsedMinutes(myRTC.minute, lastRTCSetMinutes) > RTC_UPDATE_INTERVAL_MINS))
+  {
+    uint8_t sec, min, hour, day, month, year2;
+
+    if (unixToRTC(syncPacket.unix, sec, min, hour, day, month, year2)) {
+      myRTC.setTime(syncPacket.hundredths,  // hundredths
+                    sec,
+                    min,
+                    hour,
+                    day,
+                    month,
+                    year2);
+
+      lastRTCSetMinutes = myRTC.minute;
+    }
+  }
 
   // Read battery voltage and get top 8 bits
   batteryVoltage = (uint8_t)(analogRead(PIN_VIN_MONITOR) >> 6); 

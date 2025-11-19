@@ -202,13 +202,6 @@ union periodUnion {
   uint32_t full; // 32-bit word
 };
 
-// Struct for synchronisation packets
-struct {
-  uint8_t  valid;
-  uint32_t unix;
-  uint8_t  hundredths;
-} syncPacket;
-
 //----------------------------------------------------------------------------
 // WMORE measures of time for logging
 
