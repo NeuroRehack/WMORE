@@ -98,8 +98,13 @@ static const struct gpio_dt_spec stop           = GPIO_DT_SPEC_GET(DT_NODELABEL(
 static const struct device *uart                = DEVICE_DT_GET(DT_NODELABEL(uart0));
 
 /* -------------------------------------------------------------------------- */
-/*  Global state                                                              */
+/*  Global state and constants                                                */
 /* -------------------------------------------------------------------------- */
+
+/* Special 5-byte packet so the OLA can identify the COORDINATOR.
+ * Pattern: 0x00 0x00 0x00 0x00 0xFF (hundredths = 0xFF = "I'm the coordinator").
+ */
+static const uint8_t COORD_SIG[DATA_LEN] = { 0x00, 0x00, 0x00, 0x00, 0xFF };
 
 /* UART RX buffer used to assemble a 5-byte RTC frame from OLA */
 static uint8_t uart_rx_buf[DATA_LEN] = {0};
@@ -788,6 +793,12 @@ void main(void)
                 k_busy_wait(50);
                 set_sync(false);
 
+                /* Sends the coordinator signature */
+                for (int i = 0; i < DATA_LEN; ++i) {
+                    uart_poll_out(uart, COORD_SIG[i]);
+                    k_busy_wait(50);
+                }
+
                 if ((++tick_count % POLL_EVERY_N_TICKS) == 0) {
                     (void)ptx_poll_pipe(g_poll_pipe);
                     g_poll_pipe = (g_poll_pipe >= 7) ? 1 : (g_poll_pipe + 1);
@@ -818,7 +829,6 @@ void main(void)
                  */
 
                 for (int i = 0; i < DATA_LEN; ++i) {
-                //   uart_poll_out(uart, i + 1);
                   uart_poll_out(uart, g_last_time5[i]);
                   k_busy_wait(50);
                 }
