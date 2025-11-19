@@ -173,7 +173,7 @@
 // WMORE defines
 
 // WMORE version number, which is different to the Openlog Artemis version number it's based on
-#define WMORE_VERSION "WMORE Logger v0.1" 
+#define WMORE_VERSION "WMORE v2.0" 
 
 // WMORE defines for synchronised sampling clock
 #define TIMERB_PERIOD 65535U // Free-running timer period

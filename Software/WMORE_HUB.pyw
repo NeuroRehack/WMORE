@@ -460,7 +460,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if MESSAGE_PATTERNS["M_FORMAT"] in data:
             self.format_done()
         elif MESSAGE_PATTERNS["M_FIRMWARE"] in data:
-            fw = re.search(r"\bWMORE\s+(.+)", data).group(1) # extract the id
+            # fw = re.search(r"\bWMORE\s+(.+)", data).group(1) # extract the firmaware
+            fw = re.search(r"\bWMORE[^\r\n]*", data).group(0) # extract the firmaware
             self.selected_device.firmware = fw
             self.update_item_text()
         elif MESSAGE_PATTERNS["M_ID"] in data:
