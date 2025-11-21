@@ -28,6 +28,7 @@
 #define RTC_FIRST_BYTE 1 // First RTC byte index in tx_payload.data[]
 #define RTC_LAST_BYTE 7 // Last RTC byte index in tx_payload.data[]
 #define DEBOUNCE 50000 // Button debounce delay in us
+#define WAIT_TO_SLEEP 0xFFFF // sleep hold in us 
 #define SLEEP_HOLD_MS 5000 
 #define SLEEP_PULSE_MS 300    
 
@@ -70,7 +71,10 @@ static uint8_t uart_rx_buf[7] = {0};
 static uint8_t uart_tx_buf[7] = {0};
 static int64_t currentTime = 0;
 static uint8_t rx_buf2[sizeof uart_rx_buf];
-volatile size_t rx_have; 
+K_SEM_DEFINE(uart_tx_done, 0, 1);
+static K_SEM_DEFINE(uart_7b_ready, 0, 1);  // fires when we have 7 bytes
+volatile size_t rx_have;
+// static volatile size_t rx_have;      
 static bool need_rx_rearm = false;  
 // Callbacks ------------------------------------------------------------------
 
@@ -180,8 +184,8 @@ int esb_initialize(void)
 	 */
 	//uint8_t base_addr_0[4] = {0xE7, 0xE7, 0xE7, 0xE7};
 	//uint8_t base_addr_1[4] = {0xC2, 0xC2, 0xC2, 0xC2};
-   uint8_t base_addr_0[2] = {0xE8, 0xE7};
-	uint8_t base_addr_1[2] = {0xC3, 0xC2};
+   uint8_t base_addr_0[2] = {0xE7, 0xE7};
+	uint8_t base_addr_1[2] = {0xC2, 0xC2};
 	uint8_t addr_prefix[8] = {0xE7, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8};
 
 	struct esb_config config = ESB_DEFAULT_CONFIG;
@@ -353,6 +357,9 @@ void main(void)
                tx_payload.data[i] = TX_CMD_SLEEP;
                gpio_pin_set_dt(&led, false); // Turn on LED
             }
+            
+            // ensure ESB Packet is sent to loggers before sleeping
+            // k_busy_wait(WAIT_TO_SLEEP); 
             // sleep the coordinator
             static const uint8_t msg[] = "SLEEP\n";
             for (i = 0; i <= strlen(msg); i++) {

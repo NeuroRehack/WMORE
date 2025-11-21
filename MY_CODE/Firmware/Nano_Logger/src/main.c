@@ -239,16 +239,23 @@ void main(void)
 			   gpio_pin_set_dt(&led, true); // Turn on the LED
             if (rx_payload.data[0] == RX_CMD_STOP) {
 				   gpio_pin_set_dt(&stop, true); // Assert the stop output
-            } else if (rx_payload.data[0] == RX_CMD_SLEEP) {
-               for (i = 1; i <= (RX_PAYLOAD_LEN - 1); i++) {
+            } 
+            
+            if (rx_payload.data[0] == RX_CMD_SLEEP) {
+               gpio_pin_set_dt(&led, false);
+                for (i = 0; i <= (RX_PAYLOAD_LEN - 1); i++) {
+                  gpio_pin_set_dt(&led, true);
+                  uart_poll_out(uart, rx_payload.data[i]); // Send RTC to OLA in receive order
+                  k_usleep(50); // Give the OLA time to keep up
+                  gpio_pin_set_dt(&led, false);
+               }
+            } else {
+                for (i = 1; i <= (RX_PAYLOAD_LEN - 1); i++) {
                   uart_poll_out(uart, rx_payload.data[i]); // Send RTC to OLA in receive order
                   k_usleep(50); // Give the OLA time to keep up
                }
             }
-            for (i = 1; i <= (RX_PAYLOAD_LEN - 1); i++) {
-                uart_poll_out(uart, rx_payload.data[i]); // Send RTC to OLA in receive order
-                k_usleep(50); // Give the OLA time to keep up
-            }
+
 			gpio_pin_set_dt(&sync, false); // De-assert the sync output
 			gpio_pin_set_dt(&stop, false); // De-assert the stop output
 			gpio_pin_set_dt(&led, false); // Turn off the LED

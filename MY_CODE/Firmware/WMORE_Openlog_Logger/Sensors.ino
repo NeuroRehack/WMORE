@@ -12,13 +12,18 @@ void getData()
     if (myICM.dataReady())
     {
       //localSampleTime.full = am_hal_stimer_counter_get(); // Local time measured by STIMER
-      intPeriod.full = period; // Average period relative to extTime
+      intPeriod.full = lastSamplingPeriod; // Average period relative to extTime
       digitalWrite(PIN_STAT_LED, HIGH);
       myICM.getAGMT(); //Update values
     }
   }
 
-  if (Serial1.available() == 7) { // A timestamp is available
+  delayMicroseconds(1000); // Wait until syncPacket data is available (delay may not be optimal)
+
+  if (Serial1.available() >= 7) { // A timestamp is available
+    // throw away extra bytes so we align on the last full packet
+    while (Serial1.available() > 7) Serial1.read();
+    
     syncPacket.valid = true;
     syncPacket.years = Serial1.read();
     syncPacket.months = Serial1.read();
@@ -39,6 +44,11 @@ void getData()
   }
   // serialClearBuffer(1); // Get rid of any spurious characters
 
+    // Update RTC from master if more than RTC_UPDATE_INTERVAL_US has elapsed. 
+  if ((syncPacket.valid == true) && (elapsedMinutes(myRTC.minute, lastRTCSetMinutes) > RTC_UPDATE_INTERVAL_MINS)) {
+    myRTC.setTime(syncPacket.hundredths, syncPacket.seconds, syncPacket.minutes, syncPacket.hours, syncPacket.days, syncPacket.months, syncPacket.years); 
+    lastRTCSetMinutes = myRTC.minute;   
+  }
   // Read battery voltage and get top 8 bits
   batteryVoltage = (uint8_t)(analogRead(PIN_VIN_MONITOR) >> 6); 
 
@@ -98,4 +108,19 @@ float readVIN()
   vin = vin * settings.vinCorrectionFactor; //Correct for divider impedance (determined experimentally)
   return (vin);
 #endif
+}
+
+uint8_t elapsedMinutes(uint8_t current, uint8_t previous)
+{
+  uint8_t diff = 0; // difference between two readings in minutes
+
+  if ((current < 60) && (previous < 60)) { // Bounds check
+    if (current < previous) {
+      diff = (60 - previous) + current; // Rollover has occurred
+    } else {
+      diff = current - previous; // Rollover has not occurred  
+    }
+  }
+  
+  return diff;
 }

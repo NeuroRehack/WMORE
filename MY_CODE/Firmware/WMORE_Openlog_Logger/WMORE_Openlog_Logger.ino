@@ -783,34 +783,42 @@ void loop() {
     digitalWrite(BREAKOUT_PIN_TX, HIGH);
     extTimerValue2 = am_hal_stimer_counter_get();// added by Sami
     timerIntFlag = false; // Reset sampling timer flag
-    myRTC.getTime(); // Get the local time from the RTC
+   //  myRTC.getTime(); // Get the local time from the RTC
     lastSamplingPeriod = samplingPeriod; // added by Sami // the previous sampling period to write to SD card
-
+  
     // if (Serial1.available() >= 8) {
     //   digitalWrite(PIN_PWR_LED, HIGH);
     //   // digitalWrite(PIN_STAT_LED, HIGH);
       
     // }
-    if (Serial1.available() >= 8) {
-      uint8_t checkCMD = Serial1.peek();
 
+    if (Serial1.available() >=  8) {
+      uint8_t checkCMD = Serial1.peek();
+      digitalWrite(PIN_STAT_LED, LOW);
       if (checkCMD == 2) {
-        digitalWrite(PIN_STAT_LED, HIGH);
-        Serial1.readBytes(inbuf, 8);
+        // Serial1.readBytes(inbuf, 8);
+        am_hal_stimer_int_disable(0xFFFFFFFF);
+        am_hal_stimer_int_clear(0xFFFFFFFF);
+        // while (Serial1.available()) Serial1.read();
+        serialClearBuffer(1);
+        // digitalWrite(PIN_STAT_LED, LOW);
+        powerDownOLA();   
       }
     }
-    
-    if (inbuf[0] == 2) {
-      digitalWrite(PIN_PWR_LED, LOW);
-      am_hal_stimer_int_disable(0xFFFFFFFF);
-      am_hal_stimer_int_clear(0xFFFFFFFF);
-      // while (Serial1.available()) Serial1.read();
-      serialClearBuffer(1);
-      powerDownOLA();   
-    }
-    
+
     getData(); // Get data from IMU and global time from Coordinator 
-    writeSDBin(); // Store IMU and time data   
+    writeSDBin(); // Store IMU and time data 
+    // if (inbuf[0] == 2) {
+    //   digitalWrite(PIN_PWR_LED, LOW);
+    //   am_hal_stimer_int_disable(0xFFFFFFFF);
+    //   am_hal_stimer_int_clear(0xFFFFFFFF);
+    //   // while (Serial1.available()) Serial1.read();
+    //   serialClearBuffer(1);
+    //   powerDownOLA();   
+    // }
+    
+
+
     if (stopLoggingSeen == true) { // Stop logging if directed by Coordinator
       digitalWrite(PIN_STAT_LED, LOW); // Turn off blue LED
       stopLoggingSeen = false; // Reset the flag
