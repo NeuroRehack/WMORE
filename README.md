@@ -64,10 +64,15 @@ This project uses a development container to provide a consistent development en
 
 The container includes:
 - Arduino CLI
-- All required Arduino libraries
-- SparkFun Apollo3 board support
+- All required Arduino libraries (automatically installed)
+  - SparkFun 9DoF IMU Breakout - ICM 20948 (v1.2.12)
+  - SdFat (v2.2.3)
+  - AmbiqSuiteSDK
+- SparkFun Apollo3 board support (v2.2.1)
 - BOSSA for flashing Arduino Nano
 - All necessary build tools
+
+**Note:** When using the dev container, you do not need to manually install any libraries or board support packages - everything is pre-configured.
 
 ## **Required Components**
 The WMOREs were designed using the list of components below. Only the Arduino Nano and Artemis Openlog are required to run the firmware, the battery and switches can be swapped for different models. However the CAD models for the case will need to be modified or redesigned accordingly if you choose to do so. At least 2 WMOREs must be assembled:
@@ -100,56 +105,38 @@ The Coordinator and Logger OLA firmware applications are based on v2.3 of the Op
 
 The Coordinator and Logger OLA firmware applications are predominantly written in Arduino C++, but include calls to the AmbiqSuiteSDK (mirrored by Sparkfun at https://github.com/sparkfun/AmbiqSuiteSDK). The original Openlog Artemis application has been significantly modified for the WMORE to enable synchronisation and to reduce processing delays. Some of the original functionality has been lost as a result. 
 
-The Arduino project for the OLA can be found in the [OpenLog_Logger](Firmware/OpenLog_Logger) and [OpenLog_Coordinator](/Firmware/OpenLog_Coordinator/) folders under [Firmware](/Firmware/). 
+The Arduino project for the OLA can be found in the [WMORE_Openlog_Logger](Firmware/WMORE_Openlog_Logger) and [WMORE_Openlog_Coordinator](/Firmware/WMORE_Openlog_Coordinator/) folders under [Firmware](/Firmware/). 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 #### **Setting up the Arduino environment**
 ---
-Before flashing the arduino program to the OpenLogs, the Arduino IDE must be set as follows:
+**Recommended: Using the Development Container**
+
+If you are using the development container (see [Development Container Setup](#development-container-setup) above), all Arduino libraries and board support packages are automatically installed. You can skip to the [Building and Uploading Firmware](#building-and-uploading-firmware) section.
+
+**Alternative: Manual Setup (Without Dev Container)**
+
+If you prefer not to use the development container, you can manually set up the Arduino environment:
+
 - Install Arduino IDE 1.8.12 or above from: https://www.arduino.cc/en/software#future-version-of-the-arduino-ide
-- Add Sparkfun URL to preferences by following the guide here: https://learn.sparkfun.com/tutorials/artemis-development-with-arduino#arduino-installation
-- Install Board Support for Sparkfun Apollo3 Artemis using Board Manager by following the guide here: https://learn.sparkfun.com/tutorials/artemis-development-with-arduino#arduino-installation
+- Add SparkFun URL to preferences by following the guide here: https://learn.sparkfun.com/tutorials/artemis-development-with-arduino#arduino-installation
+- Install Board Support for SparkFun Apollo3 Artemis (v2.2.1) using Board Manager
 - Select Redboard Artemis ATP
-- Install libraries using Library Manager
-    - Required: 
-      - Sparkfun 9DoF IMU Breakout – ICM-20948
-      - SdFat_exFAT
-    - Required but redundant (will not be needed once dead code is removed):
-      - SparkFun_I2C_Mux_Arduino_Library
-      - SparkFunCCS811
-      - SparkFun_VL53L1X
-      - SparkFunBME280 **or**  
-        SparkFun_BME280
-      - SparkFun_LPS25HB_Arduino_Library  
-      - SparkFun_VEML6075_Arduino_Library 
-      - SparkFun_PHT_MS8607_Arduino_Library 
-      - SparkFun_MCP9600
-      - SparkFun_SGP30_Arduino_Library 
-      - SparkFun_VCNL4040_Arduino_Library 
-      - SparkFun_MS5637_Arduino_Library
-      - SparkFun_TMP117 
-      - SparkFun_u-blox_GNSS_Arduino_Library 
-      - SparkFun_Qwiic_Scale_NAU7802_Arduino_Library 
-      - SparkFun_SCD30_Arduino_Library 
-      - SparkFun_Qwiic_Humidity_AHT20 
-      - SparkFun_SHTC3 
-      - SparkFun_ADS122C04_ADC_Arduino_Library 
-      - SparkFun_MicroPressure 
-      - SparkFun_Particle_Logger_SN-GCJA5_Arduino_Library **or**  
-        SparkFun_Particle_Sensor_SN-GCJA5
-      - SparkFun_SGP40_Arduino_Library
-      - SparkFun_SDP3x_Arduino_Library
-      - MS5837
-      - SparkFun_Qwiic_Button
-      - SparkFun_Bio_Logger_Hub_Library or SparkFun_Bio_Sensor
+- Install required libraries using Library Manager:
+  - SparkFun 9DoF IMU Breakout - ICM 20948 (v1.2.12)
+  - SdFat (v2.2.3 or v2.2.x)
+
+**Note:** The firmware includes references to many additional sensor libraries that are currently unused. These will be removed in a future cleanup (see [TODO](#todo)).
 
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 #### **Building and Uploading Firmware**
 ---
-Using the development container, you can build and upload firmware using the Arduino CLI. Here are the commands:
+**Using the Development Container (Recommended)**
+
+The development container includes Arduino CLI pre-configured with all dependencies. Use these commands to build and upload firmware:
 
 1. To build the Logger firmware:
 ```bash
@@ -182,6 +169,14 @@ To find your device's port:
 ```bash
 arduino-cli board list
 ```
+
+**Alternative: Using Arduino IDE**
+
+If you set up the environment manually without the dev container, you can use the Arduino IDE:
+1. Open the `.ino` file in Arduino IDE
+2. Select **Tools > Board > SparkFun Apollo3 > RedBoard Artemis ATP**
+3. Select the correct port under **Tools > Port**
+4. Click **Upload**
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
