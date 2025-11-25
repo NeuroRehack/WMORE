@@ -5,3 +5,4 @@ dist/
 build/
 __pycache__/
 Firmware/Seeed/build*/
+Firmware/Nano/build*/
